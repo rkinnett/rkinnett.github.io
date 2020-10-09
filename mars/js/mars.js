@@ -52,6 +52,7 @@
 	}
 
 	function createSphere(radius, segments) {
+		console.log("making sphere");
 		return new THREE.Mesh(
 			new THREE.SphereGeometry(radius, segments, segments),
 			new THREE.MeshPhongMaterial({
@@ -68,8 +69,8 @@
 		);
 	}
 
-
 	function createStars(radius, segments) {
+		console.log("making stars");
 		return new THREE.Mesh(
 			new THREE.SphereGeometry(radius, segments, segments), 
 			new THREE.MeshBasicMaterial({
