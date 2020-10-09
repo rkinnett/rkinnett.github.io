@@ -55,8 +55,8 @@
 		return new THREE.Mesh(
 			new THREE.SphereGeometry(radius, segments, segments),
 			new THREE.MeshPhongMaterial({
-				map:         THREE.ImageUtils.loadTexture('images/8k_mars.jpg'),
-				//map:         THREE.ImageUtils.loadTexture('images/msss_mars_map_labeled.jpg'),
+				//map:         THREE.ImageUtils.loadTexture('images/8k_mars.jpg'),
+				map:         THREE.ImageUtils.loadTexture('images/msss_mars_map_labeled.jpg'),
 				//map:         THREE.ImageUtils.loadTexture('images/mgs_2k.jpg'),
 				//map:         THREE.ImageUtils.loadTexture('images/Mars_Viking_1km.jpg'),
 				//map:         THREE.ImageUtils.loadTexture('images/texture_map_mgs_16k.jpg'),
