@@ -60,8 +60,8 @@
 				//map:         THREE.ImageUtils.loadTexture('images/mgs_2k.jpg'),
 				//map:         THREE.ImageUtils.loadTexture('images/Mars_Viking_1km.jpg'),
 				//map:         THREE.ImageUtils.loadTexture('images/texture_map_mgs_16k.jpg'),
-				bumpMap:     THREE.ImageUtils.loadTexture('images/mars_bump_map_4k_adj.jpg'),
-				bumpScale:   0.01,
+				//bumpMap:     THREE.ImageUtils.loadTexture('images/mars_bump_map_4k_adj.jpg'),
+				//bumpScale:   0.01,
 				//specularMap: THREE.ImageUtils.loadTexture('images/water_4k.png'),
 				//specular:    new THREE.Color('grey')								
 			})
