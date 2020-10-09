@@ -56,7 +56,8 @@
 			new THREE.SphereGeometry(radius, segments, segments),
 			new THREE.MeshPhongMaterial({
 				map:         THREE.ImageUtils.loadTexture('images/8k_mars.jpg'),
-				bumpMap:     THREE.ImageUtils.loadTexture('images/mars_bump_map_4k.png'),
+				//map:         THREE.ImageUtils.loadTexture('images/texture_map_mgs_16k.jpg'),
+				bumpMap:     THREE.ImageUtils.loadTexture('images/mars_bump_map_4k_adj.png'),
 				bumpScale:   0.01,
 				//specularMap: THREE.ImageUtils.loadTexture('images/water_4k.png'),
 				//specular:    new THREE.Color('grey')								
