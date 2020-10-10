@@ -13,6 +13,8 @@
 		'color_map_mpf_planning.jpg',
 		'color_map_aaas_labels.jpg',
 		'color_map_terraformed.jpg',
+		'color_map_mariner9_geology.jpg',
+		'color_map_mex_hydrated_minerals.jpg',
 	];
 
 
@@ -42,7 +44,7 @@
 	var scene = new THREE.Scene();
 
 	var camera = new THREE.PerspectiveCamera(15, width/height, 0.01, 500);
-	camera.position.z = 10;
+	camera.position.z = 7;
 	console.log(camera);
 
 	var renderer = new THREE.WebGLRenderer();
@@ -70,7 +72,6 @@
 
 	webglEl.appendChild(renderer.domElement);
 
-	console.log(light);
 	var gui = new dat.GUI();
 	gui.add(light.position, 'x', -90, 90).listen().name("sun az");
 	gui.add(light.position, 'y', -15, 15).listen().name("sun el");
@@ -101,7 +102,6 @@
 		sphere.material.map.needsUpdate = true;
 		sphere.material.bumpMap.flipY = !options.mirror;
 		sphere.material.bumpMap.needsUpdate = true;
-		console.log(sphere);
 	}
 
 	function render() {
@@ -131,7 +131,7 @@
 		var starTexture = new THREE.ImageUtils.loadTexture( 'images/starfield.jpg' );	
 		starTexture.wrapS = THREE.RepeatWrapping;
 		starTexture.wrapT = THREE.RepeatWrapping;
-		starTexture.repeat.set(8,8);
+		starTexture.repeat.set(4,4);
 		return new THREE.Mesh(
 			new THREE.SphereGeometry(radius, segments, segments), 
 			new THREE.MeshBasicMaterial({
