@@ -5,7 +5,6 @@
 
 	var mapFiles = [
 		'color_map_mgs_2k.jpg',
-		'color_map_2k.jpg',
 		'color_map_8k.jpg',
 		'color_map_msss_labeled.jpg',
 		'color_map_viking_reduced.jpg',
@@ -42,8 +41,7 @@
 
 	var scene = new THREE.Scene();
 
-	var camera = new THREE.PerspectiveCamera(10, width/height, 0.01, 50000);
-	//var camera = new THREE.OrthographicCamera(-width/height, width/height, 1, -1, 0.01, 100);
+	var camera = new THREE.PerspectiveCamera(15, width/height, 0.01, 500);
 	camera.position.z = 10;
 	console.log(camera);
 
@@ -63,7 +61,7 @@
 	scene.add(sphere)
 
 
-	var stars = createStars(40000, 64);
+	var stars = createStars(400, 64);
 	scene.add(stars);
 	
 	console.log(scene);
@@ -78,7 +76,7 @@
 	gui.add(light.position, 'y', -15, 15).listen().name("sun el");
 	gui.add(sphere.rotation, 'y', 0, 6.2832).listen().name("planet rotation");
 	gui.add(options, 'animate').listen();
-	gui.add(options, 'mirror').listen().onChange(function(){reverseTexture()});
+	gui.add(options, 'mirror').listen().onChange(function(){reverseTexture(); sphere.rotation.z += Math.PI * (options.mirror ? 1 : -1) });
 	gui.add(options, 'mapFile',mapFiles).listen().name("Base map").onChange(function(){changeMap()});
 	gui.add(sphere.material, 'bumpScale',0,0.1).listen().name("texture scale");
 	gui.add(sphere.material.color, 'r',0.6,1).listen().name("red");
@@ -103,7 +101,6 @@
 		sphere.material.map.needsUpdate = true;
 		sphere.material.bumpMap.flipY = !options.mirror;
 		sphere.material.bumpMap.needsUpdate = true;
-		sphere.rotation.z += Math.PI * (options.mirror ? 1 : -1);
 		console.log(sphere);
 	}
 
