@@ -4,17 +4,25 @@
 (function () {
 
 	var mapFiles = [
+		
 		'color_map_mgs_2k.jpg',
 		'color_map_8k.jpg',
-		'color_map_msss_labeled.jpg',
-		'color_map_viking_reduced.jpg',
-		'color_map_mgs_16k.jpg',
-		'color_map_nasa_landing_sites.jpg',
-		'color_map_mpf_planning.jpg',
 		'color_map_aaas_labels.jpg',
-		'color_map_terraformed.jpg',
-		'color_map_mariner9_geology.jpg',
-		'color_map_mex_hydrated_minerals.jpg',
+		'color_map_msss_labeled.jpg',
+		'color_map_nasa_landing_sites.jpg',
+		'color_map_viking_reduced.jpg',
+		'color_map_mgs_hungarian.jpg',
+		'color_map_mpf_planning.jpg',
+		'color_map_peach_voltmer.jpg',
+		'color_map_voltmer.jpg',
+		'albedo_1958.jpg',
+		'albedo_antoniadi_1900.jpg',
+		'albedo_map_mgs_tes.jpg',
+		'albedo_map_mutch_1971.jpg',
+		'geology_mariner9.jpg',
+		'hydrated_minerals_mex.jpg',
+		'fantasy.jpg',
+		'terraformed.jpg',	
 	];
 
 
@@ -58,9 +66,13 @@
 	camera.add(light);
 	scene.add(camera);
 
-    var sphere = createSphere(radius, segments);
-	sphere.rotation.y = rotation; 
-	scene.add(sphere)
+    var globe = createGlobe(radius, segments);
+	globe.rotation.y = rotation; 
+	scene.add(globe);
+
+    var labels = createLabels(radius*1.02, segments);
+	labels.rotation.y = rotation;
+	scene.add(labels);
 
 
 	var stars = createStars(400, 64);
@@ -75,20 +87,26 @@
 	var gui = new dat.GUI();
 	gui.add(light.position, 'x', -90, 90).listen().name("sun az");
 	gui.add(light.position, 'y', -15, 15).listen().name("sun el");
-	gui.add(sphere.rotation, 'y', 0, 6.2832).listen().name("planet rotation");
+	gui.add(globe.rotation, 'y', 0, 6.2832).listen().name("planet rotation");
 	gui.add(options, 'animate').listen();
-	gui.add(options, 'mirror').listen().onChange(function(){reverseTexture(); sphere.rotation.z += Math.PI * (options.mirror ? 1 : -1) });
+	gui.add(options, 'mirror').listen().onChange(function(){
+			reverseTexture(); 
+			globe.rotation.z += Math.PI * (options.mirror ? 1 : -1);
+			labels.rotation.z += Math.PI * (options.mirror ? 1 : -1);			
+		});
+	gui.add(labels.material, 'opacity',0,1).listen().name("labels opacity");
 	gui.add(options, 'mapFile',mapFiles).listen().name("Base map").onChange(function(){changeMap()});
-	gui.add(sphere.material, 'bumpScale',0,0.1).listen().name("texture scale");
-	gui.add(sphere.material.color, 'r',0.6,1).listen().name("red");
-	gui.add(sphere.material.color, 'g',0.6,1).listen().name("green");
-	gui.add(sphere.material.color, 'b',0.6,1).listen().name("blue");
+	gui.add(globe.material, 'bumpScale',0,0.1).listen().name("texture scale");
+	gui.add(globe.material.color, 'r',0.6,1).listen().name("red");
+	gui.add(globe.material.color, 'g',0.6,1).listen().name("green");
+	gui.add(globe.material.color, 'b',0.6,1).listen().name("blue");
+
 	
 	render();
 
 	function changeMap(){
 		console.log("changing base map to: images/" + options.mapFile);
-		sphere.material.map = THREE.ImageUtils.loadTexture('images/' + options.mapFile);
+		globe.material.map = THREE.ImageUtils.loadTexture('images/' + options.mapFile);
 		
 		if(options.mirror){
 			reverseTexture();
@@ -98,29 +116,51 @@
 	function reverseTexture(){
 		console.log("mirror: " + options.mirror);
 		// note: flipY is normally true;  mirrored is flipY=false
-		sphere.material.map.flipY = !options.mirror;
-		sphere.material.map.needsUpdate = true;
-		sphere.material.bumpMap.flipY = !options.mirror;
-		sphere.material.bumpMap.needsUpdate = true;
+		globe.material.map.flipY = !options.mirror;
+		globe.material.map.needsUpdate = true;
+		globe.material.bumpMap.flipY = !options.mirror;
+		globe.material.bumpMap.needsUpdate = true;
+		
+		if(options.mirror){
+			labels.material.map = THREE.ImageUtils.loadTexture('images/labels_inv.png');
+		} else {
+			labels.material.map = THREE.ImageUtils.loadTexture('images/labels.png');
+		}
+		labels.material.map.flipY = !options.mirror;
+		labels.material.map.needsUpdate = true;	
+	
 	}
 
 	function render() {
 		controls.update();
 		if(options.animate) {
-			sphere.rotation.y += 0.0005;
+			globe.rotation.y += 0.0005;
 		}
 		requestAnimationFrame(render);
 		renderer.render(scene, camera);
 	}
 
-	function createSphere(radius, segments) {
-		console.log("making sphere");
+	function createGlobe(radius, segments) {
+		console.log("making globe");
 		return new THREE.Mesh(
 			new THREE.SphereGeometry(radius, segments, segments),
 			new THREE.MeshPhongMaterial({
 				map:         THREE.ImageUtils.loadTexture('images/' + options.mapFile),
 				bumpMap:     THREE.ImageUtils.loadTexture('images/mars_bump_map_4k_adj.jpg'),
 				bumpScale:   0.01,
+				side:        THREE.DoubleSide,
+			})
+		);
+	}
+	
+	function createLabels(radius, segments) {
+		console.log("making labels");
+		return new THREE.Mesh(
+			new THREE.SphereGeometry(radius, segments, segments),
+			new THREE.MeshPhongMaterial({
+				map:         THREE.ImageUtils.loadTexture('images/labels.png'),
+				transparent: true,
+				opacity:     0.5,
 				side:        THREE.DoubleSide,
 			})
 		);
