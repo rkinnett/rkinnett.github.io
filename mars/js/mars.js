@@ -234,6 +234,7 @@
 		controls.update();
 		if(options.animate) {
 			globe.rotation.y += 0.0005;
+			labels.rotation.y += 0.0005;
 		}
 		requestAnimationFrame(render);
 		renderer.render(scene, camera);
