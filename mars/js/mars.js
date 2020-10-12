@@ -138,14 +138,23 @@
 
 	function showSpecificTime(){
 		console.log("ephemQueryUtcFcn");
-		var strResponse = window.prompt("UTC time  (YYYY-MM-DD HH:MM):");
+		strResponse = window.prompt("UTC time  (YYYY-MM-DD HH:MM):");
 		console.log("Time input dialog response:  " + strResponse);
+
+		// handle empty response (cancel)
 		if(strResponse == null){
 			console.log("empty response");
 			return;
 		}
 
-		var dateQuery = new Date(strResponse + " Z") || 0;
+		// if received a response, then make sure user input meets required format:
+		if(! (new RegExp('202[0-5]-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}').test(strResponse) )){
+			alert("Error, invalid format");
+			return;
+		}
+		
+		// convert to date object:
+		var dateQuery = new Date(strResponse.replace(' ','T') + ":00Z") || 0;
 		if(dateQuery>0){
 			console.log("query time:  " + dateQuery.toISOString());
 			getEphem(dateQuery);
@@ -162,11 +171,12 @@
 		// round down to 1/4 day:
 		var hourRoundedDown = Math.floor(dayFrac*4)*6;
 		var strDateInterpBelow = strQueryDate + " " + (hourRoundedDown<10?"0":"") + hourRoundedDown + ":00";
+		console.log("strDateInterpBelow: " + strDateInterpBelow);
 		var interpRatio = (dayFrac*24 % 6) / 6;
 		console.log("interp ratio: " + interpRatio);
 		
 		// get interp upper bound:
-		var strDateInterpAbove = new Date(new Date(strDateInterpBelow + " Z").valueOf() + 6*60*60*1000).toISOString().substring(0,16).replace(/T/g, " ");
+		var strDateInterpAbove = new Date(new Date(strDateInterpBelow.replace(" ","T") + ":00Z").valueOf() + 6*60*60*1000).toISOString().substring(0,16).replace(/T/g, " ");
 		console.log("interp bounds:  " + strDateInterpBelow + ", " + strDateInterpAbove);
 
 		// get entries before and after query time:
