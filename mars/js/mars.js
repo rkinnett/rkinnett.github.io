@@ -84,6 +84,10 @@
 
 	webglEl.appendChild(renderer.domElement);
 
+	var ephemQueryNowFcn = { add:function(){ showNow() }};
+	var ephemQueryUtcFcn = { add:function(){ showSpecificTime()  }};
+
+
 	var gui = new dat.GUI();
 	gui.add(light.position, 'x', -90, 90).listen().name("sun az");
 	gui.add(light.position, 'y', -15, 15).listen().name("sun el");
@@ -100,9 +104,91 @@
 	gui.add(globe.material.color, 'r',0.6,1).listen().name("red");
 	gui.add(globe.material.color, 'g',0.6,1).listen().name("green");
 	gui.add(globe.material.color, 'b',0.6,1).listen().name("blue");
+	gui.add(ephemQueryNowFcn,'add').name("Show now");
+	gui.add(ephemQueryUtcFcn,'add').name("Show specific time");
+
 
 	
 	render();
+
+	function showNow(){
+		console.log("ephemQueryNowFcn");
+		var dateQuery = new Date();
+		console.log("Time now:  " + dateQuery);
+		getEphem(dateQuery);
+	}
+
+	function showSpecificTime(){
+		console.log("ephemQueryUtcFcn");
+		var strResponse = window.prompt("UTC time  (YYYY-MM-DD HH:MM):");
+		console.log("Time input dialog response:  " + strResponse);
+		if(strResponse == null){
+			console.log("empty response");
+			return;
+		}
+
+		var dateQuery = new Date(strResponse) || 0;
+		if(dateQuery>0){
+			console.log("query time:  " + dateQuery.toISOString());
+			getEphem(dateQuery);
+		} else {
+			console.log("error, invalid date");
+		}
+	}
+	
+	function getEphem(dateQuery){
+		var strDateStart = dateQuery.toISOString().substring(0,10);
+		var timeHourFrac = (dateQuery.getTime()/1000/60/60) % 24;
+		console.log(strDateStart + ' ' + timeHourFrac + ' hours');
+
+		// round to nearest 15 mins:
+		var timeHourFracRoundedNearestFifteenMins = Math.round(timeHourFrac*4)/4;
+		var timeHourRounded = Math.floor(timeHourFracRoundedNearestFifteenMins);
+		var timeMinsRounded = (timeHourFracRoundedNearestFifteenMins % 1)*60;
+		var strRoundedTime = (timeHourRounded<10?'0':'') + timeHourRounded + ':' + (timeMinsRounded<10?'0':'') + timeMinsRounded;
+		console.log('nearest 15 mins: ' + strRoundedTime);
+		var boolRoundedUptToMidnight = timeHourFrac>23 && timeHourRounded==0;
+
+		// calculate end date as query date plus one day:
+		var strDateEnd = new Date(dateQuery.valueOf() + 24*60*60*1000).toISOString().substring(0,10);
+		console.log('query end date: ' + strDateEnd);
+		
+		var queryUrl = "https://ssd.jpl.nasa.gov/horizons_batch.cgi?batch=1" + 
+		"&COMMAND='499'" + 
+		"&MAKE_EPHEM='YES'" +
+		"&TABLE_TYPE='OBSERVER'" + 
+		"&START_TIME='" + "2020-10-11" + "'" + 
+		"&STOP_TIME='" + "2020-10-12" + "'" + 
+		"&STEP_SIZE='15%20m'" + 
+		"&QUANTITIES='10,14,15'" + 
+		"&CSV_FORMAT='YES'";
+		console.log("Ephemeris query URL:  " + queryUrl);
+			
+
+		$.ajax({
+			url: queryUrl,
+			type: "GET",
+			// This is the important part
+			xhrFields: {
+				withCredentials: true
+			},
+			success: function (response) {
+				// handle the response
+				console.log(response);
+			},
+			error: function (xhr, status) {
+				console.log("error");
+				console.log(status);
+			}
+		});
+
+	}
+	
+	function renderEphemeris(ephemText){
+		console.log("Received ephemeris:");
+		console.log(ephemText);
+	}
+
 
 	function changeMap(){
 		console.log("changing base map to: images/" + options.mapFile);
