@@ -46,13 +46,15 @@
 		animate: false,
 		mirror:  false,
 		mapFile: 'color_map_mgs_2k.jpg',
+		cameraDist: 7,
+		sunPlaneDist: 60,
 	};
 
 
 	var scene = new THREE.Scene();
 
 	var camera = new THREE.PerspectiveCamera(15, width/height, 0.01, 500);
-	camera.position.x = 7;
+	camera.position.x = options.cameraDist;
 	console.log(camera);
 
 	var renderer = new THREE.WebGLRenderer();
@@ -62,7 +64,7 @@
 
 	//var light = new THREE.DirectionalLight(0xffffff, 1);
 	var light = new THREE.PointLight(0xffffff, 1, 1000, 1);
-	light.position.set(0,0,60);
+	light.position.set(0,0,options.sunPlaneDist);
 	camera.add(light);
 	scene.add(camera);
 
@@ -77,8 +79,23 @@
 
 	var stars = createStars(400, 64);
 	scene.add(stars);
-	
 	console.log(scene);
+
+	console.log("loading ephemeris file");
+
+	var ephem;
+	$.getJSON('js/ephem.json')
+	.done(function(data) { 
+		console.log("done"); 
+		ephem = data;
+		console.log("testing ephem lookup:  ");
+		console.log(data["2020-01-01 06:00"][0]); // test		
+	})
+	.fail(function(jqXHR, textStatus, errorThrown) {
+		console.log("error " + textStatus);
+		console.log("incoming Text " + jqXHR.responseText);
+	})
+
 
 	var controls = new THREE.TrackballControls(camera, renderer.domElement);
 
@@ -108,8 +125,12 @@
 	gui.add(ephemQueryUtcFcn,'add').name("Show specific time");
 
 
-	
 	render();
+
+
+
+
+
 
 	function showNow(){
 		console.log("ephemQueryNowFcn");
@@ -151,31 +172,40 @@
 		var strDateInterpAbove = new Date(new Date(strDateInterpBelow + " Z").valueOf() + 6*60*60*1000).toISOString().substring(0,16).replace(/T/g, " ");
 		console.log("interp bounds:  " + strDateInterpBelow + ", " + strDateInterpAbove);
 
+		// get entries before and after query time:
+		// fixme:  handle lookup errors
+		var ephemBelow = ephem[strDateInterpBelow][0];
+		console.log(ephemBelow);
+		var ephemAbove = ephem[strDateInterpAbove][0];
+		console.log(ephemAbove);
 		
+		// interpolate sub-observer longitude and rotate Mars to point that toward camera:
+		var ObsSubLon = ephemBelow.ObsSubLon + interpRatio*(ephemAbove.ObsSubLon - ephemBelow.ObsSubLon + (ephemAbove.ObsSubLon<ephemBelow.ObsSubLon?360:0) );
+		console.log(ObsSubLon);
+		globe.rotation.y = labels.rotation.y = ObsSubLon*Math.PI/180;
 		
+		// interpolate sub-observer latitude and tilt camera to that orientation:
+		var ObsSubLat = (ephemBelow.ObsSubLat + interpRatio*(ephemAbove.ObsSubLat - ephemBelow.ObsSubLat));
+		console.log(ObsSubLat);
+		camera.position = new THREE.Vector3(options.cameraDist*Math.cos(ObsSubLat*Math.PI/180), options.cameraDist*Math.sin(ObsSubLat*Math.PI/180), 0);
 		
-		console.log("loading ephemeris file");	
-		$.getJSON('js/ephem.json')
-		.done(function(data) { 
-			console.log("done"); 
-			console.log(data["2020-01-01 06:00"][0]); // test
-			var ephemBelow = data[strDateInterpBelow][0];
-			var ephemAbove = data[strDateInterpAbove][0];
-			var ObsSubLon = ephemBelow.ObsSubLon + interpRatio*(ephemAbove.ObsSubLon - ephemBelow.ObsSubLon + (ephemAbove.ObsSubLon<ephemBelow.ObsSubLon?360:0) );
-			console.log(ephemBelow);
-			console.log(ephemAbove);
-			console.log(ObsSubLon);
-			globe.rotation.y = labels.rotation.y = ObsSubLon*Math.PI/180;
-			
-			camera.position = new THREE.Vector3(7, 0, 0);
-			// fixme: handle lookup errors
-			// 			
-			
-		})
-		.fail(function(jqXHR, textStatus, errorThrown) {
-			console.log("error " + textStatus);
-			console.log("incoming Text " + jqXHR.responseText);
-		})
+		// interpolate sub-sun point
+		var SunSubLon = ephemBelow.SunSubLon + interpRatio*(ephemAbove.SunSubLon - ephemBelow.SunSubLon + (ephemAbove.SunSubLon<ephemBelow.SunSubLon?360:0) );
+		console.log(ObsSubLon);
+		var SunSubLat = (ephemBelow.SunSubLat + interpRatio*(ephemAbove.SunSubLat - ephemBelow.SunSubLat));
+		console.log(SunSubLat);
+		
+		// move light source (in camera frame) according to interpolated sun direction
+		var deltaLonEarthSun = ObsSubLon - SunSubLon;
+		console.log(deltaLonEarthSun);
+		var deltaLatEarthSun = ObsSubLat - SunSubLat;
+		console.log(deltaLatEarthSun);
+		var camPosX = 2*options.sunPlaneDist*Math.sin(deltaLonEarthSun*Math.PI/180);
+		console.log(camPosX);
+		var camPosY = -2*options.sunPlaneDist*Math.sin(deltaLatEarthSun*Math.PI/180);
+		console.log(camPosY);
+		light.position.set(camPosX, camPosY, options.sunPlaneDist);
+
 	}
 	
 	function renderEphemeris(ephemText){
