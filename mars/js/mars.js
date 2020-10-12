@@ -1,10 +1,10 @@
 // ...
 // Based on 
 // Created by Bjorn Sandvik - thematicmapping.org
+
 (function () {
 
 	var mapFiles = [
-		
 		'color_map_mgs_2k.jpg',
 		'color_map_8k.jpg',
 		'color_map_aaas_labels.jpg',
@@ -50,8 +50,7 @@
 		sunPlaneDist: 60,
 	};
 
-
-	var scene = new THREE.Scene();
+	scene = new THREE.Scene();
 
 	var camera = new THREE.PerspectiveCamera(15, width/height, 0.01, 500);
 	camera.position.x = options.cameraDist;
@@ -99,6 +98,7 @@
 
 	var controls = new THREE.TrackballControls(camera, renderer.domElement);
 
+
 	webglEl.appendChild(renderer.domElement);
 
 	var ephemQueryNowFcn = { add:function(){ showNow() }};
@@ -110,11 +110,7 @@
 	gui.add(light.position, 'y', -15, 15).listen().name("sun el");
 	gui.add(globe.rotation, 'y', 0, 6.2832).listen().name("planet rotation").onChange(function(val){labels.rotation.y=val});
 	gui.add(options, 'animate').listen();
-	gui.add(options, 'mirror').listen().onChange(function(){
-			reverseTexture(); 
-			globe.rotation.z += Math.PI * (options.mirror ? 1 : -1);
-			labels.rotation.z += Math.PI * (options.mirror ? 1 : -1);			
-		});
+	gui.add(options, 'mirror').listen().onChange(function(boolMirror){ setMirroring(boolMirror) });
 	gui.add(labels.material, 'opacity',0,1).listen().name("labels opacity");
 	gui.add(options, 'mapFile',mapFiles).listen().name("Base map").onChange(function(){changeMap()});
 	gui.add(globe.material, 'bumpScale',0,0.1).listen().name("texture scale");
@@ -123,6 +119,7 @@
 	gui.add(globe.material.color, 'b',0.6,1).listen().name("blue");
 	gui.add(ephemQueryNowFcn,'add').name("Show now");
 	gui.add(ephemQueryUtcFcn,'add').name("Show specific time");
+	//gui.add(camera.rotation, '
 
 
 	render();
@@ -223,22 +220,14 @@
 		}
 	}
 	
-	function reverseTexture(){
-		console.log("mirror: " + options.mirror);
-		// note: flipY is normally true;  mirrored is flipY=false
-		globe.material.map.flipY = !options.mirror;
-		globe.material.map.needsUpdate = true;
-		globe.material.bumpMap.flipY = !options.mirror;
-		globe.material.bumpMap.needsUpdate = true;
-		
-		if(options.mirror){
+	function setMirroring(boolMirror){
+		if(boolMirror){
 			labels.material.map = THREE.ImageUtils.loadTexture('images/labels_inv.png');
+			webglEl.style.transform = "scaleX(-1)";
 		} else {
 			labels.material.map = THREE.ImageUtils.loadTexture('images/labels.png');
+			webglEl.style.transform = "scaleX(1)";
 		}
-		labels.material.map.flipY = !options.mirror;
-		labels.material.map.needsUpdate = true;	
-	
 	}
 
 	function render() {
