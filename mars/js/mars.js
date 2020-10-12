@@ -52,7 +52,7 @@
 	var scene = new THREE.Scene();
 
 	var camera = new THREE.PerspectiveCamera(15, width/height, 0.01, 500);
-	camera.position.z = 7;
+	camera.position.x = 7;
 	console.log(camera);
 
 	var renderer = new THREE.WebGLRenderer();
@@ -91,7 +91,7 @@
 	var gui = new dat.GUI();
 	gui.add(light.position, 'x', -90, 90).listen().name("sun az");
 	gui.add(light.position, 'y', -15, 15).listen().name("sun el");
-	gui.add(globe.rotation, 'y', 0, 6.2832).listen().name("planet rotation");
+	gui.add(globe.rotation, 'y', 0, 6.2832).listen().name("planet rotation").onChange(function(val){labels.rotation.y=val});
 	gui.add(options, 'animate').listen();
 	gui.add(options, 'mirror').listen().onChange(function(){
 			reverseTexture(); 
@@ -127,7 +127,7 @@
 			return;
 		}
 
-		var dateQuery = new Date(strResponse) || 0;
+		var dateQuery = new Date(strResponse + " Z") || 0;
 		if(dateQuery>0){
 			console.log("query time:  " + dateQuery.toISOString());
 			getEphem(dateQuery);
@@ -137,51 +137,45 @@
 	}
 	
 	function getEphem(dateQuery){
-		var strDateStart = dateQuery.toISOString().substring(0,10);
-		var timeHourFrac = (dateQuery.getTime()/1000/60/60) % 24;
-		console.log(strDateStart + ' ' + timeHourFrac + ' hours');
+		var strQueryDate = dateQuery.toISOString().substring(0,10);
+		var dayFrac = (dateQuery.getTime()/1000/60/60/24) % 1;
+		console.log(strQueryDate + ' ' + dayFrac*24 + ' hours');
 
-		// round to nearest 15 mins:
-		var timeHourFracRoundedNearestFifteenMins = Math.round(timeHourFrac*4)/4;
-		var timeHourRounded = Math.floor(timeHourFracRoundedNearestFifteenMins);
-		var timeMinsRounded = (timeHourFracRoundedNearestFifteenMins % 1)*60;
-		var strRoundedTime = (timeHourRounded<10?'0':'') + timeHourRounded + ':' + (timeMinsRounded<10?'0':'') + timeMinsRounded;
-		console.log('nearest 15 mins: ' + strRoundedTime);
-		var boolRoundedUptToMidnight = timeHourFrac>23 && timeHourRounded==0;
-
-		// calculate end date as query date plus one day:
-		var strDateEnd = new Date(dateQuery.valueOf() + 24*60*60*1000).toISOString().substring(0,10);
-		console.log('query end date: ' + strDateEnd);
+		// round down to 1/4 day:
+		var hourRoundedDown = Math.floor(dayFrac*4)*6;
+		var strDateInterpBelow = strQueryDate + " " + (hourRoundedDown<10?"0":"") + hourRoundedDown + ":00";
+		var interpRatio = (dayFrac*24 % 6) / 6;
+		console.log("interp ratio: " + interpRatio);
 		
-		var queryUrl = "https://ssd.jpl.nasa.gov/horizons_batch.cgi?batch=1" + 
-		"&COMMAND='499'" + 
-		"&MAKE_EPHEM='YES'" +
-		"&TABLE_TYPE='OBSERVER'" + 
-		"&START_TIME='" + "2020-10-11" + "'" + 
-		"&STOP_TIME='" + "2020-10-12" + "'" + 
-		"&STEP_SIZE='15%20m'" + 
-		"&QUANTITIES='10,14,15'" + 
-		"&CSV_FORMAT='YES'";
-		console.log("Ephemeris query URL:  " + queryUrl);
+		// get interp upper bound:
+		var strDateInterpAbove = new Date(new Date(strDateInterpBelow + " Z").valueOf() + 6*60*60*1000).toISOString().substring(0,16).replace(/T/g, " ");
+		console.log("interp bounds:  " + strDateInterpBelow + ", " + strDateInterpAbove);
+
+		
+		
+		
+		console.log("loading ephemeris file");	
+		$.getJSON('js/ephem.json')
+		.done(function(data) { 
+			console.log("done"); 
+			console.log(data["2020-01-01 06:00"][0]); // test
+			var ephemBelow = data[strDateInterpBelow][0];
+			var ephemAbove = data[strDateInterpAbove][0];
+			var ObsSubLon = ephemBelow.ObsSubLon + interpRatio*(ephemAbove.ObsSubLon - ephemBelow.ObsSubLon + (ephemAbove.ObsSubLon<ephemBelow.ObsSubLon?360:0) );
+			console.log(ephemBelow);
+			console.log(ephemAbove);
+			console.log(ObsSubLon);
+			globe.rotation.y = labels.rotation.y = ObsSubLon*Math.PI/180;
 			
-
-		$.ajax({
-			url: queryUrl,
-			type: "GET",
-			// This is the important part
-			xhrFields: {
-				withCredentials: true
-			},
-			success: function (response) {
-				// handle the response
-				console.log(response);
-			},
-			error: function (xhr, status) {
-				console.log("error");
-				console.log(status);
-			}
-		});
-
+			camera.position = new THREE.Vector3(7, 0, 0);
+			// fixme: handle lookup errors
+			// 			
+			
+		})
+		.fail(function(jqXHR, textStatus, errorThrown) {
+			console.log("error " + textStatus);
+			console.log("incoming Text " + jqXHR.responseText);
+		})
 	}
 	
 	function renderEphemeris(ephemText){
