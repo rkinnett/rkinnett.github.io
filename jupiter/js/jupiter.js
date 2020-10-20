@@ -6,7 +6,6 @@
 
 	var mapFiles = [
 		'color_map_canvas_grs.jpg',	
-		'color_map_canvas.jpg',	
 		'color_map_peach_2016.jpg',	
 		'color_map_cassini_2000.jpg',
 		'color_map_hst_2015.jpg',
