@@ -221,7 +221,7 @@
 		
 		// interpolate sub-observer longitude and rotate Jupiter to point that toward camera:
 		globe.rotation.y  = (ephem.ObsSubLon)*Math.PI/180;
-		//labels.rotation.y = ObsSubLon*Math.PI/180;
+		labels.rotation.y = ObsSubLon*Math.PI/180;
 		
 		// tilt camera to sub-observer lat/lon:
 		camera.position = new THREE.Vector3(options.cameraDist*Math.cos(ephem.ObsSubLat*Math.PI/180), options.cameraDist*Math.sin(ephem.ObsSubLat*Math.PI/180), 0);
