@@ -37,12 +37,26 @@
 		sunPlaneDist: 60,
 	};
 
+
 	grs = {
 		refDate: null,
 		refLon: null,
 		drift: null,
-		lon: null
+		lon: null,
+		loaded: false,
 	}
+	getGrsData();
+	
+
+	ephem = {
+		loaded: false,
+		data: null,
+		ObsSubLat: null,
+		ObsSubLon: null,
+		SunSubLat: null,
+		SunSubLon: null,
+	}
+	loadEphemData();
 
 
 	scene = new THREE.Scene();
@@ -70,29 +84,11 @@
 	//labels.rotation.y = rotation;
 	//scene.add(labels);
 
-
 	var stars = createStars(400, 64);
 	scene.add(stars);
 	console.log(scene);
 
-	console.log("loading ephemeris file");
-
-	ephem = null;
-	$.getJSON('js/ephem.json')
-	.done(function(data) { 
-		console.log("done"); 
-		ephem = data;
-		console.log("testing ephem lookup:  ");
-		console.log(data["2020-01-01 06:00"][0]); // test		
-	})
-	.fail(function(jqXHR, textStatus, errorThrown) {
-		console.log("error " + textStatus);
-		console.log("incoming Text " + jqXHR.responseText);
-	})
-
- 
 	var controls = new THREE.TrackballControls(camera, renderer.domElement);
-
 
 	webglEl.appendChild(renderer.domElement);
 
@@ -119,7 +115,7 @@
 
 	render();
 
-	getGrsData();
+
 
 
 
@@ -175,44 +171,68 @@
 
 		// get entries before and after query time:
 		// fixme:  handle lookup errors
-		var ephemBelow = ephem[strDateInterpBelow][0];
+		var ephemBelow = ephem.data[strDateInterpBelow][0];
 		console.log(ephemBelow);
-		var ephemAbove = ephem[strDateInterpAbove][0];
+		var ephemAbove = ephem.data[strDateInterpAbove][0];
 		console.log(ephemAbove);
 		
 		// interpolate sub-observer longitude and rotate Mars to point that toward camera:
-		var ObsSubLon = (ephemBelow.ObsSubLon + interpRatio*(ephemAbove.ObsSubLon - ephemBelow.ObsSubLon + (ephemAbove.ObsSubLon<ephemBelow.ObsSubLon?360:0) ) ) % 360;
-		console.log(ObsSubLon);
-		globe.rotation.y  = (ObsSubLon - grs.lon -90)*Math.PI/180;
-		//labels.rotation.y = ObsSubLon*Math.PI/180;
+		ephem.ObsSubLon = (ephemBelow.ObsSubLon + interpRatio*(ephemAbove.ObsSubLon - ephemBelow.ObsSubLon + (ephemAbove.ObsSubLon<ephemBelow.ObsSubLon?360:0) ) ) % 360;
+		console.log(ephem.ObsSubLon);
 		
 		// interpolate sub-observer latitude and tilt camera to that orientation:
-		var ObsSubLat = (ephemBelow.ObsSubLat + interpRatio*(ephemAbove.ObsSubLat - ephemBelow.ObsSubLat));
-		console.log(ObsSubLat);
-		camera.position = new THREE.Vector3(options.cameraDist*Math.cos(ObsSubLat*Math.PI/180), options.cameraDist*Math.sin(ObsSubLat*Math.PI/180), 0);
+		ephem.ObsSubLat = (ephemBelow.ObsSubLat + interpRatio*(ephemAbove.ObsSubLat - ephemBelow.ObsSubLat));
+		console.log(ephem.ObsSubLat);
 		
 		// interpolate sub-sun point
-		var SunSubLon = (ephemBelow.SunSubLon + interpRatio*(ephemAbove.SunSubLon - ephemBelow.SunSubLon + (ephemAbove.SunSubLon<ephemBelow.SunSubLon?360:0) )) % 360;
-		console.log(ObsSubLon);
-		var SunSubLat = (ephemBelow.SunSubLat + interpRatio*(ephemAbove.SunSubLat - ephemBelow.SunSubLat));
-		console.log(SunSubLat);
+		ephem.SunSubLon = (ephemBelow.SunSubLon + interpRatio*(ephemAbove.SunSubLon - ephemBelow.SunSubLon + (ephemAbove.SunSubLon<ephemBelow.SunSubLon?360:0) )) % 360;
+		console.log(ephem.ObsSubLon);
+		ephem.SunSubLat = (ephemBelow.SunSubLat + interpRatio*(ephemAbove.SunSubLat - ephemBelow.SunSubLat));
+		console.log(ephem.SunSubLat);
 		
+		ephem.loaded = true;
+		
+		renderEphemeris();
+	}
+	
+	function loadEphemData(){
+		console.log("loading ephemeris file");
+		$.getJSON('js/ephem.json')
+		.done(function(data) { 
+			console.log("done"); 
+			ephem.data = data;
+			console.log("testing ephem lookup:  ");
+			console.log(data["2020-01-01 06:00"][0]); // test	
+			ephem.loaded = true;
+		})
+		.fail(function(jqXHR, textStatus, errorThrown) {
+			console.log("error " + textStatus);
+			console.log("incoming Text " + jqXHR.responseText);
+		})
+	}
+	
+	
+	function renderEphemeris(){
+		console.log("Rendering ephemeris");
+		console.log(ephem);
+		
+		// interpolate sub-observer longitude and rotate Jupiter to point that toward camera:
+		globe.rotation.y  = (ephem.ObsSubLon - grs.lon -90)*Math.PI/180;
+		//labels.rotation.y = ObsSubLon*Math.PI/180;
+		
+		// tilt camera to sub-observer lat/lon:
+		camera.position = new THREE.Vector3(options.cameraDist*Math.cos(ephem.ObsSubLat*Math.PI/180), options.cameraDist*Math.sin(ephem.ObsSubLat*Math.PI/180), 0);
+				
 		// move light source (in camera frame) according to interpolated sun direction
-		var deltaLonEarthSun = ObsSubLon - SunSubLon;
+		var deltaLonEarthSun = ephem.ObsSubLon - ephem.SunSubLon;
 		console.log(deltaLonEarthSun);
-		var deltaLatEarthSun = ObsSubLat - SunSubLat;
+		var deltaLatEarthSun = ephem.ObsSubLat - ephem.SunSubLat;
 		console.log(deltaLatEarthSun);
 		var camPosX = 2*options.sunPlaneDist*Math.sin(deltaLonEarthSun*Math.PI/180);
 		console.log(camPosX);
 		var camPosY = -2*options.sunPlaneDist*Math.sin(deltaLatEarthSun*Math.PI/180);
 		console.log(camPosY);
 		light.position.set(camPosX, camPosY, options.sunPlaneDist);
-
-	}
-	
-	function renderEphemeris(ephemText){
-		console.log("Received ephemeris:");
-		console.log(ephemText);
 	}
 
 
@@ -245,8 +265,9 @@
 				var refDate = new Date([grs.refDateStr.slice(0,4), grs.refDateStr.slice(4,6), grs.refDateStr.slice(6,8)].join("-"));
 				daysSince = (new Date() - refDate)/1000/86000;
 				grs.lon = (grs.refLon*1 + grs.drift*1 * daysSince) % 360;
-				
-				showNow();
+
+				if(ephem.loaded)
+					showNow();
 			},
 			error: function(error) {
 			  console.log(`Error ${error}`)
