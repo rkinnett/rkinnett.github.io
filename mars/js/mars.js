@@ -128,7 +128,7 @@
 		console.log("ephemQueryNowFcn");
 		var dateQuery = new Date();
 		console.log("Time now:  " + dateQuery);
-		getEphem(dateQuery);
+		renderTime(dateQuery);
 	}
 
 	function showSpecificTime(){
