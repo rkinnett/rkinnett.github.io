@@ -123,7 +123,7 @@
 		console.log("ephemQueryNowFcn");
 		var dateQuery = new Date();
 		console.log("Time now:  " + dateQuery);
-		getEphem(dateQuery);
+		renderTime(dateQuery);
 	}
 
 	function showSpecificTime(){
@@ -147,13 +147,13 @@
 		var dateQuery = new Date(strResponse.replace(' ','T') + ":00Z") || 0;
 		if(dateQuery>0){
 			console.log("query time:  " + dateQuery.toISOString());
-			getEphem(dateQuery);
+			renderTime(dateQuery);
 		} else {
 			console.log("error, invalid date");
 		}
 	}
 	
-	function getEphem(dateQuery){
+	function renderTime(dateQuery){
 		var strQueryDate = dateQuery.toISOString().substring(0,10);
 		var dayFrac = (dateQuery.getTime()/1000/60/60/24) % 1;
 		console.log(strQueryDate + ' ' + dayFrac*24 + ' hours');
@@ -176,21 +176,18 @@
 		var ephemAbove = ephem.data[strDateInterpAbove][0];
 		console.log(ephemAbove);
 		
-		// interpolate sub-observer longitude and rotate Mars to point that toward camera:
+		// interpolate sub-observer longitude:
 		ephem.ObsSubLon = (ephemBelow.ObsSubLon + interpRatio*(ephemAbove.ObsSubLon - ephemBelow.ObsSubLon + (ephemAbove.ObsSubLon<ephemBelow.ObsSubLon?360:0) ) ) % 360;
-		console.log(ephem.ObsSubLon);
 		
-		// interpolate sub-observer latitude and tilt camera to that orientation:
+		// interpolate sub-observer latitude:
 		ephem.ObsSubLat = (ephemBelow.ObsSubLat + interpRatio*(ephemAbove.ObsSubLat - ephemBelow.ObsSubLat));
-		console.log(ephem.ObsSubLat);
 		
 		// interpolate sub-sun point
 		ephem.SunSubLon = (ephemBelow.SunSubLon + interpRatio*(ephemAbove.SunSubLon - ephemBelow.SunSubLon + (ephemAbove.SunSubLon<ephemBelow.SunSubLon?360:0) )) % 360;
-		console.log(ephem.ObsSubLon);
 		ephem.SunSubLat = (ephemBelow.SunSubLat + interpRatio*(ephemAbove.SunSubLat - ephemBelow.SunSubLat));
-		console.log(ephem.SunSubLat);
-		
-		ephem.loaded = true;
+
+		console.log("calculated ephemeris:");
+		console.log(ephem);
 		
 		renderEphemeris();
 	}
