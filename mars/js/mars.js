@@ -206,7 +206,7 @@
 			console.log("testing ephem lookup:  ");
 			console.log(data["2020-01-01 06:00"][0]); // test	
 			ephem.loaded = true;
-			if(boolShowNow && grs.loaded) showNow();
+			if(boolShowNow) showNow();
 		})
 		.fail(function(jqXHR, textStatus, errorThrown) {
 			console.log("error " + textStatus);
