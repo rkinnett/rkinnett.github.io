@@ -2,14 +2,15 @@
 
 Get 5 years of ephemerides in 6hr increments from 2020/1/1 to 2025/1/1:
 
-https://ssd.jpl.nasa.gov/horizons_batch.cgi?batch=1&COMMAND=%27599%27&MAKE_EPHEM=%27YES%27&TABLE_TYPE=%27OBSERVER%27&START_TIME=%272020-01-01%27&STOP_TIME=%272025-01-01%27&ST
-EP_SIZE=%276h%27&QUANTITIES=%271,9,20,23,24%27&CSV_FORMAT=%27YES%27
+wget "https://ssd.jpl.nasa.gov/horizons_batch.cgi?batch=1&COMMAND=%27599%27&MAKE_EPHEM=%27YES%27&TABLE_TYPE=%27OBSERVER%27&START_TIME=%272020-01-01%27&STOP_TIME=%272025-01-01%27&STEP_SIZE=%276h%27&QUANTITIES=%2714,15%27&CSV_FORMAT=%27NO%27"  -O ephem.txt
 
 
-save as ephem.txt
+// If you created the txt file manually in windows then you may need to remove windows-style carriage returns:
+
+sed -i 's/\r$//g' ephem.txt
 
 
-Extract ephemeris entries and convert to json:
+// Extract ephemeris entries and convert to json:
 
 awk -F' *' 'BEGIN{print "{"} /^ 202[0-5]-/ {printf "\"%s %s\":[{\"ObsSubLon\":%s, \"ObsSubLat\":%s, \"SunSubLon\":%s, \"SunSubLat\":%s }],\n",$2,$3,$4,$5,$6,$7} END {printf "}"}' ephem.txt > ephem.json
 

@@ -119,11 +119,7 @@
 
 	render();
 
-
-	console.log("getting Jmess.dat");
-	latestGrsInfo=null;
 	getGrsData();
-
 
 
 
@@ -221,6 +217,7 @@
 
 
 	function getGrsData(){
+		console.log("getting GRS data");
 		$(function() {
 		  $.ajax({
 			url: "https://cors-anywhere.herokuapp.com/www.grischa-hahn.homepage.t-online.de/astro/winjupos/Jmess.dat",
@@ -249,7 +246,7 @@
 				daysSince = (new Date() - refDate)/1000/86000;
 				grs.lon = (grs.refLon*1 + grs.drift*1 * daysSince) % 360;
 				
-				
+				showNow();
 			},
 			error: function(error) {
 			  console.log(`Error ${error}`)
