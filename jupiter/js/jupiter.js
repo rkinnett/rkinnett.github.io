@@ -38,6 +38,17 @@
 	};
 
 
+	ephem = {
+		loaded: false,
+		data: null,
+		ObsSubLat: null,
+		ObsSubLon: null,
+		SunSubLat: null,
+		SunSubLon: null,
+	}
+	loadEphemData(true);
+
+
 	grs = {
 		refDate: null,
 		refLon: null,
@@ -47,17 +58,6 @@
 	}
 	getGrsData();
 	
-
-	ephem = {
-		loaded: false,
-		data: null,
-		ObsSubLat: null,
-		ObsSubLon: null,
-		SunSubLat: null,
-		SunSubLon: null,
-	}
-	loadEphemData();
-
 
 	scene = new THREE.Scene();
 
@@ -70,7 +70,6 @@
 
 	scene.add(new THREE.AmbientLight(0x222222));
 
-	//var light = new THREE.DirectionalLight(0xffffff, 1);
 	var light = new THREE.PointLight(0xffffff, 1, 1000, 0.5);
 	light.position.set(0,0,options.sunPlaneDist);
 	camera.add(light);
@@ -192,7 +191,7 @@
 		renderEphemeris();
 	}
 	
-	function loadEphemData(){
+	function loadEphemData(boolShowNow){
 		console.log("loading ephemeris file");
 		$.getJSON('js/ephem.json')
 		.done(function(data) { 
@@ -201,6 +200,7 @@
 			console.log("testing ephem lookup:  ");
 			console.log(data["2020-01-01 06:00"][0]); // test	
 			ephem.loaded = true;
+			if(boolShowNow) showNow();
 		})
 		.fail(function(jqXHR, textStatus, errorThrown) {
 			console.log("error " + textStatus);

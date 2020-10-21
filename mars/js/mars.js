@@ -60,7 +60,7 @@
 		SunSubLat: null,
 		SunSubLon: null,
 	}
-	loadEphemData();
+	loadEphemData(true);
 
 
 	scene = new THREE.Scene();
@@ -197,7 +197,7 @@
 		renderEphemeris();
 	}
 
-	function loadEphemData(){
+	function loadEphemData(boolShowNow){
 		console.log("loading ephemeris file");
 		$.getJSON('js/ephem.json')
 		.done(function(data) { 
@@ -206,6 +206,7 @@
 			console.log("testing ephem lookup:  ");
 			console.log(data["2020-01-01 06:00"][0]); // test	
 			ephem.loaded = true;
+			if(boolShowNow && grs.loaded) showNow();
 		})
 		.fail(function(jqXHR, textStatus, errorThrown) {
 			console.log("error " + textStatus);
