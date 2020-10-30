@@ -40,8 +40,9 @@
 		</select>
 		<br>
 		<div id="message"> </div>
-		
-		<video id="camcontainer"/>
+		<!-- <iframe id="camframe" class="video" allow="autoplay" > -->
+			<video id="camcontainer" autoplay=""  muted="muted"/>
+		<!-- </iframe> -->
     </body>	
 
 
@@ -61,7 +62,7 @@
 		}
 		
 		function loadcam(camname){
-			vidurl = "https://cors-anywhere.herokuapp.com/https://cams.cdn-surfline.com/cdn-wc/wc-" + camname + "/chunklist.m3u8";
+			vidurl = "https://cams.cdn-surfline.com/cdn-wc/wc-" + camname + "/chunklist.m3u8";
 			message.innerText = "";
 			if(Hls.isSupported()) {
 				if(hls!=null) {
@@ -71,9 +72,10 @@
 				console.log("loading " + vidurl);
 				hls = new Hls();
 				hls.config.xhrSetup = function(xhr, url) {
-					//xhr.withCredentials = true;     
-					xhr.setRequestHeader('Content-Type', 'application/x-mpegURL'); 
-					xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest"); 
+					//xhr.withCredentials = true;
+					//xhr.setRequestHeader('Content-Type', 'application/x-mpegURL'); 
+					//xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest"); 
+					//xhr.setRequestHeader("origin", window.location.origin);
 					console.log("header");
 				}
 				hls.attachMedia(video);
@@ -91,15 +93,12 @@
 					console.log(event);
 					console.log(data);
 				});
+			} else {
+			  message.innerText = "Error:  HLS not supported";
 			}
 		}
 		
-		function start(){
-			if(!Hls.isSupported()) {
-			  message.innerText = "Error:  HLS not supported";
-			  return;
-			}
-		
+		function start(){		
 			var urlParams = new URLSearchParams(window.location.search);
 			if ( urlParams.get("id")!=null && RegExp(/^[a-z]+$/).test(urlParams.get("id")) ) {
 				camname = urlParams.get("id");  //if url includes "?id=###" then load this camera id
