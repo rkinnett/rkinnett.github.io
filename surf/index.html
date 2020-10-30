@@ -47,16 +47,16 @@
 </body>
 
 
-
+<script scr="./libs/jquery.min.js"></script>
 <script src="//cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
 <script>
 function playM3U8(src){
-	if(isMobile()){
+	//if(isMobile()){
 		playM3U8byNative(src);
-	}else{
-		playM3U8byHlsJS(src);
-	}
+	//}else{
+	//	playM3U8byHlsJS(src);
+	//}
 }
 
 function isMobile(){
@@ -67,7 +67,9 @@ function playM3U8byNative(src){
 	var html='<video id="player" controls autoplay>';
 	html+='<source src="'+src+'" type="application/x-mpegurl">'
 	html+='<source src="'+src+'" type="video/mp4">'
-	html+='</video>';$('#player').replaceWith(html);return;
+	html+='</video>';
+	$('#player').replaceWith(html);
+	return;
 }
 
 function playM3U8byHlsJS(src){
@@ -76,7 +78,7 @@ function playM3U8byHlsJS(src){
 	var hls = new Hls();
 	hls.attachMedia(video);
 	hls.on(Hls.Events.MEDIA_ATTACHED, function(){
-		console.log("video and hls.js are now bound together !");
+		console.log("video and hls.js are now bound together");
 		hls.loadSource(src);
 		hls.on(Hls.Events.MANIFEST_PARSED,function(event,data){
 			console.log("manifest loaded, found "+data.levels.length+" quality level");
