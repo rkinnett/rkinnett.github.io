@@ -83,6 +83,12 @@ function playM3U8byHlsJS(src){
 			video.play();
 		});
 	});
+	hls.on(Hls.Events.ERROR, function (event, data) {
+		console.log("hls error:  " + data.details);
+		message.innerText = "hls error:  " + data.details;
+		console.log(event);
+		console.log(data);
+	});
 }
 
 function changecam() {
