@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1,shrink-to-fit=no">
+	<title>Surfcams</title>
+	<style>
+		#camcontainer { position: relative; width: 100%; padding-bottom: 56%; }
+		#camselect { font-weight:bold; font-size:14px; }
+		#message {font-weight:bold; font-size:14px; }
+	</style>
+</head>
+
+
+<body>
+	<select id="camselect" onchange="changecam()" > <--- this is function in .js
+		<option value="hbss"> HB Pier South </option>
+		<option value="elporto"> El Porto </option>
+		<option value="elportoclose"> El Porto Close-Up </option>
+		<option value="elportofixed"> El Porto North </option>
+		<!-- <option value="4203"> County Line </option> -->
+		<!-- <option value="135846"> County Line Overview </option> -->
+		<!-- <option value="4223"> HB Pier North </option> -->
+		<option value="cstreetov"> C Street </option>
+		<option value="venturapoint"> Ventura Point </option>
+		<option value="malibu"> Malibu </option>
+		<option value="topangaclose"> Topanga </option>
+		<option value="zumaov"> Zuma </option>
+		<option value="saltcreek"> Salt Creek </option>
+		<option value="tstreet"> T Street </option>
+		<option value="morro"> Morro Bay </option>
+		<!-- <option value="4188"> Steamer Lane </option> -->
+		<!-- <option value="4152"> Mavericks </option> -->
+		<!-- <option value="4750"> Pipeline </option> -->
+		<option value="pipelineov"> Pipeline Overview </option>
+		<!-- <option value="4751"> Backdoor </option> -->
+		<!-- <option value="133984"> Backdoor Overview </option> -->
+		<option value="sunsetpoint"> Sunset </option>
+		<option value="waimea"> Waimea Bay </option>
+		<option value="waimeabaysb"> Waimea Overview </option>
+	</select>
+	<br>
+	<div id="message"> </div>
+	<video id="camcontainer" autoplay=""  muted="muted"/>
+
+</body>
+
+
+
+<script src="//cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<script>
+function playM3U8(src){
+	if(isMobile()){
+		playM3U8byNative(src);
+	}else{
+		playM3U8byHlsJS(src);
+	}
+}
+
+function isMobile(){
+	return(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+}
+
+function playM3U8byNative(src){
+	var html='<video id="player" controls autoplay>';
+	html+='<source src="'+src+'" type="application/x-mpegurl">'
+	html+='<source src="'+src+'" type="video/mp4">'
+	html+='</video>';$('#player').replaceWith(html);return;
+}
+
+function playM3U8byHlsJS(src){
+	console.log("playM3U8byHlsJS:  playing source: " + src);
+	var video = document.getElementById('camcontainer');
+	var hls = new Hls();
+	hls.attachMedia(video);
+	hls.on(Hls.Events.MEDIA_ATTACHED, function(){
+		console.log("video and hls.js are now bound together !");
+		hls.loadSource(src);
+		hls.on(Hls.Events.MANIFEST_PARSED,function(event,data){
+			console.log("manifest loaded, found "+data.levels.length+" quality level");
+			video.play();
+		});
+	});
+}
+
+function changecam() {
+	var cammenu = document.getElementById('camselect');
+	var camname = cammenu.options[cammenu.selectedIndex].value;
+	vidurl = "https://cams.cdn-surfline.com/cdn-wc/wc-" + camname + "/chunklist.m3u8";
+	playM3U8(vidurl);
+}
+	
+
+</script>
+</html>
