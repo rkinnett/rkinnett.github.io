@@ -49,14 +49,20 @@
 
 <script>
 
+message = document.getElementById('message');
+
 player=videojs("video");
+player.on('error', function() {
+  console.log(player.error());
+  message.innerText = player.error();
+});
 player.play();
 
-
 function changecam() {
+	player.pause();
 	var cammenu = document.getElementById('camselect');
 	var camname = cammenu.options[cammenu.selectedIndex].value;
-	vidurl = "https://cams.cdn-surfline.com/cdn-wc/wc-" + camname + "/chunklist.m3u8";
+	vidurl = "http://alloworigin.com/get?url=https://cams.cdn-surfline.com/cdn-wc/wc-" + camname + "/chunklist.m3u8";
 	player.src({ type: 'application/x-mpegurl', src: vidurl });
 	player.play();
 }
