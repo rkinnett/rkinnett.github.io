@@ -48,6 +48,8 @@
 		animate: false,
 		mirror:  false,
 		mapFile: 'color_map_mgs_2k.jpg',
+    labels_sel: 'coarse',
+    labels_opacity: 0.5,
 		cameraDist: 7,
 		sunPlaneDist: 60,
 	};
@@ -69,21 +71,21 @@
 	camera.position.x = options.cameraDist;
 	console.log(camera);
 
-	var renderer = new THREE.WebGLRenderer();
+	renderer = new THREE.WebGLRenderer();
 	renderer.setSize(width, height);
 
 	scene.add(new THREE.AmbientLight(0x222222));
 
-	var light = new THREE.PointLight(0xffffff, 1, 1000, 1);
+	light = new THREE.PointLight(0xffffff, 1, 1000, 1);
 	light.position.set(0,0,options.sunPlaneDist);
 	camera.add(light);
 	scene.add(camera);
 
-    var globe = createGlobe(radius, segments);
+  globe = createGlobe(radius, segments);
 	globe.rotation.y = rotation; 
 	scene.add(globe);
 
-    var labels = createLabels(radius*1.02, segments);
+  labels = createLabels(radius*1.02, segments);
 	labels.rotation.y = rotation;
 	scene.add(labels);
 
@@ -92,7 +94,7 @@
 	scene.add(stars);
 	console.log(scene);
 
-	var controls = new THREE.TrackballControls(camera, renderer.domElement);
+  controls = new THREE.OrbitControls( camera, renderer.domElement );
 
 	webglEl.appendChild(renderer.domElement);
 
@@ -106,8 +108,9 @@
 	gui.add(globe.rotation, 'y', 0, 6.2832).listen().name("planet rotation").onChange(function(val){labels.rotation.y=val});
 	gui.add(options, 'animate').listen();
 	gui.add(options, 'mirror').listen().onChange(function(boolMirror){ setMirroring(boolMirror) });
-	gui.add(labels.material, 'opacity',0,1).listen().name("labels opacity");
 	gui.add(options, 'mapFile',mapFiles).listen().name("Base map").onChange(function(){changeMap()});
+  gui.add(options, 'labels_sel',["none","coarse","fine"]).listen().name("Labels").onChange(function(){changeLabels()});
+  gui.add(options, 'labels_opacity',0,1).listen().name("labels opacity").onChange(function(){labels.material.opacity = options.labels_opacity});
 	gui.add(globe.material, 'bumpScale',0,0.1).listen().name("texture scale");
 	gui.add(globe.material.color, 'r',0.6,1).listen().name("red");
 	gui.add(globe.material.color, 'g',0.6,1).listen().name("green");
@@ -247,13 +250,39 @@
 			reverseTexture();
 		}
 	}
+  
+  function changeLabels(){
+		console.log("changing labels: " + options.labels_sel);
+    if(options.labels_sel=="none"){
+      object.material.transparent = true;
+    } else {
+      labels.material.transparent = false;
+      var labelfile = 'images/' + options.labels_sel + '_labels.png';
+      console.log("loading file:  " + labelfile);      
+      labels.material = new THREE.MeshPhongMaterial({
+				map:         THREE.ImageUtils.loadTexture('images/' + options.labels_sel + '_labels.png'),
+				transparent: true,
+				opacity:     0.5,
+				side:        THREE.DoubleSide,
+			})
+    }
+		labels.material.opacity = options.labels_opacity;
+    
+		if(options.mirror){
+			reverseTexture();
+		}
+	}
 	
 	function setMirroring(boolMirror){
 		if(boolMirror){
 			labels.material.map = THREE.ImageUtils.loadTexture('images/labels_inv.png');
+      controls.rotateSpeed = -1;
+      controls.dynamicDampingFactor = -0.2;
 			webglEl.style.transform = "scaleX(-1)";
 		} else {
-			labels.material.map = THREE.ImageUtils.loadTexture('images/labels.png');
+      controls.rotateSpeed = 1;
+      controls.dynamicDampingFactor = 0.2;
+			labels.material.map = THREE.ImageUtils.loadTexture('images/' + options.labels_sel + '_labels.png');
 			webglEl.style.transform = "scaleX(1)";
 		}
 	}
@@ -286,7 +315,7 @@
 		return new THREE.Mesh(
 			new THREE.SphereGeometry(radius, segments, segments),
 			new THREE.MeshPhongMaterial({
-				map:         THREE.ImageUtils.loadTexture('images/labels.png'),
+				map:         THREE.ImageUtils.loadTexture('images/' + options.labels_sel + '_labels.png'),
 				transparent: true,
 				opacity:     0.5,
 				side:        THREE.DoubleSide,
