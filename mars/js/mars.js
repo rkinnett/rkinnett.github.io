@@ -254,7 +254,7 @@
   function changeLabels(){
 		console.log("changing labels: " + options.labels_sel);
     if(options.labels_sel=="none"){
-      object.material.transparent = true;
+      labels.material.dispose();
     } else {
       labels.material.transparent = false;
       var labelfile = 'images/' + options.labels_sel + '_labels.png';
