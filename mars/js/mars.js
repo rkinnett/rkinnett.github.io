@@ -189,7 +189,7 @@ function showPointOfInterestInfo(index){
     poiCaption.innerHTML += info[i];
     poiCaption.innerHTML += " <br />"
   }
-  if(data_urls[index]) poiCaption.innerHTML += '<a href="' + data_urls[index] + '"\>Reference</a> <br />';
+  if(data_urls[index]) poiCaption.innerHTML += '<a href="' + data_urls[index] + '" target="_blank">Reference</a> <br />';
   if(data_imgs[index]) {
     var imgurl = 'https://www.google.com/mars/' + data_imgs[index];  
     document.getElementById('poi_image').src = imgurl;
