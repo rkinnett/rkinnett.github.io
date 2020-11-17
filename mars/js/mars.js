@@ -71,7 +71,7 @@ options = {
   g: 1,
   b: 1,
   initToCurrent: false,
-  showPins: false,
+  showPins: true,
 };
 
 ephem = {
@@ -210,12 +210,14 @@ function onDocumentMouseMove( event ) {
     const res = intersects.filter( function ( res ) {
       return res && res.object;
     } )[ 0 ];
-    if ( res && res.object ) {
+    var cameraDistToOrigin = Math.sqrt( camera.position.x*camera.position.x + camera.position.y*camera.position.y + camera.position.z*camera.position.z);
+    if ( res && res.object && res.distance < cameraDistToOrigin) {
       var prevSelectedObjectIndex = selectedObject ? selectedObject.name : -1;
       selectedObject = res.object;
+      //console.log(res);
       var selectedObjectIndex = selectedObject.name;
       if(prevSelectedObjectIndex != selectedObjectIndex){
-        console.log(selectedObjectIndex, prevSelectedObjectIndex)
+        console.log(selectedObjectIndex, prevSelectedObjectIndex);
         showPointOfInterestInfo(selectedObjectIndex);
       }
     }
