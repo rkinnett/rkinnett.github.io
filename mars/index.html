@@ -17,6 +17,7 @@
 	<title>Mars View</title>
 	<style>
 		body { margin: 0; overflow: hidden; background-color: #000; 
+      font-family: "Lucida Console", Monaco, monospace;
 			-webkit-user-select: none;
 			-webkit-touch-callout: none;
 			-moz-user-select: none;
@@ -30,8 +31,91 @@
 		.webgl-error { font: 15px/30px monospace; text-align: center; color: #fff; margin: 50px; }
 		.webgl-error a { color: #fff; }
 		.unselectable {
-		
 		}
+    #overlay {
+      position: fixed; /* Sit on top of the page content */
+      display: none; /* Hidden by default */
+      width: 100%; /* Full width (cover the whole page) */
+      height: 100%; /* Full height (cover the whole page) */
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.8); /* Black background with opacity */
+      z-index: 2; /* Specify a stack order in case you're using a different order for other elements */
+      cursor: pointer; /* Add a pointer on hover */
+    }
+    .astext {
+      background:none;
+      border:none;
+      margin:0;
+      padding:0;
+      cursor: pointer;
+    }
+    button {
+      outline:none;
+      color: #3DF;
+      position: absolute;
+      z-index: 99;
+      left: 5px;
+      bottom: 5px;
+      text-shadow: 0px 0px 8px #3DF;
+      user-select: none;
+      -webkit-user-select: none; /* Safari */        
+      -moz-user-select: none; /* Firefox */
+    }
+    #info {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%,-50%);
+      -ms-transform: translate(-50%,-50%);
+    }
+    h {
+      font-size: 36px;
+      color: white;
+      text-decoration-line: underline;
+      text-decoration-style: solid;
+    }
+    p {
+      font-size: 16px;
+      color: #aaa;
+    }
+    
+    canvas {
+      width: 100%;
+      height: 100px;
+      display: block;
+    }
+
+    #annotation {
+      display: inline-block;
+      position: absolute;
+      left: 0;
+      z-index: 1;
+      margin-left: 15px;
+      margin-top: 15px;
+      padding: 1em;
+      /*width: 260px;*/
+      color: #ddd;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: .5em;
+      font-size: 12px;
+      line-height: 1.2;
+      transition: opacity .5s;
+    }
+    
+    #poi_info {
+      display: inline-block;
+      color: #aaa;
+      font-size: 12px;
+    }
+    
+    #POILabel {
+      position: absolute;
+      z-index: -1;
+    }
+    
     </style>
 	
 	<script>
@@ -52,14 +136,46 @@
 		});
 	</script>
 	
+
+  
 </head>
 <body>
+  <!-- Make Information Panel -->
+  <button class="astext" id="ack_button" onclick="overlayOn()">Acknowledgements</button>
+  
+  <div id="overlay" onclick="overlayOff()">
+    <div id="info">
+      <h>Credits</h>
+      <p>Created by Ryan Kinnett</p>
+      <p>Points of interest provided by <a href="https://www.google.com/mars/">Google Mars</a></p>
+      <p>Fine labels provided by <a href="http://my-favourite-universe.blogspot.com/2012/06/topograficka-mapa-marsu.html">Daniel Macháček</a>.</p>
+      <p>Base map sources as indicated in filenames.</p>
+    </div>
+  </div>
+
+  <!-- Make Point-of-Interest Label Object -->  
+  <div id="annotation">
+    <div id="poi_info">Information</div>
+    <img src="" id="poi_image">
+  </div>  
+  
+  
+  <!-- Make webgl canvas for Mars scene -->
 	<div id="webgl"></div>
+  
+  
+  
 	<script src="js/jquery.min.js"></script>
 	<script src="js/dat.gui.min.js"></script>
-	<script src="js/three.min.js"></script>
+  <script src="js/mars_data.js"></script>
+	<!-- <script src="js/three.min.js"></script> -->
 	<script src="js/Detector.js"></script>		
-  <script src="js/OrbitControls.js"></script>
-	<script src="js/mars.js"></script>  
+	<script type="module" src="js/mars.js"></script>  
+  
+  <script>
+  function overlayOn() {  document.getElementById("overlay").style.display = "block"; }
+  function overlayOff() { document.getElementById("overlay").style.display = "none";  }
+  </script>
+  
 </body>
 </html>
