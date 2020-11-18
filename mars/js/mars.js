@@ -152,8 +152,8 @@ function init(){
 
 
   var gui = new dat.GUI();
-  gui.add(light.position, 'y', -90, 90).listen().name("sun az");
-  gui.add(light.position, 'z', -15, 15).listen().name("sun el");
+  gui.add(light.position, 'x', -90, 90).listen().name("sun az");
+  gui.add(light.position, 'y', -15, 15).listen().name("sun el");
   gui.add(options, 'rotation', 0, 6.2832).listen().name("planet rotation").onChange(function(val){ GlobeGroup.rotation.z = val; });
   gui.add(options, 'northUp').listen().name("north up").onChange(function(){ setPoleOrientation() });
   gui.add(options, 'mirror').listen().onChange(function(boolMirror){ setMirroring(boolMirror) });
