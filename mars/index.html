@@ -14,7 +14,7 @@
 	<meta name="msapplication-config" content="images/favicon/browserconfig.xml">
 	<meta name="theme-color" content="#ffffff">
 	
-	<title>Mars View</title>
+	<title>Mars Explorer</title>
 	<style>
 		body { margin: 0; overflow: hidden; background-color: #000; 
       font-family: "Lucida Console", Monaco, monospace;
@@ -32,6 +32,18 @@
 		.webgl-error a { color: #fff; }
 		.unselectable {
 		}
+    
+    #webgl {
+      position: fixed;
+      width: 100%; /* Full width (cover the whole page) */
+      height: 100%; /* Full height (cover the whole page) */
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: -1;
+    }
+    
     #overlay {
       position: fixed; /* Sit on top of the page content */
       display: none; /* Hidden by default */
@@ -48,37 +60,44 @@
     .astext {
       background:none;
       border:none;
-      margin:0;
+      margin: 5px;
       padding:0;
       cursor: pointer;
-    }
-    button {
       outline:none;
-      color: #3DF;
-      position: absolute;
-      z-index: 99;
-      left: 5px;
-      bottom: 5px;
-      text-shadow: 0px 0px 8px #3DF;
       user-select: none;
       -webkit-user-select: none; /* Safari */        
       -moz-user-select: none; /* Firefox */
     }
+    #ack_button {
+      z-index: 99;
+      font-family: Monospace;
+      text-shadow: 0px 0px 8px #3DF;
+      color: #3DF;
+      position: absolute;
+      left: 0px;
+      bottom: 0px;
+    }
+    
     #info {
       position: absolute;
+      width: 50%;
+      height: 50%;
       top: 50%;
       left: 50%;
       transform: translate(-50%,-50%);
       -ms-transform: translate(-50%,-50%);
     }
     h {
-      font-size: 36px;
+      text-indent: 0px;
+      font-size: 24px;
+      padding-top: 3em;
       color: white;
       text-decoration-line: underline;
       text-decoration-style: solid;
     }
+
     p {
-      font-size: 16px;
+      font-size: 14px;
       color: #aaa;
     }
     
@@ -89,20 +108,33 @@
     }
 
     #annotation {
-      display: inline-block;
       position: absolute;
-      left: 0;
-      z-index: 1;
-      margin-left: 15px;
-      margin-top: 15px;
-      padding: 1em;
-      /*width: 260px;*/
+      margin: 5px;
+      padding: 5px;
       color: #ddd;
       background: rgba(0, 0, 0, 0.6);
       border-radius: .5em;
       font-size: 12px;
       line-height: 1.2;
       transition: opacity .5s;
+    }
+    #poi_container {
+      top: 0;
+      left: 0;
+      margin: 10px;
+      padding: 4px;
+      z-index: 200;
+    }
+    #status_container {
+      text-shadow: 0px 0px 8px rgba(255, 255, 255, 0.1);
+      color: orange;
+      margin: 5px;
+      position: absolute;
+      right: 0px;
+      z-index: 98;
+      bottom: 0px;
+      //opacity: 0.5;
+      font-size: 12px;
     }
     
     #poi_info {
@@ -140,25 +172,31 @@
   
 </head>
 <body>
-  <!-- Make Information Panel -->
-  <button class="astext" id="ack_button" onclick="overlayOn()">Acknowledgements</button>
-  
+  <!-- Make Acknowledgments Panel -->
+  <button class="astext" id="ack_button" onclick="overlayOn()">About</button>
   <div id="overlay" onclick="overlayOff()">
     <div id="info">
-      <h>Credits</h>
-      <p>Created by Ryan Kinnett</p>
-      <p>Points of interest provided by <a href="https://www.google.com/mars/">Google Mars</a></p>
+      <h>Mars Explorer</h>
+      <p>This open-source Mars viewer is intended to help amateur astronomers and planetary photographers identify surface features they see in an eyepiece or in images.</p>
+      <br/>
+      <hr/>
+      <br/>
+      <h>Acknowledgements</h>
+      <p>Created by Ryan Kinnett.</p>
+      <p>Points of interest provided by <a href="https://www.google.com/mars/">Google Mars</a>.</p>
       <p>Fine labels provided by <a href="http://my-favourite-universe.blogspot.com/2012/06/topograficka-mapa-marsu.html">Daniel Macháček</a>.</p>
       <p>Base map sources as indicated in filenames.</p>
     </div>
   </div>
 
   <!-- Make Point-of-Interest Label Object -->  
-  <div id="annotation">
+  <div class="annotation" id="poi_container">
     <div id="poi_info">Information</div>
     <img src="" id="poi_image">
   </div>  
   
+  <!-- Make Loading Status Object -->  
+  <div class="annotation" id="status_container">Initializing</div>  
   
   <!-- Make webgl canvas for Mars scene -->
 	<div id="webgl"></div>

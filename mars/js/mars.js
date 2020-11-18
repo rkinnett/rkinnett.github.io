@@ -44,10 +44,11 @@ const webglEl = document.getElementById('webgl');
   return;
 }*/
 
-window.addEventListener( 'resize', onWindowResize, false );
+window.addEventListener( 'resize', onWindowResize, {passive: true}, false );
 
 var width  = document.documentElement.clientWidth,
   height = document.documentElement.clientHeight;
+  
 
 // Globe params
 var globe_radius   = 0.5,
@@ -58,7 +59,6 @@ var globe_radius   = 0.5,
   radsPerDeg = Math.PI/180;
 
 options = {
-  animate: false,
   mirror:  false,
   mapFile: 'color_map_mgs_2k.jpg',
   labels_sel: 'coarse',
@@ -72,6 +72,9 @@ options = {
   b: 1,
   initToCurrent: false,
   showPins: true,
+  shininess: 15,
+  northUp: true,
+  showCoordFrame: false,
 };
 
 ephem = {
@@ -83,92 +86,135 @@ ephem = {
   SunSubLon: null,
 }
 
+startLoadingManager();
+
 init();
 
 
 function init(){
-  loadEphemData(true);
-
+  console.log("initializing renderer");
+  renderer = new THREE.WebGLRenderer();
+  renderer.setSize(width, height);
+  webglEl.appendChild(renderer.domElement);
+  
+  console.log("checking capabilities");
+  const linearFloatTexturesSupported = (renderer.extensions.get('OES_texture_float_linear') != null);
+  console.log("OES_texture_float_linear supported? " + linearFloatTexturesSupported);
 
   scene = new THREE.Scene();
-  // createCoordAxes(scene, globe_radius*2);
+  
+  camera = new THREE.PerspectiveCamera(15, width/height, 0.01, 500);
+  camera.position.x = options.cameraDist;
+  camera.up.set(0,0,1);
+  console.log(camera);
+  scene.add(camera);
+
+  light = new THREE.PointLight(0xffffff, 1, 1000, 1);
+  light.rotateX(Math.PI/2);  // reorient to z-up
+  light.position.set(options.sunPlaneDist,0,0);
+  camera.add(light);
+
+  scene.add(new THREE.AmbientLight(0x222222));  // faint background light
   
   GlobeGroup = new THREE.Group();
   scene.add(GlobeGroup);
   // createCoordAxes(GlobeGroup, globe_radius*1.5);
 
-
-  camera = new THREE.PerspectiveCamera(15, width/height, 0.01, 500);
-  camera.position.x = options.cameraDist;
-  camera.up.set(0,0,1);
-  console.log(camera);
-
-  renderer = new THREE.WebGLRenderer();
-  renderer.setSize(width, height);
-
-  scene.add(new THREE.AmbientLight(0x222222));
-
-  light = new THREE.PointLight(0xffffff, 1, 1000, 1);
-  light.position.set(0,0,options.sunPlaneDist);
-  camera.add(light);
-  scene.add(camera);
-
   globe = new THREE.Mesh();
   createGlobe(globe_radius, segments);
-
   // createCoordAxes(globe, globe_radius*1.1);
 
-  labels = new THREE.Mesh();
-  createLabels(globe_radius*1.02, segments);
+  const GlobeCoordAxes = createCoordAxes(scene, globe_radius*1.2);
+  GlobeCoordAxes.visible = options.showCoordFrame;
+  scene.remove(GlobeCoordAxes);
+  GlobeGroup.add(GlobeCoordAxes);
 
-  PointsOfInterest = new THREE.Group();
-  pins = new THREE.Group();
-  createPins(globe_radius*1.02, globe_radius*0.01, 0x66ddff);
 
 
   var stars = createStars(400, 64);
 
-  console.log(scene);
+  labels = new THREE.Mesh();
+  createLabels(globe_radius*1.01, segments);
 
   controls = new OrbitControls( camera, renderer.domElement );
-
-  controls.enablePan = false;  // doesn't work until I switch to newer orbitcontrols library
-
-  webglEl.appendChild(renderer.domElement);
+  //controls.enablePan = false;
 
   var ephemQueryNowFcn = { add:function(){ showNow() }};
   var ephemQueryUtcFcn = { add:function(){ showSpecificTime()  }};
 
 
   var gui = new dat.GUI();
-  gui.add(light.position, 'x', -90, 90).listen().name("sun az");
-  gui.add(light.position, 'y', -15, 15).listen().name("sun el");
+  gui.add(light.position, 'y', -90, 90).listen().name("sun az");
+  gui.add(light.position, 'z', -15, 15).listen().name("sun el");
   gui.add(options, 'rotation', 0, 6.2832).listen().name("planet rotation").onChange(function(val){ GlobeGroup.rotation.z = val; });
-  gui.add(options, 'animate').listen();
+  gui.add(options, 'northUp').listen().name("north up").onChange(function(){ setPoleOrientation() });
   gui.add(options, 'mirror').listen().onChange(function(boolMirror){ setMirroring(boolMirror) });
+  gui.add(options, 'showPins').listen().name("Show pins").onChange(function(){ togglePins() });
+  gui.add(options, 'showCoordFrame').listen().name("Show coordinate frame").onChange(function(val){ GlobeCoordAxes.visible = val });
   gui.add(options, 'mapFile',mapFiles).listen().name("Base map").onChange(function(){changeMap()});
   gui.add(options, 'labels_sel',["none","coarse","fine"]).listen().name("Labels").onChange(function(){changeLabels()});
   gui.add(options, 'labels_opacity',0,1).listen().name("labels opacity").onChange(function(){labels.material.opacity = options.labels_opacity});
-  gui.add(options, 'bumpScale',0,0.1).listen().name("texture scale").onChange(function(val){globe.material.bumpscale=val;});
+  gui.add(options, 'bumpScale',0,0.1).listen().name("texture scale").onChange(function(val){globe.material.bumpScale=val;});
   gui.add(options, 'r',0.6,1).listen().name("red").onChange(function(val){globe.material.color.r=val;});
   gui.add(options, 'g',0.6,1).listen().name("green").onChange(function(val){globe.material.color.g=val;});
   gui.add(options, 'b',0.6,1).listen().name("blue").onChange(function(val){globe.material.color.b=val;});
-  gui.add(options, 'showPins').listen().name("Show pins").onChange(function(){ togglePins() });
   gui.add(ephemQueryNowFcn,'add').name("Show now");
   gui.add(ephemQueryUtcFcn,'add').name("Show specific time");
 
 
+  PointsOfInterest = new THREE.Group();
+  pins = new THREE.Group();
+  if(linearFloatTexturesSupported) createPins(globe_radius*1.02, globe_radius*0.01, 0x66ddff);
+
   render();
 
+  console.log(scene);
+  
+  loadEphemData(showNow);
+
   window.globals = {camera, controls, scene, renderer, ephem, options, light, globe, labels, pins, GlobeGroup};
-	window.addEventListener( "mousemove", onDocumentMouseMove, false );
+	window.addEventListener( "mousemove", onDocumentMouseMove, {passive: true}, false );
+}
+
+
+function startLoadingManager(){
+  const status = document.getElementById('status_container');
+  THREE.DefaultLoadingManager.onStart = function ( url, itemsLoaded, itemsTotal ) {
+    console.log( 'Started loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+    status.style.color = "orange";
+    status.innerText = "Loading";
+  };
+  THREE.DefaultLoadingManager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
+    console.log( 'Loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+  };
+  THREE.DefaultLoadingManager.onLoad = function ( ) {
+    console.log( 'Loading Complete!');
+    status.style.color = "green";
+    status.innerText = "Ready";
+  };
+}
+
+
+function setPoleOrientation(){
+  var sceneRotatedBefore = (scene.rotation.y != 0);
+  console.log("setting view orientation to north-up: " + options.northUp);
+  scene.rotation.y = options.northUp ? 0 : Math.PI;
+  controls.rotateSpeed = options.northUp ? 1 : -1;
+  console.log("controls rotate speed:  " + controls.rotateSpeed);
+  var sceneRotatedAfter = (scene.rotation.y != 0);
+  var toggled = (sceneRotatedBefore != sceneRotatedAfter);
+  console.log("scene rotated");
+  if(toggled) {
+    light.position.y *= -1;
+    light.position.x *= -1;
+  }
 }
 
 
 
 
 function togglePins(){
-  document.getElementById('annotation').display = options.showPins ? 'block' : 'none';
+  document.getElementById('poi_container').display = options.showPins ? 'block' : 'none';
   pins.visible = options.showPins;
   PointsOfInterest.visible = options.showPins;
 }
@@ -177,13 +223,14 @@ function togglePins(){
 
 function showPointOfInterestInfo(index){
   var poiCaption = document.getElementById('poi_info');
-  console.log(poiCaption);
+  //console.log(poiCaption);
+  console.log(data[index]);
   const info = data[index].split("#");
-  console.log(info);
+  //console.log(info);
   poiCaption.innerHTML = "";
   document.getElementById('poi_image').src = "";
-  console.log(feature_types[data_type[index]]);
-  console.log(data_type[index]);
+  //console.log(feature_types[data_type[index]]);
+  //console.log(data_type[index]);
   poiCaption.innerHTML += "Feature type:  " + feature_types[data_type[index]] + " <br />";
   for(var i=0; i<info.length; i++){
     poiCaption.innerHTML += info[i];
@@ -203,7 +250,7 @@ function onDocumentMouseMove( event ) {
   if(!options.showPins){
     return;
   }
-  event.preventDefault();
+  //event.preventDefault();
   const intersects = getIntersects( event.layerX, event.layerY, PointsOfInterest );
 
   if ( intersects.length > 0 ) {
@@ -217,7 +264,7 @@ function onDocumentMouseMove( event ) {
       //console.log(res);
       var selectedObjectIndex = selectedObject.name;
       if(prevSelectedObjectIndex != selectedObjectIndex){
-        console.log(selectedObjectIndex, prevSelectedObjectIndex);
+        //console.log(selectedObjectIndex, prevSelectedObjectIndex);
         showPointOfInterestInfo(selectedObjectIndex);
       }
     }
@@ -272,7 +319,7 @@ function makeTextSprite(message, opts) {
   
   // make border:
   context.beginPath();
-  context.arc(centerX, centerY, radius + borderLineWidth/2, 0, 2 * Math.PI, false);
+  context.arc(centerX, centerY, radius + borderLineWidth/2 -4, 0, 2 * Math.PI, false);
   context.lineWidth = borderLineWidth;
   context.strokeStyle = bordercolor;
   context.stroke();
@@ -370,7 +417,9 @@ function interpolateEphemeris(dateQuery){
   console.log(ephem);
 }
 
-function loadEphemData(){
+function loadEphemData(callback){
+  console.log("callback: " + callback);
+  console.log("typeof callback: " + (typeof callback));
   console.log("loading ephemeris file");
   $.getJSON('js/ephem.json')
   .done(function(data) { 
@@ -379,6 +428,7 @@ function loadEphemData(){
     console.log("testing ephem lookup:  ");
     console.log(data["2020-01-01 06:00"][0]); // test	
     ephem.loaded = true;
+    if(typeof callback == 'function' ) callback();
   })
   .fail(function(jqXHR, textStatus, errorThrown) {
     console.log("error " + textStatus);
@@ -403,22 +453,29 @@ function renderEphemeris(){
     
   // move light source (in camera frame) according to interpolated sun direction
   var deltaLonEarthSun = ephem.ObsSubLon - ephem.SunSubLon;
-  console.log(deltaLonEarthSun);
   var deltaLatEarthSun = ephem.ObsSubLat - ephem.SunSubLat;
-  console.log(deltaLatEarthSun);
-  var camPosX = 2*options.sunPlaneDist*Math.sin(deltaLonEarthSun*radsPerDeg);
-  console.log(camPosX);
-  var camPosY = -2*options.sunPlaneDist*Math.sin(deltaLatEarthSun*radsPerDeg);
-  console.log(camPosY);
-  light.position.set(camPosX, camPosY, options.sunPlaneDist);
+  console.log("setting sun position to lat " + deltaLatEarthSun + ", lon " + deltaLonEarthSun);
+  // this is in camera frame where 
+  /*light.position.set(
+    options.sunPlaneDist,
+    options.sunPlaneDist * Math.sin(deltaLonEarthSun*radsPerDeg),
+    options.sunPlaneDist * Math.sin(deltaLatEarthSun*radsPerDeg),
+  );*/
+  // this is in camera frame, where +Y is up, +X is right, +Z is forward 
+  light.position.set(
+    options.sunPlaneDist * Math.sin(deltaLonEarthSun*radsPerDeg) * 1.5 * (options.northUp ? 1 : -1) ,
+    options.sunPlaneDist * Math.sin(deltaLatEarthSun*radsPerDeg) *-1.5 * (options.northUp ? 1 : -1),
+    options.sunPlaneDist,
+  );
+  console.log(light.position);
 }
 
 
 function changeMap(){
   var mapfile = 'images/' + options.mapFile;
-  console.log("changing base map to: images/" + options.mapFile);
+  console.log("changing base map to: " + mapfile);
   globe.material.map = new THREE.TextureLoader().load(mapfile);
-
+  globe.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
   if(options.mirror){
     reverseTexture();
   }
@@ -436,6 +493,7 @@ function changeLabels(){
     
     const loader = new THREE.TextureLoader();
     loader.load(labelfile, (texture) => {
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
       const material = new THREE.MeshLambertMaterial({
         map:        texture,
         transparent: true,
@@ -468,40 +526,38 @@ function setMirroring(boolMirror){
 
 function render() {
   controls.update();
-  if(options.animate) {
-    globe.rotation.z += 0.0005;
-    labels.rotation.z += 0.0005;
-  }
   requestAnimationFrame(render);
   renderer.render(scene, camera);
 }
 
 function createGlobe(radius, segments) {
   console.log("making globe");
-  console.log("loading bump map");
-  const dem = new THREE.TextureLoader().load( 'images/mars_bump_map_4k_adj.jpg' );
+  
+  // Load elevation model first:
   const loader = new THREE.TextureLoader();
-  var texturefilename = 'images/' + options.mapFile;
-  console.log("loading base map " + texturefilename);
-  loader.load(texturefilename, (texture) => {
+  const bumpMapFile = 'images/mars_bump_map_4k_adj.jpg';
+  console.log("loading bump map " + bumpMapFile);
+  loader.load(bumpMapFile, (bumpmap) => {
+    //const dem = new THREE.TextureLoader().load( 'images/mars_bump_map_4k_adj.jpg' );
     console.log("making material");
     const material = new THREE.MeshPhongMaterial({
-      shininess:  15,
-      map:        texture,
-      bumpMap:    dem,
+      shininess:  options.shininess,
+      //map:        texture,
+      bumpMap:    bumpmap,
       bumpScale:  0.01,
       side:       THREE.DoubleSide,
     });
-    console.log("creating geometry");
     const geometry = new THREE.SphereGeometry(radius, segments, segments);
     globe = new THREE.Mesh(geometry, material);
-    //globe.geometry.rotateY(Math.PI/2);  // reorient to z-up
     globe.rotateX(Math.PI/2);  // reorient to z-up
-    console.log(globe);
     globe.rotation.z = options.rotation; 
     GlobeGroup.add(globe);
     globeLoaded = true;
     if(options.initToCurrent && labelsLoaded) {console.log("calling showNow from createGlobe"); showNow(); }
+
+    // Load base map
+    changeMap();
+    //console.log(globe);
   });
 }
 
@@ -512,11 +568,10 @@ function createLabels(radius, segments) {
   const loader = new THREE.TextureLoader();
   loader.load(texturefilename, (texture) => {
     const material = new THREE.MeshLambertMaterial({
-      map:        texture,
+      map:         texture,
       transparent: true,
       opacity:     0.5,
       side:        THREE.DoubleSide,
-      emissivity:  1
     });
     const geometry = new THREE.SphereGeometry(radius, segments, segments);
     labels = new THREE.Mesh(geometry, material);
@@ -606,6 +661,7 @@ function createCoordAxes(parent, vector_length){
   coord_axes.add(coord_axis);
 
   parent.add(coord_axes);
+  return coord_axes;
 }
 
 
