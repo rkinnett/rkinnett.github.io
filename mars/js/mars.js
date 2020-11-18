@@ -550,57 +550,55 @@ function render() {
 
 function createGlobe(radius, segments) {
   console.log("making globe");
-  
-  // Load elevation model first:
-  const loader = new THREE.TextureLoader();
+  const geometry = new THREE.SphereGeometry(radius, segments, segments);
+  const material = new THREE.MeshPhongMaterial({
+    shininess:  options.shininess,
+    bumpScale:  options.bumpScale,
+    side:       THREE.DoubleSide,
+    minFilter:  THREE.LinearFilter,
+  });
+  globe = new THREE.Mesh(geometry, material);
+  globe.rotateX(Math.PI/2);  // reorient to z-up
+  globe.rotation.z = options.rotation; 
+  GlobeGroup.add(globe);
+  globeLoaded = true;
+
+  if(options.initToCurrent && labelsLoaded) {console.log("calling showNow from createGlobe"); showNow(); }
+
+  // Load elevation model:  
   const bumpMapFile = 'images/mars_bump_map_4k_adj.jpg';
   console.log("loading bump map " + bumpMapFile);
-  loader.load(bumpMapFile, (bumpmap) => {
-    //const dem = new THREE.TextureLoader().load( 'images/mars_bump_map_4k_adj.jpg' );
-    console.log("making material");
-    const material = new THREE.MeshPhongMaterial({
-      shininess:  options.shininess,
-      //map:        texture,
-      bumpMap:    bumpmap,
-      bumpScale:  0.01,
-      side:       THREE.DoubleSide,
-    });
-    const geometry = new THREE.SphereGeometry(radius, segments, segments);
-    globe = new THREE.Mesh(geometry, material);
-    globe.rotateX(Math.PI/2);  // reorient to z-up
-    globe.rotation.z = options.rotation; 
-    GlobeGroup.add(globe);
-    globeLoaded = true;
-    if(options.initToCurrent && labelsLoaded) {console.log("calling showNow from createGlobe"); showNow(); }
+  globe.material.bumpMap = new THREE.TextureLoader().load(bumpMapFile);
 
-    // Load base map
-    changeMap();
-    //console.log(globe);
-  });
+  // Load base map
+  changeMap();
+  //console.log(globe);
 }
 
 
 function createLabels(radius, segments) {
   console.log("making labels");
-  var texturefilename = 'images/' + options.labels_sel + '_labels.png';
-  const loader = new THREE.TextureLoader();
-  loader.load(texturefilename, (texture) => {
-    const material = new THREE.MeshLambertMaterial({
-      map:         texture,
-      transparent: true,
-      opacity:     0.5,
-      side:        THREE.DoubleSide,
-    });
-    const geometry = new THREE.SphereGeometry(radius, segments, segments);
-    labels = new THREE.Mesh(geometry, material);
-    console.log(labels);
-    //labels.geometry.rotateY(Math.PI/2);  // reorient to z-up
-    labels.rotateX(Math.PI/2);  // reorient to z-up
-    labels.rotation.z = options.rotation; 
-    GlobeGroup.add(labels);
-    labelsLoaded = true;
-    if(options.initToCurrent && globeLoaded) {console.log("calling showNow from createGlobe"); showNow()};
+  const geometry = new THREE.SphereGeometry(radius, segments, segments);
+  const material = new THREE.MeshBasicMaterial({
+    transparent: true,
+    opacity:     options.labels_opacity,
+    side:        THREE.DoubleSide,
+    minFilter:  THREE.LinearFilter,
   });
+  labels = new THREE.Mesh(geometry, material);  
+  labels.rotateX(Math.PI/2);  // reorient to z-up
+  labels.rotation.z = options.rotation; 
+  GlobeGroup.add(labels);
+  labelsLoaded = true;
+  if(options.initToCurrent && globeLoaded) {console.log("calling showNow from createGlobe"); showNow()};
+
+  // require either coarse or fine labels selection
+  if(options.labels_sel!="fine" && options.labels_sel!="coarse"){ return; }
+  
+  // load labels map file as texture:
+  var texturefilename = 'images/' + options.labels_sel + '_labels.png';
+  console.log("loading labels file: " + texturefilename);
+  labels.material.map = new THREE.TextureLoader().load(texturefilename);
 }
 
 function createStars(radius) {
