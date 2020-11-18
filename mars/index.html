@@ -109,7 +109,6 @@
 
     #annotation {
       position: absolute;
-      margin: 5px;
       padding: 5px;
       color: #ddd;
       background: rgba(0, 0, 0, 0.6);
@@ -118,13 +117,7 @@
       line-height: 1.2;
       transition: opacity .5s;
     }
-    #poi_container {
-      top: 0;
-      left: 0;
-      margin: 10px;
-      padding: 4px;
-      z-index: 200;
-    }
+
     #status_container {
       text-shadow: 0px 0px 8px rgba(255, 255, 255, 0.1);
       color: orange;
@@ -136,17 +129,30 @@
       //opacity: 0.5;
       font-size: 12px;
     }
-    
+
+    #poi_container {
+      position: absolute;
+      padding: 12px;
+      margin-left: 10px;
+      margin-top: 10px;
+      color: #eee;
+      background: rgba(0, 0, 0, 0.6);
+      top: 0;
+      left: 0;
+      padding: 4px;
+      z-index: 50;
+      border-radius: 10px;
+    }    
     #poi_info {
       display: inline-block;
       color: #aaa;
       font-size: 12px;
+      margin: 8px;
+    }
+    #poi_image {
+      margin: 8px;
     }
     
-    #POILabel {
-      position: absolute;
-      z-index: -1;
-    }
     
     </style>
 	

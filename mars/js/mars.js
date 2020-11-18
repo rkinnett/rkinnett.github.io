@@ -37,12 +37,12 @@ const mapFiles = [
 ];
 
 
-
 const webglEl = document.getElementById('webgl');
 /*if (!Detector.webgl) {
   Detector.addGetWebGLMessage(webglEl);
   return;
 }*/
+
 
 window.addEventListener( 'resize', onWindowResize, {passive: true}, false );
 
@@ -96,6 +96,15 @@ function init(){
   renderer = new THREE.WebGLRenderer();
   renderer.setSize(width, height);
   webglEl.appendChild(renderer.domElement);
+
+  console.log(renderer);
+  renderer.domElement.addEventListener("webglcontextlost", function(event){  
+    event.preventDefault();
+    //cancelRequestAnimationFrame(requestId);
+    alert("webgl crashed?");
+    console.log("webgl crashed?");
+    console.log(event);
+  }, false);
   
   console.log("checking capabilities");
   const linearFloatTexturesSupported = (renderer.extensions.get('OES_texture_float_linear') != null);
@@ -103,7 +112,7 @@ function init(){
 
   scene = new THREE.Scene();
   
-  camera = new THREE.PerspectiveCamera(15, width/height, 0.01, 500);
+  camera = new THREE.PerspectiveCamera(15, width/height, 0.01, 250);
   camera.position.x = options.cameraDist;
   camera.up.set(0,0,1);
   console.log(camera);
@@ -129,16 +138,15 @@ function init(){
   scene.remove(GlobeCoordAxes);
   GlobeGroup.add(GlobeCoordAxes);
 
-
-
-  var stars = createStars(400, 64);
+  var stars = createStars(200);
 
   labels = new THREE.Mesh();
   createLabels(globe_radius*1.01, segments);
 
-  controls = new OrbitControls( camera, renderer.domElement );
+  controls = new OrbitControls(camera, renderer.domElement );
   //controls.enablePan = false;
 
+  // need these for gui controls:
   var ephemQueryNowFcn = { add:function(){ showNow() }};
   var ephemQueryUtcFcn = { add:function(){ showSpecificTime()  }};
 
@@ -172,7 +180,7 @@ function init(){
   
   loadEphemData(showNow);
 
-  window.globals = {camera, controls, scene, renderer, ephem, options, light, globe, labels, pins, GlobeGroup};
+  window.globals = {webglEl, camera, controls, scene, renderer, ephem, options, light, globe, labels, pins, GlobeGroup};
 	window.addEventListener( "mousemove", onDocumentMouseMove, {passive: true}, false );
 }
 
@@ -493,15 +501,25 @@ function changeLabels(){
     
     const loader = new THREE.TextureLoader();
     loader.load(labelfile, (texture) => {
+      console.log("loaded labels; setting anisotropy");
       texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      console.log("applying texture to material");
       const material = new THREE.MeshLambertMaterial({
         map:        texture,
         transparent: true,
         opacity:     options.labels_opacity,
         side:        THREE.DoubleSide,
       });
+      console.log("applied texture to material");
+      console.log("applying texture to labels object");
       labels.material = material;
+      console.log("requesting anim frame");
+      requestAnimationFrame(render);
+      console.log("making visible");
       labels.visible = true;
+      console.log("requesting anim frame");
+      requestAnimationFrame(render);
+      console.log("done");      
     });      
   }
   
@@ -585,7 +603,7 @@ function createLabels(radius, segments) {
   });
 }
 
-function createStars(radius, segments) {
+function createStars(radius) {
   console.log("making stars");		
   const loader = new THREE.TextureLoader();
   loader.load('images/starfield.jpg', (texture) => {
@@ -596,7 +614,7 @@ function createStars(radius, segments) {
       map: texture,
       side: THREE.BackSide
     });
-    const geometry = new THREE.SphereGeometry(radius, segments, segments);
+    const geometry = new THREE.SphereGeometry(radius, 64, 64);
     stars = new THREE.Mesh(geometry, material);
     stars.rotateX(Math.PI/2);  // reorient to z-up
     console.log(stars);
