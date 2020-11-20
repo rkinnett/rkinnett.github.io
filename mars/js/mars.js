@@ -219,16 +219,16 @@ function setupKeyControls() {
     console.log("Button pressed: " + e.keyCode);
     switch (e.keyCode) {
       case 37:  // left arrow
-      scene.rotation.z += 0.1;
+      GlobeGroup.rotateZ(0.001);
       break;
       case 38: // up arrow
-      scene.rotation.y -= 0.1;
+      //GlobeGroup.rotation.y -= 0.1;
       break;
       case 39: // right arrow
-      scene.rotation.z -= 0.1;
+      GlobeGroup.rotateZ(-0.001);
       break;
       case 40: //down arrow
-      scene.rotation.y += 0.1;
+      //GlobeGroup.rotation.y += 0.1;
       break;
     }
   };
