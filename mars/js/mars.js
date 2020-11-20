@@ -8,7 +8,7 @@
 import * as THREE from "https://threejs.org/build/three.module.js";
 import { OrbitControls } from "https://threejs.org/examples/jsm/controls/OrbitControls.js";
 
-let camera, controls, scene, renderer, ephem, options, light, globe, labels, pins, PointsOfInterest, stars, GlobeGroup;
+let camera, controls, scene, renderer, ephem, options, sun, globe, labels, pins, PointsOfInterest, stars, GlobeGroup, fakeSun, sunVec;
 
 let selectedObject = null;
 
@@ -75,6 +75,8 @@ options = {
   shininess: 15,
   northUp: true,
   showCoordFrame: false,
+  subSunLat: 0,
+  subSunLon: 0,
 };
 
 ephem = {
@@ -96,6 +98,7 @@ function init(){
   renderer = new THREE.WebGLRenderer();
   renderer.setSize(width, height);
   webglEl.appendChild(renderer.domElement);
+  setupKeyControls();
 
   console.log(renderer);
   renderer.domElement.addEventListener("webglcontextlost", function(event){  
@@ -118,12 +121,7 @@ function init(){
   console.log(camera);
   scene.add(camera);
 
-  light = new THREE.PointLight(0xffffff, 1, 1000, 1);
-  light.rotateX(Math.PI/2);  // reorient to z-up
-  light.position.set(options.sunPlaneDist,0,0);
-  camera.add(light);
-
-  scene.add(new THREE.AmbientLight(0x222222));  // faint background light
+  scene.add(new THREE.AmbientLight(0x111111));  // faint background light
   
   GlobeGroup = new THREE.Group();
   scene.add(GlobeGroup);
@@ -137,6 +135,19 @@ function init(){
   GlobeCoordAxes.visible = options.showCoordFrame;
   scene.remove(GlobeCoordAxes);
   GlobeGroup.add(GlobeCoordAxes);
+
+  // make a fake sun (useful for troubleshooting sun positioning):
+  fakeSun = new THREE.Mesh(new THREE.SphereBufferGeometry(0.1, 32, 24), new THREE.MeshBasicMaterial({ color: "yellow" }));
+  fakeSun.position.set(globe_radius*1.2, 0, 0);
+  //scene.add(fakeSun);
+  
+  sun = new THREE.PointLight(0xffffff, 1, 1000, 1);
+  sun.rotateX(Math.PI/2);  // reorient to z-up
+  sun.position.set(options.sunPlaneDist,0,0);
+  camera.add(sun);
+  //placeSun();
+
+  sunVec = fakeSun.position;
 
   var stars = createStars(200);
 
@@ -152,8 +163,8 @@ function init(){
 
 
   var gui = new dat.GUI();
-  gui.add(light.position, 'x', -90, 90).listen().name("sun az");
-  gui.add(light.position, 'y', -15, 15).listen().name("sun el");
+  gui.add(options, 'subSunLon', -360, 360).listen().name("sun az").onChange(function(val){placeSun()});
+  gui.add(options, 'subSunLat', -26, 26).listen().name("sun el").onChange(function(val){placeSun()});
   gui.add(options, 'rotation', 0, 6.2832).listen().name("planet rotation").onChange(function(val){ GlobeGroup.rotation.z = val; });
   gui.add(options, 'northUp').listen().name("north up").onChange(function(){ setPoleOrientation() });
   gui.add(options, 'mirror').listen().onChange(function(boolMirror){ setMirroring(boolMirror) });
@@ -180,7 +191,7 @@ function init(){
   
   loadEphemData(showNow);
 
-  window.globals = {webglEl, camera, controls, scene, renderer, ephem, options, light, globe, labels, pins, GlobeGroup};
+  window.globals = {webglEl, camera, controls, scene, renderer, ephem, options, sun, globe, labels, pins, GlobeGroup, fakeSun, sunVec};
 	window.addEventListener( "mousemove", onDocumentMouseMove, {passive: true}, false );
 }
 
@@ -203,6 +214,27 @@ function startLoadingManager(){
 }
 
 
+function setupKeyControls() {
+  document.onkeydown = function(e) {
+    console.log("Button pressed: " + e.keyCode);
+    switch (e.keyCode) {
+      case 37:  // left arrow
+      scene.rotation.z += 0.1;
+      break;
+      case 38: // up arrow
+      scene.rotation.y -= 0.1;
+      break;
+      case 39: // right arrow
+      scene.rotation.z -= 0.1;
+      break;
+      case 40: //down arrow
+      scene.rotation.y += 0.1;
+      break;
+    }
+  };
+}
+
+
 function setPoleOrientation(){
   var sceneRotatedBefore = (scene.rotation.y != 0);
   console.log("setting view orientation to north-up: " + options.northUp);
@@ -213,12 +245,10 @@ function setPoleOrientation(){
   var toggled = (sceneRotatedBefore != sceneRotatedAfter);
   console.log("scene rotated");
   if(toggled) {
-    light.position.y *= -1;
-    light.position.x *= -1;
+    sun.position.y *= -1;
+    sun.position.x *= -1;
   }
 }
-
-
 
 
 function togglePins(){
@@ -227,7 +257,54 @@ function togglePins(){
   PointsOfInterest.visible = options.showPins;
 }
 
+function onDocumentMouseMove( event ) {
+  //event.preventDefault();
+  
+  if(options.showPins){
+    const intersects = getIntersects( event.layerX, event.layerY, PointsOfInterest );
+    if ( intersects.length > 0 ) {
+      const res = intersects.filter( function(res){
+        return res && res.object;
+      } )[ 0 ];
+      var cameraDistToOrigin = Math.sqrt( camera.position.x*camera.position.x + camera.position.y*camera.position.y + camera.position.z*camera.position.z);
+      if ( res && res.object && res.distance < cameraDistToOrigin) {
+        var prevSelectedObjectIndex = selectedObject ? selectedObject.name : -1;
+        selectedObject = res.object;
+        //console.log(res);
+        var selectedObjectIndex = selectedObject.name;
+        if(prevSelectedObjectIndex != selectedObjectIndex){
+          //console.log(selectedObjectIndex, prevSelectedObjectIndex);
+          showPointOfInterestInfo(selectedObjectIndex);
+        }
+      }
+    }
+  } else {
+    const intersects = getIntersects( event.layerX, event.layerY, globe );
+    if(intersects.length>0){
+      var pointOfIntersection = intersects[0].point;
+      //console.log(pointOfIntersection);
+      document.getElementById('poi_image').src = "";
+      const poiCaption = document.getElementById('poi_info');
+      poiCaption.innerHTML = "";
+      //poiCaption.innerHTML += "x:   " + pointOfIntersection.x.toFixed(5) + ' <br>';
+      //poiCaption.innerHTML += "y:   " + pointOfIntersection.y.toFixed(5) + ' <br>';
+      //poiCaption.innerHTML += "z:   " + pointOfIntersection.z.toFixed(5) + ' <br>';
+      poiCaption.innerHTML += "lat: " + (Math.asin(pointOfIntersection.z/globe_radius)/radsPerDeg).toFixed(2) + ' <br>';
+      poiCaption.innerHTML += "lon: " + (Math.atan2(pointOfIntersection.y, pointOfIntersection.x)/radsPerDeg).toFixed(2) + ' <br>';
+    }
+  }
+}
 
+const raycaster = new THREE.Raycaster();
+const mouseVector = new THREE.Vector3();
+
+function getIntersects( x, y, group) {
+  x = ( x / window.innerWidth ) * 2 - 1;
+  y = - ( y / window.innerHeight ) * 2 + 1;
+  mouseVector.set( x, y, 0.5 );
+  raycaster.setFromCamera( mouseVector, camera );
+  return raycaster.intersectObject( group, true );
+}
 
 function showPointOfInterestInfo(index){
   var poiCaption = document.getElementById('poi_info');
@@ -250,48 +327,6 @@ function showPointOfInterestInfo(index){
     document.getElementById('poi_image').src = imgurl;
   }
 }
-
-
-
-
-function onDocumentMouseMove( event ) {
-  if(!options.showPins){
-    return;
-  }
-  //event.preventDefault();
-  const intersects = getIntersects( event.layerX, event.layerY, PointsOfInterest );
-
-  if ( intersects.length > 0 ) {
-    const res = intersects.filter( function ( res ) {
-      return res && res.object;
-    } )[ 0 ];
-    var cameraDistToOrigin = Math.sqrt( camera.position.x*camera.position.x + camera.position.y*camera.position.y + camera.position.z*camera.position.z);
-    if ( res && res.object && res.distance < cameraDistToOrigin) {
-      var prevSelectedObjectIndex = selectedObject ? selectedObject.name : -1;
-      selectedObject = res.object;
-      //console.log(res);
-      var selectedObjectIndex = selectedObject.name;
-      if(prevSelectedObjectIndex != selectedObjectIndex){
-        //console.log(selectedObjectIndex, prevSelectedObjectIndex);
-        showPointOfInterestInfo(selectedObjectIndex);
-      }
-    }
-  }
-}
-
-
-const raycaster = new THREE.Raycaster();
-const mouseVector = new THREE.Vector3();
-
-function getIntersects( x, y, group) {
-  x = ( x / window.innerWidth ) * 2 - 1;
-  y = - ( y / window.innerHeight ) * 2 + 1;
-  mouseVector.set( x, y, 0.5 );
-  raycaster.setFromCamera( mouseVector, camera );
-  return raycaster.intersectObject( group, true );
-}
-
-
 
 function makeTextSprite(message, opts) {
   var parameters = opts || {};
@@ -444,39 +479,43 @@ function loadEphemData(callback){
   })
 }
 
-
 function renderEphemeris(){
   console.log("Rendering ephemeris");
   console.log(ephem);
   
-  // set globe z-axis rotation to sub-observer longitude:
-  GlobeGroup.rotation.z  = ephem.ObsSubLon*radsPerDeg;
-  
-  // tilt camera to sub-observer latitude:
-  camera.position.set(
-    options.cameraDist*Math.cos(ephem.ObsSubLat*radsPerDeg),
-    0,
-    options.cameraDist*Math.sin(ephem.ObsSubLat*radsPerDeg),
-  );
+  // place camera to sub-observer lat/lon
+  placeCamera(ephem.ObsSubLat, ephem.ObsSubLon);
     
-  // move light source (in camera frame) according to interpolated sun direction
-  var deltaLonEarthSun = ephem.ObsSubLon - ephem.SunSubLon;
-  var deltaLatEarthSun = ephem.ObsSubLat - ephem.SunSubLat;
-  console.log("setting sun position to lat " + deltaLatEarthSun + ", lon " + deltaLonEarthSun);
-  // this is in camera frame where 
-  /*light.position.set(
-    options.sunPlaneDist,
-    options.sunPlaneDist * Math.sin(deltaLonEarthSun*radsPerDeg),
-    options.sunPlaneDist * Math.sin(deltaLatEarthSun*radsPerDeg),
-  );*/
-  // this is in camera frame, where +Y is up, +X is right, +Z is forward 
-  light.position.set(
-    options.sunPlaneDist * Math.sin(deltaLonEarthSun*radsPerDeg) * 1.5 * (options.northUp ? 1 : -1) ,
-    options.sunPlaneDist * Math.sin(deltaLatEarthSun*radsPerDeg) *-1.5 * (options.northUp ? 1 : -1),
-    options.sunPlaneDist,
-  );
-  console.log(light.position);
+  // move sun to sub-sun lat/lon
+  options.subSunLat = ephem.SunSubLat;
+  options.subSunLon = ephem.SunSubLon;
+  placeSun();
 }
+
+function placeCamera(lat, lon){
+  GlobeGroup.rotation.z = 0; // re-center globe
+  console.log("setting camera position to lat " + lat + ", lon " + lon);
+  camera.position.set(
+    options.cameraDist * Math.cos(-1*lon*radsPerDeg) * Math.cos(lat*radsPerDeg),
+    options.cameraDist * Math.sin(-1*lon*radsPerDeg) * Math.cos(lat*radsPerDeg),
+    options.cameraDist * Math.sin(lat*radsPerDeg),
+  );
+  controls.update();
+  console.log(camera.position);
+}
+
+function placeSun(){
+  console.log("setting sun position to lat " + options.subSunLat + ", lon " + options.subSunLon);
+  scene.add(sun);
+  sun.position.set(
+    options.sunPlaneDist * Math.cos(-1*options.subSunLon*radsPerDeg) * Math.cos(options.subSunLat*radsPerDeg),
+    options.sunPlaneDist * Math.sin(-1*options.subSunLon*radsPerDeg) * Math.cos(options.subSunLat*radsPerDeg),
+    options.sunPlaneDist * Math.sin(options.subSunLat*radsPerDeg),
+  );
+  camera.attach(sun);
+  console.log(fakeSun.position);
+}
+
 
 
 function changeMap(){
@@ -575,7 +614,6 @@ function createGlobe(radius, segments) {
   //console.log(globe);
 }
 
-
 function createLabels(radius, segments) {
   console.log("making labels");
   const geometry = new THREE.SphereGeometry(radius, segments, segments);
@@ -656,8 +694,6 @@ function createPins(vector_length, pinhead_radius, pin_color) {
   GlobeGroup.add(PointsOfInterest);
 }
 
-
-
 function createCoordAxes(parent, vector_length){ 
   const coord_axes = new THREE.Group();
 
@@ -689,29 +725,4 @@ function onWindowResize(){
   camera.updateProjectionMatrix();
   renderer.setSize( width, height );
 }
-
-
-/*
-function updateScreenPosition(offset) {
-  let styleString;
-  let poi = new THREE.Vector3(
-  this.props.annotationPositions[i].position3D.x,
-  this.props.annotationPositions[i].position3D.y + offset,
-  this.props.annotationPositions[i].position3D.z 
-
-  poi.project(this.camera);
-  poi.x = Math.round((0.5 + poi.x / 2) * this.renderer.domElement.width);
-  poi.y = Math.round((0.5 - poi.y / 2) * this.renderer.domElement.height);
-   
-  styleString = "top: " + poi.y + "px; left: " + poi.x + "px;";
-  this.annotations[i].setAttribute(`style`, `${styleString}`);
-}
-
-//z-axis test to reverse position of horizontal annotations (ic1,ic4)
-if (this.camera.position.z < 0 && !this.state.leftSideRotation) 
-  {  this.setState({ leftSideRotation: true });  } 
-else if (this.camera.position.z >= 0 && this.state.leftSideRotation)
-  {  this.setState({ leftSideRotation: false }); }
-};
-*/
 
