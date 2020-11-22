@@ -156,6 +156,7 @@ function init(){
 
   controls = new OrbitControls(camera, renderer.domElement );
   //controls.enablePan = false;
+  controls.enableKeys = false;
 
   // need these for gui controls:
   var ephemQueryNowFcn = { add:function(){ showNow() }};
@@ -216,22 +217,47 @@ function startLoadingManager(){
 
 function setupKeyControls() {
   document.onkeydown = function(e) {
-    console.log("Button pressed: " + e.keyCode);
+    const nudgeAngle = e.shiftKey? 0.01 : 0.001;
+    console.log("Button pressed: " + (e.shiftKey?"shift+":"") + e.keyCode);
     switch (e.keyCode) {
       case 37:  // left arrow
-      GlobeGroup.rotateZ(0.001);
+      nudgeCamera("left", nudgeAngle);
       break;
       case 38: // up arrow
+      nudgeCamera("up", nudgeAngle);      
       //GlobeGroup.rotation.y -= 0.1;
       break;
       case 39: // right arrow
-      GlobeGroup.rotateZ(-0.001);
+      nudgeCamera("right", nudgeAngle);
+      //GlobeGroup.rotateZ(-0.01);
       break;
       case 40: //down arrow
+      nudgeCamera("down", nudgeAngle);
       //GlobeGroup.rotation.y += 0.1;
       break;
     }
   };
+}
+
+function nudgeCamera(direction, angle){
+  const rotAxis = new THREE.Vector3();
+  switch(direction){
+    case "up":
+      rotAxis.set(camera.position.y, -1*camera.position.x, 0);
+      break;
+    case "down":
+      rotAxis.set(-1*camera.position.y, camera.position.x, 0);
+      break;
+    case "left":
+      rotAxis.set(0, 0, -1);
+      break;
+    case "right":
+      rotAxis.set(0, 0, 1);
+      break;
+    default:
+      return;
+  }
+  GlobeGroup.rotateOnAxis( rotAxis.normalize(), angle);
 }
 
 
