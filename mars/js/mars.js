@@ -166,7 +166,7 @@ function init(){
   // need these for gui controls:
   var ephemQueryNowFcn = { add:function(){ showNow() }};
   var ephemQueryUtcFcn = { add:function(){ showSpecificTime()  }};
-  var openSearchFeatureFcn = { add:function(){ openSearchFeature()  }};
+  var searchForFeatureFcn = { add:function(){ searchForFeature()  }};
 
 
   var gui = new dat.GUI();
@@ -186,7 +186,7 @@ function init(){
   gui.add(options, 'b',0.6,1).listen().name("blue").onChange(function(val){globe.material.color.b=val;});
   gui.add(ephemQueryNowFcn,'add').name("Show now");
   gui.add(ephemQueryUtcFcn,'add').name("Show specific time");
-  gui.add(openSearchFeatureFcn,'add').name("Search");
+  gui.add(searchForFeatureFcn,'add').name("Search");
 
 
   PointsOfInterest = new THREE.Group();
@@ -211,7 +211,7 @@ function init(){
 
 
 
-function openSearchFeature(){
+function searchForFeature(){
   var searchPhrase = prompt("Search word/phrase:").toLowerCase();
   console.log("Search function input dialog response:  " + searchPhrase);
 
@@ -225,8 +225,8 @@ function openSearchFeature(){
   for(var i=0; i<poi_names.length; i++) {
     if (poi_names[i].toLowerCase().match(searchPhrase)){
       console.log("found it! (" + i + ":" + poi_names[i] + ")");
-      console.log("going to " + data_lats[i] + "N, " + data_lons[i] + "E");
-      placeCamera(data_lats[i], data_lons[i]);
+      console.log("going to " + data_lats[i] + "N, " + (360-data_lons[i])%360 + "W");
+      placeCamera(data_lats[i], (360-data_lons[i])%360);
       showPointOfInterestInfo(i);
       return;
     }
@@ -277,7 +277,7 @@ function setupKeyControls() {
       break;
       
       case 70:
-      if(e.ctrlKey) openSearchFeature();
+      if(e.ctrlKey) searchForFeature();
       e.preventDefault();
       break; 
       
