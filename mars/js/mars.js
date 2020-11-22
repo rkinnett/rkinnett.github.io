@@ -43,6 +43,8 @@ const webglEl = document.getElementById('webgl');
   return;
 }*/
 
+const touch_enabled = ( 'ontouchstart' in window ) ||  ( navigator.maxTouchPoints > 0 ) || ( navigator.msMaxTouchPoints > 0 ); 
+console.log("touch enabled: " + touch_enabled);
 
 window.addEventListener( 'resize', onWindowResize, {passive: true}, false );
 
@@ -109,9 +111,12 @@ function init(){
     console.log(event);
   }, false);
   
+  /*
+  // Detect if client browser OES_texture_float_linear (i.g. to avoid ios errors)
   console.log("checking capabilities");
   const linearFloatTexturesSupported = (renderer.extensions.get('OES_texture_float_linear') != null);
   console.log("OES_texture_float_linear supported? " + linearFloatTexturesSupported);
+  */
 
   scene = new THREE.Scene();
   
@@ -184,7 +189,9 @@ function init(){
 
   PointsOfInterest = new THREE.Group();
   pins = new THREE.Group();
-  if(linearFloatTexturesSupported) createPins(globe_radius*1.02, globe_radius*0.01, 0x66ddff);
+  //PointsOfInterest = new THREE.Points();
+  //if(linearFloatTexturesSupported) createPins(globe_radius*1.02, globe_radius*0.01, 0x66ddff);
+  createPins(globe_radius*1.02, 0.003, 0x66ddff);
 
   render();
 
@@ -192,9 +199,12 @@ function init(){
   
   loadEphemData(showNow);
 
-  window.globals = {webglEl, camera, controls, scene, renderer, ephem, options, sun, globe, labels, pins, GlobeGroup, fakeSun, sunVec};
+  window.globals = {webglEl, camera, controls, scene, renderer, ephem, options, sun, globe, labels, pins, PointsOfInterest, GlobeGroup, fakeSun, sunVec};
 	window.addEventListener( "mousemove", onDocumentMouseMove, {passive: true}, false );
+ // window.addEventListener( "mouseclick", onDocumentClick, {passive: true}, false );
+  if(touch_enabled) window.addEventListener('touchend', onTouch, false);
 }
+
 
 
 function startLoadingManager(){
@@ -284,42 +294,64 @@ function togglePins(){
 }
 
 function onDocumentMouseMove( event ) {
-  //event.preventDefault();
-  
   if(options.showPins){
-    const intersects = getIntersects( event.layerX, event.layerY, PointsOfInterest );
-    if ( intersects.length > 0 ) {
-      const res = intersects.filter( function(res){
-        return res && res.object;
-      } )[ 0 ];
-      var cameraDistToOrigin = Math.sqrt( camera.position.x*camera.position.x + camera.position.y*camera.position.y + camera.position.z*camera.position.z);
-      if ( res && res.object && res.distance < cameraDistToOrigin) {
-        var prevSelectedObjectIndex = selectedObject ? selectedObject.name : -1;
-        selectedObject = res.object;
-        //console.log(res);
-        var selectedObjectIndex = selectedObject.name;
-        if(prevSelectedObjectIndex != selectedObjectIndex){
-          //console.log(selectedObjectIndex, prevSelectedObjectIndex);
-          showPointOfInterestInfo(selectedObjectIndex);
-        }
-      }
-    }
+    checkPins(event);
   } else {
-    const intersects = getIntersects( event.layerX, event.layerY, globe );
-    if(intersects.length>0){
-      var pointOfIntersection = intersects[0].point;
-      //console.log(pointOfIntersection);
-      document.getElementById('poi_image').src = "";
-      const poiCaption = document.getElementById('poi_info');
-      poiCaption.innerHTML = "";
-      //poiCaption.innerHTML += "x:   " + pointOfIntersection.x.toFixed(5) + ' <br>';
-      //poiCaption.innerHTML += "y:   " + pointOfIntersection.y.toFixed(5) + ' <br>';
-      //poiCaption.innerHTML += "z:   " + pointOfIntersection.z.toFixed(5) + ' <br>';
-      poiCaption.innerHTML += "lat: " + (Math.asin(pointOfIntersection.z/globe_radius)/radsPerDeg).toFixed(2) + ' <br>';
-      poiCaption.innerHTML += "lon: " + (Math.atan2(pointOfIntersection.y, pointOfIntersection.x)/radsPerDeg).toFixed(2) + ' <br>';
-    }
+    showLatLon(event);
   }
 }
+
+function onTouch(event) {
+  console.log("click event");
+  var foundMatch = false;
+  if(options.showPins) {
+    foundMatch = checkPins(event);
+  }
+  if(!foundMatch){
+    showLatLon(event);
+  }
+}
+
+function showLatLon(event){
+  const intersects = getIntersects( event.layerX, event.layerY, globe );
+  if(intersects.length>0){
+    var pointOfIntersection = intersects[0].point;
+    //console.log(pointOfIntersection);
+    document.getElementById('poi_image').src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; //1px transparent image
+    document.getElementById('poi_image').style.visible = false;
+    const poiCaption = document.getElementById('poi_info');
+    poiCaption.innerHTML = "";
+    //poiCaption.innerHTML += "x:   " + pointOfIntersection.x.toFixed(5) + ' <br>';
+    //poiCaption.innerHTML += "y:   " + pointOfIntersection.y.toFixed(5) + ' <br>';
+    //poiCaption.innerHTML += "z:   " + pointOfIntersection.z.toFixed(5) + ' <br>';
+    poiCaption.innerHTML += "lat: " + (Math.asin(pointOfIntersection.z/globe_radius)/radsPerDeg).toFixed(2) + ' <br>';
+    poiCaption.innerHTML += "lon: " + (Math.atan2(pointOfIntersection.y, pointOfIntersection.x)/radsPerDeg).toFixed(2) + ' <br>';
+  }
+}
+
+function checkPins(event){
+  const intersects = getIntersects( event.layerX, event.layerY, PointsOfInterest );
+  //console.log(intersects.length);
+  if ( intersects.length > 0 ) {
+    const res = intersects.filter( function(res){
+      return res && res.object;
+    } )[ 0 ];
+    var cameraDistToOrigin = Math.sqrt( camera.position.x*camera.position.x + camera.position.y*camera.position.y + camera.position.z*camera.position.z);
+    if ( res && res.object && res.distance < cameraDistToOrigin) {
+      var prevSelectedObjectIndex = selectedObject ? selectedObject.name : -1;
+      selectedObject = res.object;
+      //console.log(res);
+      var selectedObjectIndex = selectedObject.name;
+      if(prevSelectedObjectIndex != selectedObjectIndex){
+        //console.log(selectedObjectIndex, prevSelectedObjectIndex);
+        showPointOfInterestInfo(selectedObjectIndex);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 
 const raycaster = new THREE.Raycaster();
 const mouseVector = new THREE.Vector3();
@@ -339,7 +371,8 @@ function showPointOfInterestInfo(index){
   const info = data[index].split("#");
   //console.log(info);
   poiCaption.innerHTML = "";
-  document.getElementById('poi_image').src = "";
+  document.getElementById('poi_image').src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; //1px transparent image
+  document.getElementById('poi_image').style.visible = false;
   //console.log(feature_types[data_type[index]]);
   //console.log(data_type[index]);
   poiCaption.innerHTML += "Feature type:  " + feature_types[data_type[index]] + " <br />";
@@ -349,7 +382,9 @@ function showPointOfInterestInfo(index){
   }
   if(data_urls[index]) poiCaption.innerHTML += '<a href="' + data_urls[index] + '" target="_blank">Reference</a> <br />';
   if(data_imgs[index]) {
-    var imgurl = 'https://www.google.com/mars/' + data_imgs[index];  
+    var imgurl = 'https://www.google.com/mars/' + data_imgs[index];
+    console.log("showing info image: " + imgurl);
+    document.getElementById('poi_image').style.visible = true;
     document.getElementById('poi_image').src = imgurl;
   }
 }
@@ -685,8 +720,15 @@ function createStars(radius) {
   });
 }
 
-function createPins(vector_length, pinhead_radius, pin_color) {
+function createPins(vector_length, poi_size, pin_color) {
   togglePins();
+
+	const poiMaterial = new THREE.SpriteMaterial( { 
+    sizeAttenuation: false, 
+    map: new THREE.TextureLoader().load('images/poi.png'), 
+    opacity: 0.5,
+  });
+
 
   for(var i=0; i<data_lats.length; i++){
   //for(var i=0; i<200; i++){
@@ -703,19 +745,16 @@ function createPins(vector_length, pinhead_radius, pin_color) {
     const needle = new THREE.Line( needle_geometry, needle_material );
     pins.add(needle);
     
-    // make pinhead:    
-    var point_of_interest = makeTextSprite(i , {
-      position:  pin_position,
-      fontcolor: 'rgba(255, 255, 255, 1)',
-      fillcolor: 'rgba(0, 220, 255, 0.5)',
-      fontsize:  100,
-      bordercolor: 'rgba(0,0,0,0.2)',
-      borderwidth: 1,
-      scale: 0.01
-    });
+    // make pinhead: 
+    var poiGeometry = new THREE.Geometry();
+    poiGeometry.vertices.push(pin_position);
+    var point_of_interest = new THREE.Sprite(poiMaterial);
+    point_of_interest.scale.set(poi_size, poi_size, poi_size);
+    point_of_interest.position.copy(pin_position);
     point_of_interest.name = i;
     PointsOfInterest.add(point_of_interest);
   }
+    
   GlobeGroup.add(pins);
   GlobeGroup.add(PointsOfInterest);
 }
