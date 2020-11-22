@@ -211,7 +211,6 @@ function init(){
 
 
 
-
 function openSearchFeature(){
   var searchPhrase = prompt("Search word/phrase:").toLowerCase();
   console.log("Search function input dialog response:  " + searchPhrase);
