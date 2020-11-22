@@ -1,4 +1,10 @@
 var poi_names = [
+  'Mars 2 Lander (USSR)',
+  'Mars 3 Lander (USSR)',
+  'Mars 6 Lander (USSR)',
+  'Viking 1 Lander (USA)',
+  'Viking 2 Lander (USA)',
+  'Mars Pathfinder Rover (USA)',
   'Mars Polar Lander (USA)',
   'MER Spirit Rover (USA)',
   'MER Opportunity Rover (USA)',

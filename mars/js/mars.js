@@ -166,6 +166,7 @@ function init(){
   // need these for gui controls:
   var ephemQueryNowFcn = { add:function(){ showNow() }};
   var ephemQueryUtcFcn = { add:function(){ showSpecificTime()  }};
+  var openSearchFeatureFcn = { add:function(){ openSearchFeature()  }};
 
 
   var gui = new dat.GUI();
@@ -185,6 +186,7 @@ function init(){
   gui.add(options, 'b',0.6,1).listen().name("blue").onChange(function(val){globe.material.color.b=val;});
   gui.add(ephemQueryNowFcn,'add').name("Show now");
   gui.add(ephemQueryUtcFcn,'add').name("Show specific time");
+  gui.add(openSearchFeatureFcn,'add').name("Search");
 
 
   PointsOfInterest = new THREE.Group();
@@ -203,6 +205,35 @@ function init(){
 	window.addEventListener( "mousemove", onDocumentMouseMove, {passive: true}, false );
  // window.addEventListener( "mouseclick", onDocumentClick, {passive: true}, false );
   if(touch_enabled) window.addEventListener('touchend', onTouch, false);
+}
+
+
+
+
+
+
+function openSearchFeature(){
+  var searchPhrase = prompt("Search word/phrase:");
+  console.log("Search function input dialog response:  " + searchPhrase);
+
+  // handle empty response (cancel)
+  if(searchPhrase == null){
+    console.log("empty response");
+    return;
+  }
+  
+  console.log("searching for feature..");
+  for(var i=0; i<poi_names.length; i++) {
+    if (poi_names[i].match(searchPhrase)){
+      console.log("found it! (" + i + ":" + poi_names[i] + ")");
+      console.log("going to " + data_lats[i] + "N, " + data_lons[i] + "E");
+      placeCamera(data_lats[i], data_lons[i]);
+      showPointOfInterestInfo(i);
+      return;
+    }
+  }
+  
+  alert("Sorry, could not find requested feature.");
 }
 
 
@@ -245,7 +276,16 @@ function setupKeyControls() {
       nudgeCamera("down", nudgeAngle);
       //GlobeGroup.rotation.y += 0.1;
       break;
+      
+      case 70:
+      if(e.ctrlKey) openSearchFeature();
+      e.preventDefault();
+      break; 
+      
     }
+    
+
+    
   };
 }
 
@@ -297,7 +337,7 @@ function onDocumentMouseMove( event ) {
   if(options.showPins){
     checkPins(event);
   } else {
-    showLatLon(event);
+    displayLatLon(event);
   }
 }
 
@@ -308,11 +348,11 @@ function onTouch(event) {
     foundMatch = checkPins(event);
   }
   if(!foundMatch){
-    showLatLon(event);
+    displayLatLon(event);
   }
 }
 
-function showLatLon(event){
+function displayLatLon(event){
   const intersects = getIntersects( event.layerX, event.layerY, globe );
   if(intersects.length>0){
     var pointOfIntersection = intersects[0].point;
@@ -546,11 +586,11 @@ function renderEphemeris(){
   console.log(ephem);
   
   // place camera to sub-observer lat/lon
-  placeCamera(ephem.ObsSubLat, ephem.ObsSubLon);
+  placeCamera(ephem.ObsSubLat, ephem.ObsSubLon*-1);  // ephemerides use west longitude?!
     
   // move sun to sub-sun lat/lon
   options.subSunLat = ephem.SunSubLat;
-  options.subSunLon = ephem.SunSubLon;
+  options.subSunLon = ephem.SunSubLon*-1; // ephemerides use west longitude?!
   placeSun();
 }
 
@@ -558,8 +598,8 @@ function placeCamera(lat, lon){
   GlobeGroup.rotation.z = 0; // re-center globe
   console.log("setting camera position to lat " + lat + ", lon " + lon);
   camera.position.set(
-    options.cameraDist * Math.cos(-1*lon*radsPerDeg) * Math.cos(lat*radsPerDeg),
-    options.cameraDist * Math.sin(-1*lon*radsPerDeg) * Math.cos(lat*radsPerDeg),
+    options.cameraDist * Math.cos(lon*radsPerDeg) * Math.cos(lat*radsPerDeg),
+    options.cameraDist * Math.sin(lon*radsPerDeg) * Math.cos(lat*radsPerDeg),
     options.cameraDist * Math.sin(lat*radsPerDeg),
   );
   controls.update();
@@ -570,8 +610,8 @@ function placeSun(){
   console.log("setting sun position to lat " + options.subSunLat + ", lon " + options.subSunLon);
   scene.add(sun);
   sun.position.set(
-    options.sunPlaneDist * Math.cos(-1*options.subSunLon*radsPerDeg) * Math.cos(options.subSunLat*radsPerDeg),
-    options.sunPlaneDist * Math.sin(-1*options.subSunLon*radsPerDeg) * Math.cos(options.subSunLat*radsPerDeg),
+    options.sunPlaneDist * Math.cos(options.subSunLon*radsPerDeg) * Math.cos(options.subSunLat*radsPerDeg),
+    options.sunPlaneDist * Math.sin(options.subSunLon*radsPerDeg) * Math.cos(options.subSunLat*radsPerDeg),
     options.sunPlaneDist * Math.sin(options.subSunLat*radsPerDeg),
   );
   camera.attach(sun);
@@ -735,6 +775,8 @@ function createPins(vector_length, poi_size, pin_color) {
 
   for(var i=0; i<data_lats.length; i++){
   //for(var i=0; i<200; i++){
+    
+    
     console.log("Pin " + i + " data: " + data[i]);
     const pin_position = new THREE.Vector3(
       vector_length * Math.cos(data_lons[i]*radsPerDeg) * Math.cos(data_lats[i]*radsPerDeg),
