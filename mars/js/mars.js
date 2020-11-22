@@ -213,7 +213,7 @@ function init(){
 
 
 function openSearchFeature(){
-  var searchPhrase = prompt("Search word/phrase:");
+  var searchPhrase = prompt("Search word/phrase:").toLowerCase();
   console.log("Search function input dialog response:  " + searchPhrase);
 
   // handle empty response (cancel)
@@ -224,7 +224,7 @@ function openSearchFeature(){
   
   console.log("searching for feature..");
   for(var i=0; i<poi_names.length; i++) {
-    if (poi_names[i].match(searchPhrase)){
+    if (poi_names[i].toLowerCase().match(searchPhrase)){
       console.log("found it! (" + i + ":" + poi_names[i] + ")");
       console.log("going to " + data_lats[i] + "N, " + data_lons[i] + "E");
       placeCamera(data_lats[i], data_lons[i]);
