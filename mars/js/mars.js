@@ -364,8 +364,8 @@ function displayLatLon(event){
     //poiCaption.innerHTML += "x:   " + pointOfIntersection.x.toFixed(5) + ' <br>';
     //poiCaption.innerHTML += "y:   " + pointOfIntersection.y.toFixed(5) + ' <br>';
     //poiCaption.innerHTML += "z:   " + pointOfIntersection.z.toFixed(5) + ' <br>';
-    poiCaption.innerHTML += "lat: " + (Math.asin(pointOfIntersection.z/globe_radius)/radsPerDeg).toFixed(2) + ' <br>';
-    poiCaption.innerHTML += "lon: " + (Math.atan2(pointOfIntersection.y, pointOfIntersection.x)/radsPerDeg).toFixed(2) + ' <br>';
+    poiCaption.innerHTML += "lat: " + (Math.asin(pointOfIntersection.z/globe_radius)/radsPerDeg).toFixed(2) + 'N <br>';
+    poiCaption.innerHTML += "lon: " + ((Math.atan2(pointOfIntersection.y, pointOfIntersection.x)/radsPerDeg*-1+360)%360).toFixed(2) + 'W <br>';
   }
 }
 
@@ -405,6 +405,9 @@ function getIntersects( x, y, group) {
 }
 
 function showPointOfInterestInfo(index){
+  // note: the data from Google Mars uses non-standard E longitude
+  // ref: https://link.springer.com/article/10.1007/s10569-017-9805-5
+  
   var poiCaption = document.getElementById('poi_info');
   //console.log(poiCaption);
   console.log(data[index]);
@@ -418,7 +421,7 @@ function showPointOfInterestInfo(index){
   //poiCaption.innerHTML += '<b><u>' + poi_names[index] + '</u></b> <br />';
   poiCaption.innerHTML += '<p><b><u>' + info[1] + '</u></b></p>';
   poiCaption.innerHTML += "Type:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + feature_types[data_type[index]] + " <br />";
-  poiCaption.innerHTML += 'Location:&nbsp;&nbsp;&nbsp;' + data_lats[index].toFixed(2) + 'N, ' + data_lons[index].toFixed(2) + 'E <br />';
+  poiCaption.innerHTML += 'Location:&nbsp;&nbsp;&nbsp;' + data_lats[index].toFixed(2) + 'N, ' + ((360-1*data_lons[index])%360).toFixed(2) + 'W <br />';
   poiCaption.innerHTML += "Named in:&nbsp;&nbsp;&nbsp;" + info[0] + " <br />";
   poiCaption.innerHTML += "Named for:&nbsp;&nbsp;" + info[2] + " <br />";
   if(data_urls[index]) poiCaption.innerHTML += '<a href="' + data_urls[index] + '" target="_blank">Reference</a> <br />';
@@ -429,65 +432,6 @@ function showPointOfInterestInfo(index){
     document.getElementById('poi_image').src = imgurl;
   }
 }
-
-function makeTextSprite(message, opts) {
-  var parameters = opts || {};
-  var fontface = parameters.fontface || 'Helvetica';
-  var fontsize = parameters.fontsize || 120;
-  var fontcolor = parameters.fontcolor || 'rgba(0, 0, 0, 1)';
-  var fillcolor = parameters.fillcolor || "rgba(128, 128, 128, 0.8)";
-  var bordercolor = parameters.bordercolor || "rgba(0,0,0,0.8)";
-  var borderwidth = parameters.borderwidth || 1;
-  var canvas = document.createElement('canvas');
-  var context = canvas.getContext('2d');
-  var position = parameters.position || new THREE.Vector3(1,1,1);
-  var scale = parameters.scale || 1;
-  
-  context.font = fontsize + "px " + fontface;
-  var metrics = context.measureText(message);
-  var textWidth = metrics.width;
-  var textHeight = metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent;
-  
-  var borderLineWidth = borderwidth/scale/4;
-  var radius = Math.sqrt(textWidth*textWidth + textHeight*textHeight)/2 * 1.1;
-  canvas.width = radius*2 + borderLineWidth*2;
-  canvas.height = canvas.width;
-  var centerX = canvas.width / 2;
-  var centerY = canvas.height / 2;
-
-  // Make filled circle:
-  context.beginPath();
-  context.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
-  context.fillStyle = fillcolor;
-  context.fill();
-  context.stroke();
-  
-  // make border:
-  context.beginPath();
-  context.arc(centerX, centerY, radius + borderLineWidth/2 -4, 0, 2 * Math.PI, false);
-  context.lineWidth = borderLineWidth;
-  context.strokeStyle = bordercolor;
-  context.stroke();
-
-  // Make text
-  context.textAlign = "center";
-  context.font = fontsize + "px " + fontface;
-  context.fillStyle = fontcolor; // font color
-  context.fillText(message, centerX , centerY + textHeight/2);
-  
-  // canvas contents will be used for a texture
-  var texture = new THREE.Texture(canvas);
-  texture.minFilter = THREE.LinearFilter;
-  texture.needsUpdate = true;
-
-  var spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-  var sprite = new THREE.Sprite( spriteMaterial );
-  sprite.scale.set( scale, scale, scale );
-  sprite.position.copy(position);
-  //sprite.center.set( 0,1 );
-  return sprite;
-}
-
 
 
 function showNow(){
@@ -586,11 +530,11 @@ function renderEphemeris(){
   console.log(ephem);
   
   // place camera to sub-observer lat/lon
-  placeCamera(ephem.ObsSubLat, ephem.ObsSubLon*-1);  // ephemerides use west longitude?!
+  placeCamera(ephem.ObsSubLat, ephem.ObsSubLon);
     
   // move sun to sub-sun lat/lon
   options.subSunLat = ephem.SunSubLat;
-  options.subSunLon = ephem.SunSubLon*-1; // ephemerides use west longitude?!
+  options.subSunLon = ephem.SunSubLon;
   placeSun();
 }
 
@@ -598,8 +542,8 @@ function placeCamera(lat, lon){
   GlobeGroup.rotation.z = 0; // re-center globe
   console.log("setting camera position to lat " + lat + ", lon " + lon);
   camera.position.set(
-    options.cameraDist * Math.cos(lon*radsPerDeg) * Math.cos(lat*radsPerDeg),
-    options.cameraDist * Math.sin(lon*radsPerDeg) * Math.cos(lat*radsPerDeg),
+    options.cameraDist * Math.cos(-1*lon*radsPerDeg) * Math.cos(lat*radsPerDeg),
+    options.cameraDist * Math.sin(-1*lon*radsPerDeg) * Math.cos(lat*radsPerDeg),
     options.cameraDist * Math.sin(lat*radsPerDeg),
   );
   controls.update();
@@ -610,8 +554,8 @@ function placeSun(){
   console.log("setting sun position to lat " + options.subSunLat + ", lon " + options.subSunLon);
   scene.add(sun);
   sun.position.set(
-    options.sunPlaneDist * Math.cos(options.subSunLon*radsPerDeg) * Math.cos(options.subSunLat*radsPerDeg),
-    options.sunPlaneDist * Math.sin(options.subSunLon*radsPerDeg) * Math.cos(options.subSunLat*radsPerDeg),
+    options.sunPlaneDist * Math.cos(-1*options.subSunLon*radsPerDeg) * Math.cos(options.subSunLat*radsPerDeg),
+    options.sunPlaneDist * Math.sin(-1*options.subSunLon*radsPerDeg) * Math.cos(options.subSunLat*radsPerDeg),
     options.sunPlaneDist * Math.sin(options.subSunLat*radsPerDeg),
   );
   camera.attach(sun);
@@ -776,6 +720,8 @@ function createPins(vector_length, poi_size, pin_color) {
   for(var i=0; i<data_lats.length; i++){
   //for(var i=0; i<200; i++){
     
+    // note: the data from Google Mars uses non-standard E longitude
+    // ref: https://link.springer.com/article/10.1007/s10569-017-9805-5
     
     console.log("Pin " + i + " data: " + data[i]);
     const pin_position = new THREE.Vector3(
