@@ -191,7 +191,7 @@ function init(){
   pins = new THREE.Group();
   //PointsOfInterest = new THREE.Points();
   //if(linearFloatTexturesSupported) createPins(globe_radius*1.02, globe_radius*0.01, 0x66ddff);
-  createPins(globe_radius*1.02, 0.003, 0x66ddff);
+  createPins(globe_radius*1.02, 0.004, 0x66ddff);
 
   render();
 
@@ -375,11 +375,12 @@ function showPointOfInterestInfo(index){
   document.getElementById('poi_image').style.visible = false;
   //console.log(feature_types[data_type[index]]);
   //console.log(data_type[index]);
-  poiCaption.innerHTML += "Feature type:  " + feature_types[data_type[index]] + " <br />";
-  for(var i=0; i<info.length; i++){
-    poiCaption.innerHTML += info[i];
-    poiCaption.innerHTML += " <br />"
-  }
+  //poiCaption.innerHTML += '<b><u>' + poi_names[index] + '</u></b> <br />';
+  poiCaption.innerHTML += '<p><b><u>' + info[1] + '</u></b></p>';
+  poiCaption.innerHTML += "Type:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + feature_types[data_type[index]] + " <br />";
+  poiCaption.innerHTML += 'Location:&nbsp;&nbsp;&nbsp;' + data_lats[index].toFixed(2) + 'N, ' + data_lons[index].toFixed(2) + 'E <br />';
+  poiCaption.innerHTML += "Named in:&nbsp;&nbsp;&nbsp;" + info[0] + " <br />";
+  poiCaption.innerHTML += "Named for:&nbsp;&nbsp;" + info[2] + " <br />";
   if(data_urls[index]) poiCaption.innerHTML += '<a href="' + data_urls[index] + '" target="_blank">Reference</a> <br />';
   if(data_imgs[index]) {
     var imgurl = 'https://www.google.com/mars/' + data_imgs[index];
@@ -667,6 +668,8 @@ function createGlobe(radius, segments) {
 
   // Load elevation model:  
   const bumpMapFile = 'images/mars_bump_map_4k_adj.jpg';
+  //const bumpMapFile = 'images/mgs_mola_elevation_map_reduced.jpg';
+  
   console.log("loading bump map " + bumpMapFile);
   globe.material.bumpMap = new THREE.TextureLoader().load(bumpMapFile);
 
