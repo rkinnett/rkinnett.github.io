@@ -111,12 +111,6 @@ function init(){
     console.log(event);
   }, false);
   
-  /*
-  // Detect if client browser OES_texture_float_linear (i.g. to avoid ios errors)
-  console.log("checking capabilities");
-  const linearFloatTexturesSupported = (renderer.extensions.get('OES_texture_float_linear') != null);
-  console.log("OES_texture_float_linear supported? " + linearFloatTexturesSupported);
-  */
 
   scene = new THREE.Scene();
   
@@ -175,8 +169,8 @@ function init(){
   gui.add(options, 'rotation', 0, 6.2832).listen().name("planet rotation").onChange(function(val){ GlobeGroup.rotation.z = val; });
   gui.add(options, 'northUp').listen().name("north up").onChange(function(){ setPoleOrientation() });
   gui.add(options, 'mirror').listen().onChange(function(boolMirror){ setMirroring(boolMirror) });
-  gui.add(options, 'showPins').listen().name("Show pins").onChange(function(){ togglePins() });
-  gui.add(options, 'showCoordFrame').listen().name("Show coordinate frame").onChange(function(val){ GlobeCoordAxes.visible = val });
+  gui.add(options, 'showPins').listen().name("Points of Interest").onChange(function(){ togglePins() });
+  gui.add(options, 'showCoordFrame').listen().name("Coordinate Axes").onChange(function(val){ GlobeCoordAxes.visible = val });
   gui.add(options, 'mapFile',mapFiles).listen().name("Base map").onChange(function(){changeMap()});
   gui.add(options, 'labels_sel',["none","coarse","fine"]).listen().name("Labels").onChange(function(){changeLabels()});
   gui.add(options, 'labels_opacity',0,1).listen().name("labels opacity").onChange(function(){labels.material.opacity = options.labels_opacity});
@@ -410,7 +404,6 @@ function showPointOfInterestInfo(index){
   //console.log(poiCaption);
   console.log(data[index]);
   const info = data[index].split("#");
-  const featureType = data_type[index];
   //console.log(info);
 
   // load thumbnail if available, otherwise use 1px placeholder:
@@ -426,6 +419,7 @@ function showPointOfInterestInfo(index){
 
   // populate description depending on feature type:
   poiCaption.innerHTML = "";
+  const featureType = data_type[index];
   switch(featureType){
     case 'a':  /*spacecraft*/   
       poiCaption.innerHTML += '<p><b>Spacecraft:&nbsp;<a href="' + data_urls[index] + '" target="_blank">' + info[1] + '</a></b></p>';
@@ -727,12 +721,23 @@ function createStars(radius) {
 function createPins(vector_length, poi_size, pin_color) {
   togglePins();
 
-	const poiMaterial = new THREE.SpriteMaterial( { 
+  // make materials:
+  var poiMaterial_generic = new THREE.SpriteMaterial( { 
+    map: new THREE.TextureLoader().load('images/poi.png'),
     sizeAttenuation: false, 
-    map: new THREE.TextureLoader().load('images/poi.png'), 
     opacity: 0.5,
   });
-
+  
+  var poiMaterial_lander = new THREE.SpriteMaterial( { 
+    map:  new THREE.TextureLoader().load('images/poi_lander.png'),
+    sizeAttenuation: false, 
+    opacity: 0.5,
+  });
+  var poiMaterial_article = new THREE.SpriteMaterial( { 
+    map:  new THREE.TextureLoader().load('images/poi_camera.png'),
+    sizeAttenuation: false, 
+    opacity: 0.5,
+  });
 
   for(var i=0; i<data_lats.length; i++){
   //for(var i=0; i<200; i++){
@@ -749,15 +754,39 @@ function createPins(vector_length, poi_size, pin_color) {
 
     // make needle:
     const needle_geometry = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(0,0,0), pin_position] );
-    const needle_material = new THREE.LineBasicMaterial({ 	color: pin_color, opacity: 0.2 });
+    const needle_material = new THREE.LineBasicMaterial({ 	color: pin_color, opacity: 0.15 });
     const needle = new THREE.Line( needle_geometry, needle_material );
     pins.add(needle);
     
     // make pinhead: 
     var poiGeometry = new THREE.Geometry();
     poiGeometry.vertices.push(pin_position);
-    var point_of_interest = new THREE.Sprite(poiMaterial);
-    point_of_interest.scale.set(poi_size, poi_size, poi_size);
+    
+    var poiMaterial = new THREE.SpriteMaterial( { 
+      sizeAttenuation: false, 
+      opacity: 0.5,
+    });
+    
+    var this_poi_matl;
+    var this_poi_size = poi_size;
+    const featureType = data_type[i];
+    switch(featureType) {
+      case 'a':  /* spacecraft */
+        this_poi_matl = poiMaterial_lander;
+        this_poi_size *= 2;
+        console.log(poi_size);
+        break;
+      case 'b':  /* article */
+        this_poi_matl = poiMaterial_article;
+        this_poi_size *= 1.4;
+        break;
+      default: 
+        this_poi_matl = poiMaterial_generic;
+        break;
+    }
+
+    var point_of_interest = new THREE.Sprite(this_poi_matl);
+    point_of_interest.scale.set(this_poi_size, this_poi_size, this_poi_size);
     point_of_interest.position.copy(pin_position);
     point_of_interest.name = i;
     PointsOfInterest.add(point_of_interest);
