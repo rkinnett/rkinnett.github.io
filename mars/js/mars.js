@@ -601,7 +601,7 @@ function changeLabels(){
       texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
       console.log("applying texture to material");
       const material = new THREE.MeshLambertMaterial({
-        map:        texture,
+        map:         texture,
         transparent: true,
         opacity:     options.labels_opacity,
         side:        THREE.DoubleSide,
@@ -615,6 +615,8 @@ function changeLabels(){
       labels.visible = true;
       console.log("requesting anim frame");
       requestAnimationFrame(render);
+      console.log("updating controls");
+      if(controls!==null) controls.update();
       console.log("done");      
     });      
   }
@@ -651,7 +653,6 @@ function createGlobe(radius, segments) {
     shininess:  options.shininess,
     bumpScale:  options.bumpScale,
     side:       THREE.DoubleSide,
-    minFilter:  THREE.LinearFilter,
   });
   globe = new THREE.Mesh(geometry, material);
   globe.rotateX(Math.PI/2);  // reorient to z-up
@@ -680,7 +681,6 @@ function createLabels(radius, segments) {
     transparent: true,
     opacity:     options.labels_opacity,
     side:        THREE.DoubleSide,
-    minFilter:  THREE.LinearFilter,
   });
   labels = new THREE.Mesh(geometry, material);  
   labels.rotateX(Math.PI/2);  // reorient to z-up
@@ -695,14 +695,7 @@ function createLabels(radius, segments) {
   // load labels map file as texture:
   var texturefilename = 'images/' + options.labels_sel + '_labels.png';
   console.log("loading labels file: " + texturefilename);
-  try {
-    labels.material.map = new THREE.TextureLoader().load(texturefilename);
-    controls.update();
-  } catch(e) {
-    alert("Error loading labels texture map.");
-    console.log("error event:");
-    console.log(e);
-  }
+  labels.material.map = new THREE.TextureLoader().load(texturefilename);
 }
 
 function createStars(radius) {
