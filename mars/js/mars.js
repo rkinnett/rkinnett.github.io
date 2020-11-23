@@ -357,7 +357,6 @@ function displayLatLon(event){
     var pointOfIntersection = intersects[0].point;
     //console.log(pointOfIntersection);
     document.getElementById('poi_image').src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; //1px transparent image
-    document.getElementById('poi_image').style.visible = false;
     const poiCaption = document.getElementById('poi_info');
     poiCaption.innerHTML = "";
     //poiCaption.innerHTML += "x:   " + pointOfIntersection.x.toFixed(5) + ' <br>';
@@ -411,24 +410,43 @@ function showPointOfInterestInfo(index){
   //console.log(poiCaption);
   console.log(data[index]);
   const info = data[index].split("#");
+  const featureType = data_type[index];
   //console.log(info);
-  poiCaption.innerHTML = "";
-  document.getElementById('poi_image').src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; //1px transparent image
-  document.getElementById('poi_image').style.visible = false;
-  //console.log(feature_types[data_type[index]]);
-  //console.log(data_type[index]);
-  //poiCaption.innerHTML += '<b><u>' + poi_names[index] + '</u></b> <br />';
-  poiCaption.innerHTML += '<p><b><u>' + info[1] + '</u></b></p>';
-  poiCaption.innerHTML += "Type:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + feature_types[data_type[index]] + " <br />";
-  poiCaption.innerHTML += 'Location:&nbsp;&nbsp;&nbsp;' + data_lats[index].toFixed(2) + 'N, ' + ((360-1*data_lons[index])%360).toFixed(2) + 'W <br />';
-  poiCaption.innerHTML += "Named in:&nbsp;&nbsp;&nbsp;" + info[0] + " <br />";
-  poiCaption.innerHTML += "Named for:&nbsp;&nbsp;" + info[2] + " <br />";
-  if(data_urls[index]) poiCaption.innerHTML += '<a href="' + data_urls[index] + '" target="_blank">Reference</a> <br />';
+
+  // load thumbnail if available, otherwise use 1px placeholder:
   if(data_imgs[index]) {
     var imgurl = 'https://www.google.com/mars/' + data_imgs[index];
     console.log("showing info image: " + imgurl);
-    document.getElementById('poi_image').style.visible = true;
     document.getElementById('poi_image').src = imgurl;
+  } else {
+    document.getElementById('poi_image').src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; //1px transparent image    
+  }
+
+  var featureLocation = data_lats[index].toFixed(2) + 'N, ' + ((360-1*data_lons[index])%360).toFixed(2) + 'W';
+
+  // populate description depending on feature type:
+  poiCaption.innerHTML = "";
+  switch(featureType){
+    case 'a':  /*spacecraft*/   
+      poiCaption.innerHTML += '<p><b>Spacecraft:&nbsp;<a href="' + data_urls[index] + '" target="_blank">' + info[1] + '</a></b></p>';
+      poiCaption.innerHTML += 'Location:&nbsp;&nbsp;&nbsp;' + featureLocation + '<br />';
+      poiCaption.innerHTML += 'Launched:&nbsp;&nbsp;&nbsp;' + info[0] + ' <br />';
+      poiCaption.innerHTML += "Result:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + info[2] + " <br />";
+      break;
+    case 'b':  /*stories*/
+      poiCaption.innerHTML += '<p><b>Article:&nbsp;&nbsp;&nbsp;&nbsp;<a href="' + data_urls[index] + '" target="_blank">' + info[1] + '</a></b></p>';
+      poiCaption.innerHTML += 'Location:&nbsp;&nbsp;&nbsp;' + featureLocation + '<br />';
+      poiCaption.innerHTML += "Source:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + info[2] + " <br />";
+      poiCaption.innerHTML += 'Date:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + info[0] + ' <br />';
+      break;
+    default:
+      poiCaption.innerHTML += '<p><b><u>' + info[1] + '</u></b></p>';
+      poiCaption.innerHTML += "Type:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + feature_types[data_type[index]] + " <br />";
+      poiCaption.innerHTML += 'Location:&nbsp;&nbsp;&nbsp;' + featureLocation + '<br />';
+      poiCaption.innerHTML += "Named in:&nbsp;&nbsp;&nbsp;" + info[0] + " <br />";
+      poiCaption.innerHTML += "Named for:&nbsp;&nbsp;" + info[2] + " <br />";      
+      if(data_urls[index]) poiCaption.innerHTML += '<a href="' + data_urls[index] + '" target="_blank">Reference</a> <br />';
+      break;
   }
 }
 
