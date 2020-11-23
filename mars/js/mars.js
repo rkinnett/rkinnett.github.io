@@ -557,7 +557,7 @@ function placeCamera(lat, lon){
     options.cameraDist * Math.sin(-1*lon*radsPerDeg) * Math.cos(lat*radsPerDeg),
     options.cameraDist * Math.sin(lat*radsPerDeg),
   );
-  controls.update();
+  controls.update(); // force coord frames update before transfering sun to cam frame
   console.log(camera.position);
 }
 
@@ -695,7 +695,14 @@ function createLabels(radius, segments) {
   // load labels map file as texture:
   var texturefilename = 'images/' + options.labels_sel + '_labels.png';
   console.log("loading labels file: " + texturefilename);
-  labels.material.map = new THREE.TextureLoader().load(texturefilename);
+  try {
+    labels.material.map = new THREE.TextureLoader().load(texturefilename);
+    controls.update();
+  } catch(e) {
+    alert("Error loading labels texture map.");
+    console.log("error event:");
+    console.log(e);
+  }
 }
 
 function createStars(radius) {
@@ -752,7 +759,7 @@ function createPins(vector_length, poi_size, poi_opacity) {
         break;
       case 'b':  /* article */
         var this_poi_matl = poiMaterial_article;
-        var this_poi_size = poi_size*1.3;
+        var this_poi_size = poi_size*1.4;
         var this_pin_color = 0x005efc;
         break;
       default: 
