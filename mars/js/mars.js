@@ -604,10 +604,8 @@ function changeLabels(){
         map:         texture,
         transparent: true,
         opacity:     options.labels_opacity,
-        side:        THREE.DoubleSide,
       });
-      console.log("applied texture to material");
-      console.log("applying texture to labels object");
+      console.log("applying material to labels object");
       labels.material = material;
       console.log("requesting anim frame");
       requestAnimationFrame(render);
@@ -680,7 +678,7 @@ function createLabels(radius, segments) {
   const material = new THREE.MeshBasicMaterial({
     transparent: true,
     opacity:     options.labels_opacity,
-    side:        THREE.DoubleSide,
+    //side:        THREE.DoubleSide,
   });
   labels = new THREE.Mesh(geometry, material);  
   labels.rotateX(Math.PI/2);  // reorient to z-up
