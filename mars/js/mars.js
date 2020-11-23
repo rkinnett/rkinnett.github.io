@@ -187,7 +187,7 @@ function init(){
   pins = new THREE.Group();
   //PointsOfInterest = new THREE.Points();
   //if(linearFloatTexturesSupported) createPins(globe_radius*1.02, globe_radius*0.01, 0x66ddff);
-  createPins(globe_radius*1.02, 0.004, 0x66ddff);
+  createPins(globe_radius*1.025, 0.004, 0.2);
 
   render();
 
@@ -718,34 +718,52 @@ function createStars(radius) {
   });
 }
 
-function createPins(vector_length, poi_size, pin_color) {
+function createPins(vector_length, poi_size, poi_opacity) {
   togglePins();
 
   // make materials:
   var poiMaterial_generic = new THREE.SpriteMaterial( { 
     map: new THREE.TextureLoader().load('images/poi.png'),
     sizeAttenuation: false, 
-    opacity: 0.5,
+    opacity: 0.6,
   });
   
   var poiMaterial_lander = new THREE.SpriteMaterial( { 
     map:  new THREE.TextureLoader().load('images/poi_lander.png'),
     sizeAttenuation: false, 
-    opacity: 0.5,
+    opacity: 0.6,
   });
   var poiMaterial_article = new THREE.SpriteMaterial( { 
     map:  new THREE.TextureLoader().load('images/poi_camera.png'),
     sizeAttenuation: false, 
-    opacity: 0.5,
+    opacity: 0.6,
   });
 
-  for(var i=0; i<data_lats.length; i++){
-  //for(var i=0; i<200; i++){
-    
+  for(var i=0; i<data_lats.length; i++){    
+  
+    console.log("Pin " + i + " data: " + data[i]);
+
+    const featureType = data_type[i];
+    switch(featureType) {
+      case 'a':  /* spacecraft */
+        var this_poi_matl = poiMaterial_lander;
+        var this_poi_size = poi_size*2;
+        var this_pin_color = 0xeb6224;
+        break;
+      case 'b':  /* article */
+        var this_poi_matl = poiMaterial_article;
+        var this_poi_size = poi_size*1.3;
+        var this_pin_color = 0x005efc;
+        break;
+      default: 
+        var this_poi_matl = poiMaterial_generic;
+        var this_poi_size = poi_size*0.9;
+        var this_pin_color = 0x66ddff;
+        break;
+    }
+
     // note: the data from Google Mars uses non-standard E longitude
     // ref: https://link.springer.com/article/10.1007/s10569-017-9805-5
-    
-    console.log("Pin " + i + " data: " + data[i]);
     const pin_position = new THREE.Vector3(
       vector_length * Math.cos(data_lons[i]*radsPerDeg) * Math.cos(data_lats[i]*radsPerDeg),
       vector_length * Math.sin(data_lons[i]*radsPerDeg) * Math.cos(data_lats[i]*radsPerDeg),
@@ -754,44 +772,23 @@ function createPins(vector_length, poi_size, pin_color) {
 
     // make needle:
     const needle_geometry = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(0,0,0), pin_position] );
-    const needle_material = new THREE.LineBasicMaterial({ 	color: pin_color, opacity: 0.15 });
+    const needle_material = new THREE.LineBasicMaterial({color: this_pin_color});
     const needle = new THREE.Line( needle_geometry, needle_material );
     pins.add(needle);
     
     // make pinhead: 
     var poiGeometry = new THREE.Geometry();
     poiGeometry.vertices.push(pin_position);
-    
-    var poiMaterial = new THREE.SpriteMaterial( { 
-      sizeAttenuation: false, 
-      opacity: 0.5,
-    });
-    
-    var this_poi_matl;
-    var this_poi_size = poi_size;
-    const featureType = data_type[i];
-    switch(featureType) {
-      case 'a':  /* spacecraft */
-        this_poi_matl = poiMaterial_lander;
-        this_poi_size *= 2;
-        console.log(poi_size);
-        break;
-      case 'b':  /* article */
-        this_poi_matl = poiMaterial_article;
-        this_poi_size *= 1.4;
-        break;
-      default: 
-        this_poi_matl = poiMaterial_generic;
-        break;
-    }
-
+    var poiMaterial = new THREE.SpriteMaterial( {sizeAttenuation: false });
     var point_of_interest = new THREE.Sprite(this_poi_matl);
     point_of_interest.scale.set(this_poi_size, this_poi_size, this_poi_size);
     point_of_interest.position.copy(pin_position);
     point_of_interest.name = i;
     PointsOfInterest.add(point_of_interest);
   }
-    
+  
+  pins.opacity = poi_opacity;
+  PointsOfInterest.opacity = poi_opacity;
   GlobeGroup.add(pins);
   GlobeGroup.add(PointsOfInterest);
 }
