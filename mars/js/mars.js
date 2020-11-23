@@ -195,10 +195,13 @@ function init(){
   
   loadEphemData(showNow);
 
+  // make key variables accessible in console:
   window.globals = {webglEl, camera, controls, scene, renderer, ephem, options, sun, globe, labels, pins, PointsOfInterest, GlobeGroup, fakeSun, sunVec};
-	window.addEventListener( "mousemove", onDocumentMouseMove, {passive: true}, false );
- // window.addEventListener( "mouseclick", onDocumentClick, {passive: true}, false );
-  if(touch_enabled) window.addEventListener('touchend', onTouch, false);
+  
+	window.addEventListener( "mousemove", onDocumentMouseMove, {passive: true}, false ); // show POI info when mouse-over
+  window.addEventListener('dblclick', onDoubleClick, false);  // center view on clicked lat/lon position
+  window.addEventListener('touchend', onTouch, false);  // show point-of-interest info if touched
+
 }
 
 
@@ -229,7 +232,19 @@ function searchForFeature(){
   alert("Sorry, could not find requested feature.");
 }
 
-
+function onDoubleClick(event){
+  console.log("double click event");
+  // Center camera position at double-clicked position:
+  const intersects = getIntersects( event.layerX, event.layerY, globe );
+  if(intersects.length>0){
+    var pointOfIntersection = intersects[0].point;
+    var lat = Math.asin(pointOfIntersection.z/globe_radius)/radsPerDeg;
+    var lon = Math.atan2(pointOfIntersection.y, pointOfIntersection.x)/radsPerDeg*-1;
+    console.log("lat: " + lat.toFixed(2) + "N, lon: " + lon.toFixed(2) + "W");
+    placeCamera(lat, lon);
+    checkPins(event);
+  }
+}
 
 function startLoadingManager(){
   const status = document.getElementById('status_container');
@@ -255,30 +270,27 @@ function setupKeyControls() {
     console.log("Button pressed: " + (e.shiftKey?"shift+":"") + e.keyCode);
     switch (e.keyCode) {
       case 37:  // left arrow
-      nudgeCamera("left", nudgeAngle);
-      break;
+        nudgeCamera("left", nudgeAngle);
+        break;
       case 38: // up arrow
-      nudgeCamera("up", nudgeAngle);      
-      //GlobeGroup.rotation.y -= 0.1;
-      break;
+        nudgeCamera("up", nudgeAngle);      
+        //GlobeGroup.rotation.y -= 0.1;
+        break;
       case 39: // right arrow
-      nudgeCamera("right", nudgeAngle);
-      //GlobeGroup.rotateZ(-0.01);
-      break;
+        nudgeCamera("right", nudgeAngle);
+        //GlobeGroup.rotateZ(-0.01);
+        break;
       case 40: //down arrow
-      nudgeCamera("down", nudgeAngle);
-      //GlobeGroup.rotation.y += 0.1;
-      break;
-      
-      case 70:
-      if(e.ctrlKey) searchForFeature();
-      e.preventDefault();
-      break; 
-      
+        nudgeCamera("down", nudgeAngle);
+        //GlobeGroup.rotation.y += 0.1;
+        break;
+      case 70: // f key
+        if(e.ctrlKey) searchForFeature();
+        e.preventDefault();
+        break; 
+      default:
+        console.log("unregistered key");
     }
-    
-
-    
   };
 }
 
@@ -335,7 +347,7 @@ function onDocumentMouseMove( event ) {
 }
 
 function onTouch(event) {
-  console.log("click event");
+  console.log("touch event");
   var foundMatch = false;
   if(options.showPins) {
     foundMatch = checkPins(event);
@@ -551,11 +563,13 @@ function renderEphemeris(){
 
 function placeCamera(lat, lon){
   GlobeGroup.rotation.z = 0; // re-center globe
+  var cameraDistToOrigin = Math.sqrt( camera.position.x*camera.position.x + camera.position.y*camera.position.y + camera.position.z*camera.position.z);
+
   console.log("setting camera position to lat " + lat + ", lon " + lon);
   camera.position.set(
-    options.cameraDist * Math.cos(-1*lon*radsPerDeg) * Math.cos(lat*radsPerDeg),
-    options.cameraDist * Math.sin(-1*lon*radsPerDeg) * Math.cos(lat*radsPerDeg),
-    options.cameraDist * Math.sin(lat*radsPerDeg),
+    cameraDistToOrigin * Math.cos(-1*lon*radsPerDeg) * Math.cos(lat*radsPerDeg),
+    cameraDistToOrigin * Math.sin(-1*lon*radsPerDeg) * Math.cos(lat*radsPerDeg),
+    cameraDistToOrigin * Math.sin(lat*radsPerDeg),
   );
   controls.update(); // force coord frames update before transfering sun to cam frame
   console.log(camera.position);
@@ -572,8 +586,6 @@ function placeSun(){
   camera.attach(sun);
   console.log(fakeSun.position);
 }
-
-
 
 function changeMap(){
   var mapfile = 'images/' + options.mapFile;
