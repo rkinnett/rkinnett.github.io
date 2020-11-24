@@ -11,7 +11,8 @@ import { OrbitControls } from "https://threejs.org/examples/jsm/controls/OrbitCo
 let camera, controls, scene, renderer, ephem, options, sun, globe, labels, pins, PointsOfInterest, stars, GlobeGroup, fakeSun, sunVec;
 
 let selectedObject = null;
-
+const raycaster = new THREE.Raycaster();
+const mouseVector = new THREE.Vector3();
 
 const mapFiles = [
   'color_map_mgs_2k.jpg',
@@ -46,19 +47,19 @@ const webglEl = document.getElementById('webgl');
 const touch_enabled = ( 'ontouchstart' in window ) ||  ( navigator.maxTouchPoints > 0 ) || ( navigator.msMaxTouchPoints > 0 ); 
 console.log("touch enabled: " + touch_enabled);
 
-window.addEventListener( 'resize', onWindowResize, {passive: true}, false );
 
 var width  = document.documentElement.clientWidth,
   height = document.documentElement.clientHeight;
-  
 
-// Globe params
+  
+// Global params
 var globe_radius   = 0.5,
   segments = 32,
   rotation = 0,
   globeLoaded = false,
   labelsLoaded = false,
-  radsPerDeg = Math.PI/180;
+  radsPerDeg = Math.PI/180,
+  dialogOpen = false;
 
 options = {
   mirror:  false,
@@ -90,18 +91,23 @@ ephem = {
   SunSubLon: null,
 }
 
-startLoadingManager();
 
 init();
 
 
 function init(){
+  startLoadingManager();
+  
+  window.addEventListener('mousemove',  onDocumentMouseMove, {passive: true}, false ); // show POI info when mouse-over
+  window.addEventListener('dblclick',   onDoubleClick, false);  // center view on clicked lat/lon position
+  window.addEventListener('touchend',   onTouch, false);  // show point-of-interest info if touched
+  window.addEventListener('keydown',    onKeyDown, false);  // handle key controls:  arrow keys, ctrl-f, etc
+  window.addEventListener('resize',     onWindowResize, {passive: true}, false );
+
   console.log("initializing renderer");
   renderer = new THREE.WebGLRenderer();
   renderer.setSize(width, height);
   webglEl.appendChild(renderer.domElement);
-  setupKeyControls();
-
   console.log(renderer);
   renderer.domElement.addEventListener("webglcontextlost", function(event){  
     event.preventDefault();
@@ -110,8 +116,8 @@ function init(){
     console.log("webgl crashed?");
     console.log(event);
   }, false);
-  
 
+  
   scene = new THREE.Scene();
   
   camera = new THREE.PerspectiveCamera(15, width/height, 0.01, 250);
@@ -197,40 +203,10 @@ function init(){
 
   // make key variables accessible in console:
   window.globals = {webglEl, camera, controls, scene, renderer, ephem, options, sun, globe, labels, pins, PointsOfInterest, GlobeGroup, fakeSun, sunVec};
-  
-	window.addEventListener( "mousemove", onDocumentMouseMove, {passive: true}, false ); // show POI info when mouse-over
-  window.addEventListener('dblclick', onDoubleClick, false);  // center view on clicked lat/lon position
-  window.addEventListener('touchend', onTouch, false);  // show point-of-interest info if touched
-
 }
 
 
 
-
-
-function searchForFeature(){
-  var searchPhrase = prompt("Search word/phrase:").toLowerCase();
-  console.log("Search function input dialog response:  " + searchPhrase);
-
-  // handle empty response (cancel)
-  if(searchPhrase == null){
-    console.log("empty response");
-    return;
-  }
-  
-  console.log("searching for feature..");
-  for(var i=0; i<poi_info.names.length; i++) {
-    if (poi_info.names[i].toLowerCase().match(searchPhrase)){
-      console.log("found it! (" + i + ":" + poi_info.names[i] + ")");
-      console.log("going to " + poi_info.lats[i] + "N, " + (360-poi_info.lons[i])%360 + "W");
-      placeCamera(poi_info.lats[i], (360-poi_info.lons[i])%360);
-      showPointOfInterestInfo(i);
-      return;
-    }
-  }
-  
-  alert("Sorry, could not find requested feature.");
-}
 
 function onDoubleClick(event){
   console.log("double click event");
@@ -244,6 +220,70 @@ function onDoubleClick(event){
     placeCamera(lat, lon);
     checkPins(event);
   }
+}
+
+function onDocumentMouseMove( event ) {
+  if(dialogOpen){
+    return; 
+  } else if(options.showPins){
+    checkPins(event);
+  } else {
+    displayLatLon(event);
+  }
+}
+
+function onTouch(event) {
+  if(dialogOpen) return;
+  
+  console.log("touch event");
+  var foundMatch = false;
+  if(options.showPins) {
+    foundMatch = checkPins(event);
+  }
+  if(!foundMatch){
+    displayLatLon(event);
+  }
+}
+
+function onKeyDown(event) {
+  if(dialogOpen) return;
+  
+  console.log("Button pressed: " + (event.shiftKey?"shift+":"") + event.keyCode);
+  
+  // holding shift with arrow moves faster, holding control with arrow moves slower:
+  const nudgeAngle = event.shiftKey? 0.01 : event.ctrlKey? 0.0002 : 0.001;
+  switch (event.keyCode) {
+    case 37:  // left arrow
+      nudgeCamera("left", nudgeAngle);
+      break;
+    case 38: // up arrow
+      nudgeCamera("up", nudgeAngle);      
+      //GlobeGroup.rotation.y -= 0.1;
+      break;
+    case 39: // right arrow
+      nudgeCamera("right", nudgeAngle);
+      //GlobeGroup.rotateZ(-0.01);
+      break;
+    case 40: //down arrow
+      nudgeCamera("down", nudgeAngle);
+      //GlobeGroup.rotation.y += 0.1;
+      break;
+    case 70: // f key
+      if(event.ctrlKey) searchForFeature();
+      event.preventDefault();
+      break; 
+    default:
+      console.log("unregistered key");
+  }
+}
+
+function onWindowResize(){
+  width = document.documentElement.clientWidth;
+  height = document.documentElement.clientHeight;
+  console.log("resizing to " + width + " x " + height + " px");
+  camera.aspect = document.documentElement.clientWidth / document.documentElement.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize( width, height );
 }
 
 function startLoadingManager(){
@@ -264,35 +304,14 @@ function startLoadingManager(){
 }
 
 
-function setupKeyControls() {
-  document.onkeydown = function(e) {
-    const nudgeAngle = e.shiftKey? 0.01 : 0.001;
-    console.log("Button pressed: " + (e.shiftKey?"shift+":"") + e.keyCode);
-    switch (e.keyCode) {
-      case 37:  // left arrow
-        nudgeCamera("left", nudgeAngle);
-        break;
-      case 38: // up arrow
-        nudgeCamera("up", nudgeAngle);      
-        //GlobeGroup.rotation.y -= 0.1;
-        break;
-      case 39: // right arrow
-        nudgeCamera("right", nudgeAngle);
-        //GlobeGroup.rotateZ(-0.01);
-        break;
-      case 40: //down arrow
-        nudgeCamera("down", nudgeAngle);
-        //GlobeGroup.rotation.y += 0.1;
-        break;
-      case 70: // f key
-        if(e.ctrlKey) searchForFeature();
-        e.preventDefault();
-        break; 
-      default:
-        console.log("unregistered key");
-    }
-  };
+
+function render() {
+  controls.update();
+  requestAnimationFrame(render);
+  renderer.render(scene, camera);
 }
+
+
 
 function nudgeCamera(direction, angle){
   const rotAxis = new THREE.Vector3();
@@ -315,46 +334,62 @@ function nudgeCamera(direction, angle){
   GlobeGroup.rotateOnAxis( rotAxis.normalize(), angle);
 }
 
+function searchForFeature(){
+  dialogOpen = true;
+  var searchPhrase = prompt("Search word/phrase or decimal lat/lon coordinates:");
+  dialogOpen = false;
+  console.log("Search function input dialog response:  " + searchPhrase);
 
-function setPoleOrientation(){
-  var sceneRotatedBefore = (scene.rotation.y != 0);
-  console.log("setting view orientation to north-up: " + options.northUp);
-  scene.rotation.y = options.northUp ? 0 : Math.PI;
-  controls.rotateSpeed = options.northUp ? 1 : -1;
-  console.log("controls rotate speed:  " + controls.rotateSpeed);
-  var sceneRotatedAfter = (scene.rotation.y != 0);
-  var toggled = (sceneRotatedBefore != sceneRotatedAfter);
-  console.log("scene rotated");
-  if(toggled) {
-    sun.position.y *= -1;
-    sun.position.x *= -1;
+  // handle empty response (cancel)
+  if(searchPhrase == null || searchPhrase.length == 0){
+    console.log("empty response");
+    return;
+  }
+
+  searchPhrase = searchPhrase.toLowerCase();
+  
+  // handle lat/lon coords:
+  if(new RegExp('^[-+]?[0-9\.]+[ns][, ]+[-+]?[0-9\.]+[ew]$').test(searchPhrase) ){
+    var lat    = searchPhrase.split(/[ns]/)[0]*1;
+    var latdir = searchPhrase.search('n')>0 ? 'N' : 'S';
+    var lon    = searchPhrase.split(/[nsew, ]+/)[1]*1;
+    var londir = searchPhrase.search('w')>0 ? 'W' : 'E';
+    if(!lat.isNaN && !lon.isNaN){
+      console.log("lat: " + lat + latdir + ", lon: " + lon + londir);
+      //go-to function needs floating point lat and lon with lon specified as west-positive.
+      lon *= (londir=="E" ? -1 : 1);
+      lat *= (latdir=="S" ? -1 : 1);
+      console.log("lat: " + lat + "N, lon: " + lon + "W");
+      placeCamera(lat, lon);
+    } else {
+      alert('Sorry, unable to parse lat/long coordinates. Please specify as "(+-)#.#[NS], (+-)#.#[EW]"');
+      console.log("unable to parse lat/lon coordinates");
+    }
+
+  // otherwise search list of names and go to first match:
+  } else {  
+    console.log("searching for feature..");
+    for(var i=0; i<poi_info.names.length; i++) {
+      if (poi_info.names[i].toLowerCase().match(searchPhrase)){
+        console.log("found it! (" + i + ":" + poi_info.names[i] + ")");
+        var lat = poi_info.lats[i].toFixed(1);
+        var lon = ((360-poi_info.lons[i])%360).toFixed(1);  // change from E-positive longitude to W-positive
+        console.log("going to " + lat + "N, " + lon + "W");
+        placeCamera(lat, lon);
+        showPointOfInterestInfo(i);
+        return;
+      }
+    }
+    alert("Sorry, could not find requested feature.");
   }
 }
+
 
 
 function togglePins(){
   document.getElementById('poi_container').display = options.showPins ? 'block' : 'none';
   pins.visible = options.showPins;
   PointsOfInterest.visible = options.showPins;
-}
-
-function onDocumentMouseMove( event ) {
-  if(options.showPins){
-    checkPins(event);
-  } else {
-    displayLatLon(event);
-  }
-}
-
-function onTouch(event) {
-  console.log("touch event");
-  var foundMatch = false;
-  if(options.showPins) {
-    foundMatch = checkPins(event);
-  }
-  if(!foundMatch){
-    displayLatLon(event);
-  }
 }
 
 function displayLatLon(event){
@@ -396,11 +431,7 @@ function checkPins(event){
   return false;
 }
 
-
-const raycaster = new THREE.Raycaster();
-const mouseVector = new THREE.Vector3();
-
-function getIntersects( x, y, group) {
+function getIntersects(x, y, group) {
   x = ( x / window.innerWidth ) * 2 - 1;
   y = - ( y / window.innerHeight ) * 2 + 1;
   mouseVector.set( x, y, 0.5 );
@@ -427,7 +458,7 @@ function showPointOfInterestInfo(index){
     document.getElementById('poi_image').src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; //1px transparent image    
   }
 
-  var featureLocation = poi_info.lats[index] + 'N, ' + ((360-1*poi_info.lons[index])%360) + 'W';
+  var featureLocation = poi_info.lats[index].toFixed(1) + 'N, ' + ((360-1*poi_info.lons[index])%360).toFixed(1) + 'W';
 
   // populate description depending on feature type:
   poiCaption.innerHTML = "";
@@ -466,7 +497,9 @@ function showNow(){
 
 function showSpecificTime(){
   console.log("ephemQueryUtcFcn");
+  dialogOpen = true;
   var strResponse = prompt("UTC time  (YYYY-MM-DD HH:MM):");
+  dialogOpen = false;
   console.log("Time input dialog response:  " + strResponse);
 
   // handle empty response (cancel)
@@ -650,11 +683,21 @@ function setMirroring(boolMirror){
   }
 }
 
-function render() {
-  controls.update();
-  requestAnimationFrame(render);
-  renderer.render(scene, camera);
+function setPoleOrientation(){
+  var sceneRotatedBefore = (scene.rotation.y != 0);
+  console.log("setting view orientation to north-up: " + options.northUp);
+  scene.rotation.y = options.northUp ? 0 : Math.PI;
+  controls.rotateSpeed = options.northUp ? 1 : -1;
+  console.log("controls rotate speed:  " + controls.rotateSpeed);
+  var sceneRotatedAfter = (scene.rotation.y != 0);
+  var toggled = (sceneRotatedBefore != sceneRotatedAfter);
+  console.log("scene rotated");
+  if(toggled) {
+    sun.position.y *= -1;
+    sun.position.x *= -1;
+  }
 }
+
 
 function createGlobe(radius, segments) {
   console.log("making globe");
@@ -822,15 +865,5 @@ function createCoordAxes(parent, vector_length){
 
   parent.add(coord_axes);
   return coord_axes;
-}
-
-
-function onWindowResize(){
-  width = document.documentElement.clientWidth;
-  height = document.documentElement.clientHeight;
-  console.log("resizing to " + width + " x " + height + " px");
-  camera.aspect = document.documentElement.clientWidth / document.documentElement.clientHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize( width, height );
 }
 
