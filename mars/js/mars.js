@@ -219,11 +219,11 @@ function searchForFeature(){
   }
   
   console.log("searching for feature..");
-  for(var i=0; i<poi_names.length; i++) {
-    if (poi_names[i].toLowerCase().match(searchPhrase)){
-      console.log("found it! (" + i + ":" + poi_names[i] + ")");
-      console.log("going to " + data_lats[i] + "N, " + (360-data_lons[i])%360 + "W");
-      placeCamera(data_lats[i], (360-data_lons[i])%360);
+  for(var i=0; i<poi_info.names.length; i++) {
+    if (poi_info.names[i].toLowerCase().match(searchPhrase)){
+      console.log("found it! (" + i + ":" + poi_info.names[i] + ")");
+      console.log("going to " + poi_info.lats[i] + "N, " + (360-poi_info.lons[i])%360 + "W");
+      placeCamera(poi_info.lats[i], (360-poi_info.lons[i])%360);
       showPointOfInterestInfo(i);
       return;
     }
@@ -414,44 +414,44 @@ function showPointOfInterestInfo(index){
   
   var poiCaption = document.getElementById('poi_info');
   //console.log(poiCaption);
-  console.log(data[index]);
-  const info = data[index].split("#");
+  console.log(poi_info.data[index]);
+  const info = poi_info.data[index].split("#");
   //console.log(info);
 
   // load thumbnail if available, otherwise use 1px placeholder:
-  if(data_imgs[index]) {
-    var imgurl = 'https://www.google.com/mars/' + data_imgs[index];
+  if(poi_info.imgs[index]) {
+    var imgurl = 'https://www.google.com/mars/' + poi_info.imgs[index];
     console.log("showing info image: " + imgurl);
     document.getElementById('poi_image').src = imgurl;
   } else {
     document.getElementById('poi_image').src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; //1px transparent image    
   }
 
-  var featureLocation = data_lats[index].toFixed(2) + 'N, ' + ((360-1*data_lons[index])%360).toFixed(2) + 'W';
+  var featureLocation = poi_info.lats[index] + 'N, ' + ((360-1*poi_info.lons[index])%360) + 'W';
 
   // populate description depending on feature type:
   poiCaption.innerHTML = "";
-  const featureType = data_type[index];
+  const featureType = poi_info.type[index];
   switch(featureType){
     case 'a':  /*spacecraft*/   
-      poiCaption.innerHTML += '<p><b>Spacecraft:&nbsp;<a href="' + data_urls[index] + '" target="_blank">' + info[1] + '</a></b></p>';
+      poiCaption.innerHTML += '<p><b>Spacecraft:&nbsp;<a href="' + poi_info.urls[index] + '" target="_blank">' + info[1] + '</a></b></p>';
       poiCaption.innerHTML += 'Location:&nbsp;&nbsp;&nbsp;' + featureLocation + '<br />';
       poiCaption.innerHTML += 'Launched:&nbsp;&nbsp;&nbsp;' + info[0] + ' <br />';
       poiCaption.innerHTML += "Result:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + info[2] + " <br />";
       break;
     case 'b':  /*stories*/
-      poiCaption.innerHTML += '<p><b>Article:&nbsp;&nbsp;&nbsp;&nbsp;<a href="' + data_urls[index] + '" target="_blank">' + info[1] + '</a></b></p>';
+      poiCaption.innerHTML += '<p><b>Article:&nbsp;&nbsp;&nbsp;&nbsp;<a href="' + poi_info.urls[index] + '" target="_blank">' + info[1] + '</a></b></p>';
       poiCaption.innerHTML += 'Location:&nbsp;&nbsp;&nbsp;' + featureLocation + '<br />';
       poiCaption.innerHTML += "Source:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + info[2] + " <br />";
       poiCaption.innerHTML += 'Date:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + info[0] + ' <br />';
       break;
     default:
       poiCaption.innerHTML += '<p><b><u>' + info[1] + '</u></b></p>';
-      poiCaption.innerHTML += "Type:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + feature_types[data_type[index]] + " <br />";
+      poiCaption.innerHTML += "Type:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + poi_info.types[poi_info.type[index]] + " <br />";
       poiCaption.innerHTML += 'Location:&nbsp;&nbsp;&nbsp;' + featureLocation + '<br />';
       poiCaption.innerHTML += "Named in:&nbsp;&nbsp;&nbsp;" + info[0] + " <br />";
       poiCaption.innerHTML += "Named for:&nbsp;&nbsp;" + info[2] + " <br />";      
-      if(data_urls[index]) poiCaption.innerHTML += '<a href="' + data_urls[index] + '" target="_blank">Reference</a> <br />';
+      if(poi_info.urls[index]) poiCaption.innerHTML += '<a href="' + poi_info.urls[index] + '" target="_blank">Reference</a> <br />';
       break;
   }
 }
@@ -749,11 +749,10 @@ function createPins(vector_length, poi_size, poi_opacity) {
     opacity: 0.6,
   });
 
-  for(var i=0; i<data_lats.length; i++){    
-  
-    console.log("Pin " + i + " data: " + data[i]);
+  for(var i=0; i<poi_info.length; i++){      
+    console.log("Pin " + i + " data: " + poi_info.data[i]);
 
-    const featureType = data_type[i];
+    const featureType = poi_info.type[i];
     switch(featureType) {
       case 'a':  /* spacecraft */
         var this_poi_matl = poiMaterial_lander;
@@ -775,9 +774,9 @@ function createPins(vector_length, poi_size, poi_opacity) {
     // note: the data from Google Mars uses non-standard E longitude
     // ref: https://link.springer.com/article/10.1007/s10569-017-9805-5
     const pin_position = new THREE.Vector3(
-      vector_length * Math.cos(data_lons[i]*radsPerDeg) * Math.cos(data_lats[i]*radsPerDeg),
-      vector_length * Math.sin(data_lons[i]*radsPerDeg) * Math.cos(data_lats[i]*radsPerDeg),
-      vector_length * Math.sin(data_lats[i]*radsPerDeg),
+      vector_length * Math.cos(poi_info.lons[i]*radsPerDeg) * Math.cos(poi_info.lats[i]*radsPerDeg),
+      vector_length * Math.sin(poi_info.lons[i]*radsPerDeg) * Math.cos(poi_info.lats[i]*radsPerDeg),
+      vector_length * Math.sin(poi_info.lats[i]*radsPerDeg),
     );
 
     // make needle:
