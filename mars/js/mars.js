@@ -366,21 +366,49 @@ function searchForFeature(){
       console.log("unable to parse lat/lon coordinates");
     }
 
-  // otherwise search list of names and go to first match:
+  // otherwise search list of names for "best match" (that in which the search pattern occurs furthest left)
   } else {  
     console.log("searching for feature..");
-    for(var i=0; i<poi_info.names.length; i++) {
-      if (poi_info.names[i].toLowerCase().match(searchPhrase)){
-        console.log("found it! (" + i + ":" + poi_info.names[i] + ")");
-        var lat = poi_info.lats[i].toFixed(1);
-        var lon = ((360-poi_info.lons[i])%360).toFixed(1);  // change from E-positive longitude to W-positive
-        console.log("going to " + lat + "N, " + lon + "W");
-        placeCamera(lat, lon);
-        showPointOfInterestInfo(i);
-        return;
+    // look for feature name with furthest-left occurence of search pattern
+    var charPosBestMatch = 1000;
+    var indexBestMatch = null;
+    for(var i=0; i<poi_info.length; i++) {
+      var charPosThisMatch = poi_info.names[i].toLowerCase().search(searchPhrase);
+      if(charPosThisMatch>-1){
+        charPosThisMatch += poi_info.type[i]=='b'?30:0;  //penalty for "story" types to prefer feature identifiers
+        console.log("possible match: (" + i + ": " + poi_info.names[i] + ") (" + charPosThisMatch + ")");
+        if(charPosThisMatch < charPosBestMatch) {
+          console.log("(best match so far)");
+          charPosBestMatch = charPosThisMatch;
+          indexBestMatch = i;
+        }
       }
     }
-    alert("Sorry, could not find requested feature.");
+    
+    // If no match found in names, check in info:
+    if(!indexBestMatch){
+      for(var i=0; i<poi_info.length; i++) {
+        var charPosThisMatch = poi_info.data[i].toLowerCase().search(searchPhrase);
+        if(charPosThisMatch>-1){
+          charPosThisMatch += poi_info.type[i]=='b'?30:0;  //penalty for "story" types to prefer feature identifiers
+          console.log("possible match: (" + i + ": " + poi_info.data[i] + ") (" + charPosThisMatch + ")");
+          if(charPosThisMatch < charPosBestMatch) {
+            console.log("(best match so far)");
+            charPosBestMatch = charPosThisMatch;
+            indexBestMatch = i;
+          }
+        }
+      }
+    }
+    
+    if(indexBestMatch){
+      var lat = poi_info.lats[indexBestMatch].toFixed(1);
+      var lon = ((360-poi_info.lons[indexBestMatch])%360).toFixed(1);  // change from E-positive longitude to W-positive
+      console.log("going to " + lat + "N, " + lon + "W");
+      placeCamera(lat, lon);
+      showPointOfInterestInfo(indexBestMatch);
+    } else 
+      alert("Sorry, could not find requested feature.");
   }
 }
 
