@@ -5,7 +5,7 @@
 //import * as THREE from './three.module.js';
 //import { OrbitControls } from './OrbitControls.js';
 
-import * as THREE from "https://threejs.org/build/three.module.js";
+import * as THREE from "https://cdnjs.cloudflare.com/ajax/libs/three.js/r121/three.module.js";
 import { OrbitControls } from "https://threejs.org/examples/jsm/controls/OrbitControls.js";
 
 let camera, controls, scene, renderer, ephem, options, sun, globe, labels, pins, PointsOfInterest, stars, GlobeGroup, fakeSun, sunVec;
