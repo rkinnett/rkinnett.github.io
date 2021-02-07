@@ -837,7 +837,7 @@ function createPins(vector_length, poi_size, poi_opacity) {
         break;
       default: 
         var this_poi_matl = poiMaterial_generic;
-        var this_poi_size = poi_size*0.9;
+        var this_poi_size = poi_size*0.5;
         var this_pin_color = 0x66ddff;
         break;
     }
