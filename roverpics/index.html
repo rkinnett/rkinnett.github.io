@@ -114,7 +114,7 @@ function fetchRss(rss_url){
         console.log("unexpected response:");
         console.log(this.responseText);
         clearTable();
-        alert("Error fetching requested feed. It's possible no images have been posted from the requested sol.");
+        alert("Error fetching requested feed. The server may be overloaded, or it's possible no images have been posted from the requested sol.");
       }
     }
   };
@@ -227,6 +227,7 @@ function doFilter() {
 
 
 function sortTable(n) {
+  console.log("starting sort");
   var rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
   switching = true;
   // Set the sorting direction to ascending:
@@ -271,6 +272,7 @@ function sortTable(n) {
       }
     }
   }
+  console.log("done sorting");
 }
 
 
