@@ -23,14 +23,33 @@ table {
   width: 100%;
   border-collapse: collapse;
 }
+
+#loading {
+  float: right;
+  display: none;
+  width: 20px;
+  height: 20px;
+  border: 5px solid rgba(255,255,255,.3);
+  border-radius: 50%;
+  border-top-color: #ccaaaa;
+  animation: spin 1s ease-in-out infinite;
+  -webkit-animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { -webkit-transform: rotate(360deg); }
+}
+@-webkit-keyframes spin {
+  to { -webkit-transform: rotate(360deg); }
+}
+
 </style>
 </head>
 
 
-
-
-
 <body>
+
+<div id="loading"></div>
 
 <button onclick="getLatest('msl')" >MSL latest</button> 
 <button onclick="getSol('msl')" >MSL sol</button>
@@ -43,19 +62,26 @@ table {
 <br/>
 <div id="content" >Empty</div>
 
+
 <table id="images_table">
 <tr>
-  <th onclick="sortTable(0)">Index</th>
   <th>Image</th>
-  <th onclick="sortTable(2)">Camera <br/> <form id="cam_filter"></form>  </th>
-  <th onclick="sortTable(3)">Type   <br/> <form id="type_filter"></form> </th>
-  <th onclick="sortTable(4)">Image ID</th>
-  <th onclick="sortTable(5)">Date Taken</th>
+  <th onclick="sortTable(1)">Camera <br/> <form id="cam_filter"></form>  </th>
+  <th onclick="sortTable(2)">Type   <br/> <form id="type_filter"></form> </th>
+  <th onclick="sortTable(3)">Image ID</th>
+  <th onclick="sortTable(4)">Date Taken</th>
 </tr>
 </table>
 
 
 <script>
+
+var table = document.getElementById("images_table");
+var spinner = document.getElementById("loading");
+var cameras = [];
+var camera_type_img_counts = [];
+var image_types = [];
+var image_type_img_counts = [];
 
 function getLatest(mission){
   fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission);
@@ -73,52 +99,50 @@ function getSol(mission){
 
   
 function fetchRss(rss_url){
+  console.log("fetching rss feed:  " + rss_url);
+  spinner.style.display = "block";
   xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      console.log(this.responseText);
-      rss_json = JSON.parse(this.responseText);
-      console.log(rss_json);
-      renderJson(rss_json);
+    if (this.readyState == 4) {
+      spinner.style.display = "none";
+      if (this.status == 200) {
+        console.log(this.responseText);
+        rss_json = JSON.parse(this.responseText);
+        console.log(rss_json);
+        renderJson(rss_json);
+      } else {
+        console.log("unexpected response:");
+        console.log(this.responseText);
+        clearTable();
+        alert("Error fetching requested feed. It's possible no images have been posted from the requested sol.");
+      }
     }
   };
   xhttp.open("GET", rss_url, true);
   xhttp.send();
-  
-  /*
-  var requestOptions: RequestInit = {
-    method: 'GET',
-    redirect: 'follow'
-  };
-  const CORS_PROXY = "https://cors-anywhere.herokuapp.com/"
-  
-  fetch(CORS_PROXY + rss_url, requestOptions)
-    .then(response => response.json())
-    .then(result => console.log(result))
-    .catch(error => console.log('error', error));
-  */
 }
 
 
-var table = document.getElementById("images_table");
-var cameras = [];
-var image_types = [];
+function clearTable(){
+  for (var r=table.rows.length-1; r>0; r--) {
+    table.deleteRow(r);
+  }
+}
+
 
 
 function renderJson(json){
-
   cameras = [];
   image_types = [];
   
-
+  camera_type_img_counts = [];
+  image_type_img_counts = [];
+  
   var num_images = json.images.length;
   start_sol = json.images[0].sol;
   end_sol = json.images[num_images-1].sol;
   
-  // Clear the table:
-  for (var r=table.rows.length-1; r>0; r--) {
-    table.deleteRow(r);
-  }
+  clearTable();
   
   document.getElementById("content").innerHTML = '<h3>' + json.images.length + ' images from ' + json.mission.toUpperCase() + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'') + '</h3>';
 
@@ -131,7 +155,6 @@ function renderJson(json){
     var cell2 = row.insertCell(2);
     var cell3 = row.insertCell(3);
     var cell4 = row.insertCell(4);
-    var cell5 = row.insertCell(5);
 
     thumb_url   = this_img.image_files["small"];
     biggest_url = this_img.image_files["full_res"];
@@ -142,24 +165,27 @@ function renderJson(json){
     date_utc    = this_img.date_taken_utc.replace("T"," ");    
     date_local  = new Date(date_utc + " UTC").toString();    
 
-    cell0.innerHTML = n;
-    cell1.innerHTML = '<a href=' + biggest_url + '><img src=' + thumb_url + '></img></a>';
-    cell2.innerHTML = camera;
-    cell3.innerHTML = type;
-    cell4.innerHTML = image_id;
-    cell5.innerHTML = date_lmst + ' <br/> ' + date_utc + ' <br/> ' + date_local;
+    cell0.innerHTML = '<a href=' + biggest_url + '><img src=' + thumb_url + '></img></a>';
+    cell1.innerHTML = camera;
+    cell2.innerHTML = type;
+    cell3.innerHTML = image_id;
+    cell4.innerHTML = date_lmst + ' <br/> ' + date_utc + ' <br/> ' + date_local;
 
     if(!cameras.includes(camera)) {
       cameras.push(camera);
-      //makeCheckbox("cam_filter", camera);
+      camera_type_img_counts[camera]=0;
     }
     if(!image_types.includes(type)) {
       image_types.push(type);
-      //makeCheckbox("type_filter", type);
+      image_type_img_counts[type]=0;
     }
     
+    camera_type_img_counts[camera]++;
+    image_type_img_counts[type]++;
   }
   
+  console.log(camera_type_img_counts);
+  console.log(image_type_img_counts);
   
   // Clear and repopulate filter checkboxes:
   document.getElementById("cam_filter").innerHTML = "";
@@ -170,52 +196,32 @@ function renderJson(json){
 
 
 
-
-
 function makeCheckbox(container_name, checkbox_name){
+  var count = (container_name=="cam_filter") ? camera_type_img_counts[checkbox_name] : image_type_img_counts[checkbox_name];
   var container = document.getElementById(container_name);
-  //container.innerHTML += "<br/>";
-  /*
-  var checkbox = document.createElement('input');
-  checkbox.type = "checkbox";
-  checkbox.name = checkbox_name;
-  checkbox.checked = true;
-  checkbox.id = checkbox_name;
-  checkbox.onchange = doFilter;
-  var label = document.createElement('label');
-  label.htmlFor = checkbox_name;
-  label.appendChild(document.createTextNode(checkbox_name));
-  container.appendChild(checkbox);
-  container.appendChild(label);
-  */
-  container.innerHTML += '<div class="checkbox_div"><input type="checkbox" name="' + checkbox_name + '" id="' + checkbox_name + '" onchange="doFilter()" checked><label for="' + checkbox_name + '">' + checkbox_name + '</label></div>';
-  
-  
+  container.innerHTML += '<div class="checkbox_div"><input type="checkbox" name="' + checkbox_name + '" id="' + checkbox_name + '" onchange="doFilter()" checked><label for="' + checkbox_name + '">' + checkbox_name + '&nbsp;(' + count + ')</label></div>';
 }
 
 
 function doFilter() {
   console.log("filtering");
-  
   checked_checkbox_names = [];
   var checked_checkboxes = document.querySelectorAll('input[type=checkbox]:checked');
   for (var i = 0; i < checked_checkboxes.length; i++) {
     checked_checkbox_names.push(checked_checkboxes[i].name);
   }
   console.log(checked_checkbox_names);
-  
   for(r=1; r<table.rows.length; r++){
-    cam_type = table.rows[r].cells[2].innerText;
-    img_type = table.rows[r].cells[3].innerText;
+    cam_type = table.rows[r].cells[1].innerText;
+    img_type = table.rows[r].cells[2].innerText;
     if(checked_checkbox_names.includes(cam_type) && checked_checkbox_names.includes(img_type)){
       table.rows[r].style.display = 'table-row';
+      console.log("showing row " + r + " " + cam_type + " " + img_type);
     } else {
       table.rows[r].style.display = 'none';
       console.log("hiding row " + r + " " + cam_type + " " + img_type);
     }
   }
-  
-  
 }
 
 
@@ -225,23 +231,17 @@ function sortTable(n) {
   switching = true;
   // Set the sorting direction to ascending:
   dir = "asc";
-  /* Make a loop that will continue until
-  no switching has been done: */
+  // loop continues until no switching has been done:
   while (switching) {
-    // Start by saying: no switching is done:
     switching = false;
     rows = table.rows;
-    /* Loop through all table rows (except the
-    first, which contains table headers): */
+    // Loop through all table rows (except the first, which contains table headers):
     for (i = 1; i < (rows.length - 1); i++) {
-      // Start by saying there should be no switching:
       shouldSwitch = false;
-      /* Get the two elements you want to compare,
-      one from current row and one from the next: */
+      /* Get the two elements you want to compare, one from current row and one from the next: */
       x = rows[i].getElementsByTagName("TD")[n];
       y = rows[i + 1].getElementsByTagName("TD")[n];
-      /* Check if the two rows should switch place,
-      based on the direction, asc or desc: */
+      /* Check if the two rows should switch place, based on the direction, asc or desc: */
       if (dir == "asc") {
         if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
           // If so, mark as a switch and break the loop:
@@ -257,8 +257,7 @@ function sortTable(n) {
       }
     }
     if (shouldSwitch) {
-      /* If a switch has been marked, make the switch
-      and mark that a switch has been done: */
+      /* If a switch has been marked, make the switch and mark that a switch has been done: */
       rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
       switching = true;
       // Each time a switch is done, increase this count by 1:
