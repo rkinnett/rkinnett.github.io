@@ -1,0 +1,280 @@
+<html>
+<head>
+
+<style>
+
+button {
+  width: 18ch
+}
+
+.checkbox_div {
+  white-space: nowrap;
+  text-align: left
+}
+
+table, td, th {
+  border: 1px solid black;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+</style>
+</head>
+
+
+
+
+
+<body>
+
+<button onclick="getLatest('msl')" >MSL latest</button> 
+<button onclick="getSol('msl')" >MSL sol</button>
+</br>
+</br>
+<button onclick="getLatest('mars2020')" >Mars 2020 Latest</button>
+<button onclick="getSol('mars2020')" >Mars 2020 Sol</button>
+</br>
+
+<br/>
+<div id="content" >Empty</div>
+
+<table id="images_table">
+<tr>
+  <th onclick="sortTable(0)">Index</th>
+  <th>Image</th>
+  <th onclick="sortTable(2)">Camera <br/> <form id="cam_filter"></form>  </th>
+  <th onclick="sortTable(3)">Type   <br/> <form id="type_filter"></form> </th>
+  <th onclick="sortTable(4)">Image ID</th>
+  <th onclick="sortTable(5)">Date Taken</th>
+</tr>
+</table>
+
+
+<script>
+
+function getLatest(mission){
+  fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission);
+}
+
+function getSol(mission){
+  var sol = parseInt(window.prompt("Specify sol", 0), 0);
+  if ( /^[0-9.,]+$/.test(sol)) {
+    fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission + '&sol=' + sol);
+  } else {
+    console.log("not a number, or canceled.");
+  }
+}
+
+
+  
+function fetchRss(rss_url){
+  xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+      console.log(this.responseText);
+      rss_json = JSON.parse(this.responseText);
+      console.log(rss_json);
+      renderJson(rss_json);
+    }
+  };
+  xhttp.open("GET", rss_url, true);
+  xhttp.send();
+  
+  /*
+  var requestOptions: RequestInit = {
+    method: 'GET',
+    redirect: 'follow'
+  };
+  const CORS_PROXY = "https://cors-anywhere.herokuapp.com/"
+  
+  fetch(CORS_PROXY + rss_url, requestOptions)
+    .then(response => response.json())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
+  */
+}
+
+
+var table = document.getElementById("images_table");
+var cameras = [];
+var image_types = [];
+
+
+function renderJson(json){
+
+  cameras = [];
+  image_types = [];
+  
+
+  var num_images = json.images.length;
+  start_sol = json.images[0].sol;
+  end_sol = json.images[num_images-1].sol;
+  
+  // Clear the table:
+  for (var r=table.rows.length-1; r>0; r--) {
+    table.deleteRow(r);
+  }
+  
+  document.getElementById("content").innerHTML = '<h3>' + json.images.length + ' images from ' + json.mission.toUpperCase() + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'') + '</h3>';
+
+  for(n=0; n<num_images; n++){
+    var this_img = json.images[n];
+  
+    var row = table.insertRow(n+1);
+    var cell0 = row.insertCell(0);
+    var cell1 = row.insertCell(1);
+    var cell2 = row.insertCell(2);
+    var cell3 = row.insertCell(3);
+    var cell4 = row.insertCell(4);
+    var cell5 = row.insertCell(5);
+
+    thumb_url   = this_img.image_files["small"];
+    biggest_url = this_img.image_files["full_res"];
+    type        = this_img.sample_type;
+    camera      = this_img.camera.instrument;
+    image_id    = this_img.imageid;
+    date_lmst   = this_img.date_taken_mars.replace("M"," ");
+    date_utc    = this_img.date_taken_utc.replace("T"," ");    
+    date_local  = new Date(date_utc + " UTC").toString();    
+
+    cell0.innerHTML = n;
+    cell1.innerHTML = '<a href=' + biggest_url + '><img src=' + thumb_url + '></img></a>';
+    cell2.innerHTML = camera;
+    cell3.innerHTML = type;
+    cell4.innerHTML = image_id;
+    cell5.innerHTML = date_lmst + ' <br/> ' + date_utc + ' <br/> ' + date_local;
+
+    if(!cameras.includes(camera)) {
+      cameras.push(camera);
+      //makeCheckbox("cam_filter", camera);
+    }
+    if(!image_types.includes(type)) {
+      image_types.push(type);
+      //makeCheckbox("type_filter", type);
+    }
+    
+  }
+  
+  
+  // Clear and repopulate filter checkboxes:
+  document.getElementById("cam_filter").innerHTML = "";
+  document.getElementById("type_filter").innerHTML = "";
+  cameras.forEach(function(camera){makeCheckbox("cam_filter",camera)});
+  image_types.forEach(function(type){makeCheckbox("type_filter",type)});
+}
+
+
+
+
+
+function makeCheckbox(container_name, checkbox_name){
+  var container = document.getElementById(container_name);
+  //container.innerHTML += "<br/>";
+  /*
+  var checkbox = document.createElement('input');
+  checkbox.type = "checkbox";
+  checkbox.name = checkbox_name;
+  checkbox.checked = true;
+  checkbox.id = checkbox_name;
+  checkbox.onchange = doFilter;
+  var label = document.createElement('label');
+  label.htmlFor = checkbox_name;
+  label.appendChild(document.createTextNode(checkbox_name));
+  container.appendChild(checkbox);
+  container.appendChild(label);
+  */
+  container.innerHTML += '<div class="checkbox_div"><input type="checkbox" name="' + checkbox_name + '" id="' + checkbox_name + '" onchange="doFilter()" checked><label for="' + checkbox_name + '">' + checkbox_name + '</label></div>';
+  
+  
+}
+
+
+function doFilter() {
+  console.log("filtering");
+  
+  checked_checkbox_names = [];
+  var checked_checkboxes = document.querySelectorAll('input[type=checkbox]:checked');
+  for (var i = 0; i < checked_checkboxes.length; i++) {
+    checked_checkbox_names.push(checked_checkboxes[i].name);
+  }
+  console.log(checked_checkbox_names);
+  
+  for(r=1; r<table.rows.length; r++){
+    cam_type = table.rows[r].cells[2].innerText;
+    img_type = table.rows[r].cells[3].innerText;
+    if(checked_checkbox_names.includes(cam_type) && checked_checkbox_names.includes(img_type)){
+      table.rows[r].style.display = 'table-row';
+    } else {
+      table.rows[r].style.display = 'none';
+      console.log("hiding row " + r + " " + cam_type + " " + img_type);
+    }
+  }
+  
+  
+}
+
+
+
+function sortTable(n) {
+  var rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+  switching = true;
+  // Set the sorting direction to ascending:
+  dir = "asc";
+  /* Make a loop that will continue until
+  no switching has been done: */
+  while (switching) {
+    // Start by saying: no switching is done:
+    switching = false;
+    rows = table.rows;
+    /* Loop through all table rows (except the
+    first, which contains table headers): */
+    for (i = 1; i < (rows.length - 1); i++) {
+      // Start by saying there should be no switching:
+      shouldSwitch = false;
+      /* Get the two elements you want to compare,
+      one from current row and one from the next: */
+      x = rows[i].getElementsByTagName("TD")[n];
+      y = rows[i + 1].getElementsByTagName("TD")[n];
+      /* Check if the two rows should switch place,
+      based on the direction, asc or desc: */
+      if (dir == "asc") {
+        if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+          // If so, mark as a switch and break the loop:
+          shouldSwitch = true;
+          break;
+        }
+      } else if (dir == "desc") {
+        if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
+          // If so, mark as a switch and break the loop:
+          shouldSwitch = true;
+          break;
+        }
+      }
+    }
+    if (shouldSwitch) {
+      /* If a switch has been marked, make the switch
+      and mark that a switch has been done: */
+      rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+      switching = true;
+      // Each time a switch is done, increase this count by 1:
+      switchcount ++;
+    } else {
+      /* If no switching has been done AND the direction is "asc",
+      set the direction to "desc" and run the while loop again. */
+      if (switchcount == 0 && dir == "asc") {
+        dir = "desc";
+        switching = true;
+      }
+    }
+  }
+}
+
+
+
+</script>
+
+
+</body>
+</html>
