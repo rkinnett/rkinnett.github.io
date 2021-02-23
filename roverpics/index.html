@@ -80,7 +80,7 @@ table {
 </div>
 
 <div>
-  <div style="display:inline-block" id="content"> <h3>Empty</h3> </div>
+  <div style="display:inline-block" id="summary"> <h3>Empty</h3> </div>
   <div style="float:right"> <button onclick="makeManifestFile()" style="float:right">Export selected image URLs</button> </div>
 </div>
 
@@ -193,7 +193,7 @@ function tabulateImages(){
   start_sol = image_list_json.images[0].sol;
   end_sol = image_list_json.images[num_images-1].sol;
 
-  document.getElementById("content").innerHTML = '<h3>' + image_list_json.images.length + ' images from ' + image_list_json.mission.toUpperCase() + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'') + '</h3>';
+  document.getElementById("summary").innerHTML = '<h3>' + image_list_json.images.length + ' images from ' + image_list_json.mission.toUpperCase() + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'') + '</h3>';
 
   for(n=0; n<num_images; n++){
     var this_img = image_list_json.images[n];
@@ -364,7 +364,8 @@ function makeManifestFile(){
   var blob = new Blob([urls_text], { type: "text/plain;charset=utf-8" });
   const a = document.createElement('a');
   a.href= URL.createObjectURL(blob);
-  a.download = "image_urls.txt";
+  var fname = document.getElementById("summary").innerText.replace(/.* from /,"").replace(/ /g,"_") + '_image_urls.txt'
+  a.download = fname;
   a.click();
 	URL.revokeObjectURL(a.href);
 }
