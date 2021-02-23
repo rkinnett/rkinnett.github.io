@@ -65,7 +65,7 @@ table {
 
 <table id="images_table">
 <tr>
-  <th>Image</th>
+  <th>Thumbnail</th>
   <th onclick="sortTable(1)">Camera <br/> <form id="cam_filter"></form>  </th>
   <th onclick="sortTable(2)">Type   <br/> <form id="type_filter"></form> </th>
   <th onclick="sortTable(3)">Image ID</th>
@@ -165,9 +165,9 @@ function renderJson(json){
     date_utc    = this_img.date_taken_utc.replace("T"," ");    
     date_local  = new Date(date_utc + " UTC").toString();    
 
-    cell0.innerHTML = '<a href=' + biggest_url + '><img src=' + thumb_url + '></img></a>';
+    cell0.innerHTML = '<img src=' + thumb_url + ' />';
     cell1.innerHTML = camera;
-    cell2.innerHTML = type;
+    cell2.innerHTML = '<a href=' + biggest_url + '>' + type + '</a>';
     cell3.innerHTML = image_id;
     cell4.innerHTML = date_lmst + ' <br/> ' + date_utc + ' <br/> ' + date_local;
 
