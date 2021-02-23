@@ -6,8 +6,14 @@
 
 <style>
 
+body {
+  background-color: #555;
+  color: #eeeeee
+}
+
 button {
-  width: 18ch
+  width: 18ch;
+  font-weight: bold;
 }
 
 .checkbox_div {
@@ -16,11 +22,16 @@ button {
 }
 
 table, td, th {
+  color: #0b0b0b;
   border: 1px solid black;
 }
 
+td {
+  background-color: #fffcfa
+}
+
 th {
-  background-color: #ffeedd
+  background-color: #dcb
 }
 
 table {
@@ -29,13 +40,14 @@ table {
 }
 
 #loading {
-  float: center;
+  float: none;
   display: none;
-  width: 20px;
-  height: 20px;
-  border: 5px solid rgba(255,255,255,.3);
+  width: 30px;
+  height: 30px;
+  margin-left: 20px;
+  border: 8px solid rgba(255,255,255,.2);
   border-radius: 50%;
-  border-top-color: #ccaaaa;
+  border-top-color: #ccbbaa;
   animation: spin 1s ease-in-out infinite;
   -webkit-animation: spin 1s ease-in-out infinite;
 }
@@ -53,14 +65,19 @@ table {
 
 <body>
 
-<div id="loading"></div>
-
-<button onclick="getLatest('msl')" >MSL latest</button> 
-<button onclick="getSol('msl')" >MSL sol</button>
-</br>
-</br>
-<button onclick="getLatest('mars2020')" >Mars 2020 Latest</button>
-<button onclick="getSol('mars2020')" >Mars 2020 Sol</button>
+<div style="overflow: hidden; ">
+  <div style="display: inline-block">
+    <button onclick="getLatest('msl')" >MSL latest</button> 
+    <button onclick="getSol('msl')" >MSL sol</button>
+    </br>
+    </br>
+    <button onclick="getLatest('mars2020')" >Mars 2020 Latest</button>
+    <button onclick="getSol('mars2020')" >Mars 2020 Sol</button>
+  </div>
+  <div style="display: inline-block">
+    <div id="loading" style="display: none"></div>
+  </div>
+</div>
 </br>
 
 <br/>
@@ -104,7 +121,7 @@ function getSol(mission){
   
 function fetchRss(rss_url){
   console.log("fetching rss feed:  " + rss_url);
-  spinner.style.display = "block";
+  spinner.style.display = "inline-block";
   xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4) {
