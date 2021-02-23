@@ -59,33 +59,123 @@ table {
   to { -webkit-transform: rotate(360deg); }
 }
 
+
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 1; /* Sit on top */
+  padding-top: 100px; /* Location of the box */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgb(0,0,0); /* Fallback color */
+  background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+.modal-content {
+  background-color: #fefefe;
+  margin: auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%;
+  color: #321;
+}
+
+.modal_close_button {
+  color: #aaaaaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+  color: #000;
+  text-decoration: none;
+  cursor: pointer;
+}
+
 </style>
 </head>
 
 
 <body>
 
-<div style="float:right">Recommned <a href="https://chrome.google.com/webstore/detail/simple-mass-downloader/abdkkegmcbiomijcbdaodaflgehfffed?hl=en-US">Simple Mass Downloader</a> for Chrome.</div>
-
-<div style="overflow: hidden; ">
-  <div style="display: inline-block">
-    <button onclick="getLatest('msl')" >MSL latest</button> 
-    <button onclick="getSol('msl')" >MSL sol</button>
-    </br>
-    </br>
-    <button onclick="getLatest('mars2020')" >Mars 2020 Latest</button>
-    <button onclick="getSol('mars2020')" >Mars 2020 Sol</button>
-  </div>
-  <div style="display: inline-block">
-    <div id="loading" style="display: none"></div>
+<!-- INFO -->
+<div id="info_modal" class="modal">
+  <div class="modal-content">
+    <span class="modal_close_button">&times;</span>
+    <h2>Rover Pics</h2>
+    <p>
+      R. Kinnett, 2021.
+    </p>
+    <p>   
+      Also see NASA's raw images pages for <a href="https://mars.nasa.gov/msl/multimedia/raw-images/">MSL (Curiosity)</a> and <a href="https://mars.nasa.gov/mars2020/multimedia/raw-images/">Mars 2020 (Perseverance)</a> <br/><br/>
+    
+      This interface retrieves image information lists via JPL's RSS API and builds a table showing thumbnails and basic metadata for each image, along with links to the maximum available resolution images. <br/><br/>
+    
+      Start by querying image lists using the mission "Latest" or "Sol" buttons in the upper left.
+      <ul>
+        <li>The MSL and Mars 2020 "Latest" buttons retrieve information about and links to the latest 25 images from each mission.</li>
+        <li>The MSL and Mars 2020 "Sol" buttons prompt the user for a sol number (single sol, for now..) and retrieves information about all available images for a specified sol.</li>
+      </ul> 
+          
+      After retrieving image information via the mission "Latest" or "Sol" buttons, the user may:
+      <ol>
+        <li>
+          Export a JSON file containing all info retrieved from JPL,
+        </li>
+        <li>
+          Use checkboxes under the Camera and Type headings to narrow the table to specific images of interest, then use a browser extension (for Chrome, I recommend <a href="https://chrome.google.com/webstore/detail/simple-mass-downloader/abdkkegmcbiomijcbdaodaflgehfffed?hl=en-US">Simple Mass Downloader</a>) to download all full-frame (or largest available) images remaining in the table via the provided links.
+        </li>
+        <li>
+          Down-select further via checkboxes in the Select column and click "Export selected image URLs" to save a text file containing URLs to the full-frame (or max available) images which can be used in conjunction with command-line tools such as wget and curl.
+        </li>
+      </ol>
+      
+    
   </div>
 </div>
 
 
 
-<div>
-  <div style="display:inline-block" id="summary"> <h3>Empty</h3> </div>
-  <div style="float:right"> <button onclick="makeManifestFile()" style="float:right">Export selected image URLs</button> </div>
+<!-- TOP LEFT AREA -->
+<div style="overflow: hidden; display: inline-block">
+  <div style="display: block">
+    <div style="display: inline-block">
+      <div style="display: block; padding: 5px">
+        <button onclick="getLatest('msl')" >MSL latest</button> 
+        <button onclick="getSol('msl')" >MSL sol</button>
+      </div>
+      <div style="display: block; padding: 5px">
+        <button onclick="getLatest('mars2020')" >Mars 2020 Latest</button>
+        <button onclick="getSol('mars2020')" >Mars 2020 Sol</button>
+      </div>
+    </div>
+    
+    <div style="display: inline-block">
+      <div id="loading" style="display: none"></div>
+    </div>
+  </div>
+  
+  <div style="display:inline-block" id="summary"> 
+    <h3>Empty</h3> 
+  </div>
+</div>
+
+<!-- TOP RIGHT AREA -->
+<div style="float:right">
+  <div style="display: block; padding: 5px">
+    <button id="modal_open_button">INFO</button>
+  </div>
+  <div style="display: block; padding: 5px">
+    <button onclick="exportJson()">Export JSON</button> 
+  </div>
+  <div style="display: block; padding: 5px">
+    <button onclick="exportImageURLs()">Export selected image URLs</button> 
+  </div>
 </div>
 
 
@@ -108,6 +198,7 @@ table {
 
 <script>
 
+var got_images = false;
 var table = document.getElementById("images_table");
 var spinner = document.getElementById("loading");
 var cameras = [];
@@ -118,6 +209,36 @@ var num_rows = 0;
 var num_images = 0;
 var image_list_json;
 var checked_checkbox_names = [];
+
+
+
+
+
+// Get the modal
+var modal = document.getElementById("info_modal");
+
+// Get the button that opens the modal
+var btn = document.getElementById("modal_open_button");
+
+// Get the <span> element that closes the modal
+var span = document.getElementsByClassName("modal_close_button")[0];
+
+// When the user clicks the button, open the modal 
+btn.onclick = function() {
+  modal.style.display = "block";
+}
+
+// When the user clicks on <span> (x), close the modal
+span.onclick = function() {
+  modal.style.display = "none";
+}
+
+// When the user clicks anywhere outside of the modal, close it
+window.onclick = function(event) {
+  if (event.target == modal) {
+    modal.style.display = "none";
+  }
+}
 
 
 function selectAll(){
@@ -161,6 +282,7 @@ function fetchRss(rss_url){
         console.log(this.responseText);
         image_list_json = JSON.parse(this.responseText);
         console.log(image_list_json);
+        got_images = true;
         tabulateImages();
         buildTable();
       } else {
@@ -355,7 +477,11 @@ function doSort(n) {
 }
 
 
-function makeManifestFile(){
+function exportImageURLs(){
+  if(!got_images) {
+    alert('Use the mission "Latest" or "Sol" buttons to retrieve image information first');
+    return;
+  }
   var urls_text = '';
   for(var r=1; r<=num_rows; r++){
     var checked = table.rows[r].cells[0].querySelector('input[type="checkbox"]').checked;
@@ -373,6 +499,21 @@ function makeManifestFile(){
   a.click();
 	URL.revokeObjectURL(a.href);
 }
+
+function exportJson(){
+  if(!got_images) {
+    alert('Use the mission "Latest" or "Sol" buttons to retrieve image information first');
+    return;
+  }
+  var blob = new Blob([JSON.stringify(image_list_json, null, '\t')], { type: "text/plain;charset=utf-8" });
+  const a = document.createElement('a');
+  a.href= URL.createObjectURL(blob);
+  var fname = document.getElementById("summary").innerText.replace(/.* from /,"").replace(/ /g,"_") + '_image_data.json'
+  a.download = fname;
+  a.click();
+	URL.revokeObjectURL(a.href);
+}
+
 
 
 
