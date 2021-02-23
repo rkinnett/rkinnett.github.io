@@ -85,7 +85,7 @@ table {
 <table id="images_table">
 <tr>
   <th>Thumbnail</th>
-  <th onclick="sortTable(1)">Camera <br/> <form id="cam_filter"></form>  </th>
+  <th>Camera <br/> <form id="cam_filter"></form>  </th>
   <th onclick="sortTable(2)">Type   <br/> <form id="type_filter"></form> </th>
   <th onclick="sortTable(3)">Image ID</th>
   <th onclick="sortTable(4)">Date Taken</th>
@@ -101,6 +101,11 @@ var cameras = [];
 var camera_type_img_counts = [];
 var image_types = [];
 var image_type_img_counts = [];
+var num_rows = 0;
+var num_images = 0;
+var image_list_json;
+var checked_checkbox_names = [];
+
 
 function getLatest(mission){
   fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission);
@@ -115,30 +120,31 @@ function getSol(mission){
   }
 }
 
-
   
 function fetchRss(rss_url){
   console.log("fetching rss feed:  " + rss_url);
-  spinner.style.display = "inline-block";
+  setBusyIndicator(true);
   xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4) {
-      spinner.style.display = "none";
+      clearTable();
       if (this.status == 200) {
         console.log(this.responseText);
-        rss_json = JSON.parse(this.responseText);
-        console.log(rss_json);
-        renderJson(rss_json);
+        image_list_json = JSON.parse(this.responseText);
+        console.log(image_list_json);
+        tabulateImages();
+        buildTable();
       } else {
         console.log("unexpected response:");
         console.log(this.responseText);
-        clearTable();
         alert("Error fetching requested feed. The server may be overloaded, or it's possible no images have been posted from the requested sol.");
       }
+      setBusyIndicator(false);
     }
   };
+  setBusyIndicator(true);
   xhttp.open("GET", rss_url, true);
-  xhttp.send();
+  setTimeout(function(){ xhttp.send(); }, 100);
 }
 
 
@@ -146,49 +152,29 @@ function clearTable(){
   for (var r=table.rows.length-1; r>0; r--) {
     table.deleteRow(r);
   }
+  num_rows = 0;
 }
 
 
-
-function renderJson(json){
+function tabulateImages(){
+  console.log("tabulating images");
   cameras = [];
   image_types = [];
   
   camera_type_img_counts = [];
   image_type_img_counts = [];
   
-  var num_images = json.images.length;
-  start_sol = json.images[0].sol;
-  end_sol = json.images[num_images-1].sol;
-  
-  clearTable();
-  
-  document.getElementById("content").innerHTML = '<h3>' + json.images.length + ' images from ' + json.mission.toUpperCase() + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'') + '</h3>';
+  num_images = image_list_json.images.length;
+  start_sol = image_list_json.images[0].sol;
+  end_sol = image_list_json.images[num_images-1].sol;
+
+  document.getElementById("content").innerHTML = '<h3>' + image_list_json.images.length + ' images image_list_json ' + image_list_json.mission.toUpperCase() + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'') + '</h3>';
 
   for(n=0; n<num_images; n++){
-    var this_img = json.images[n];
-  
-    var row = table.insertRow(n+1);
-    var cell0 = row.insertCell(0);
-    var cell1 = row.insertCell(1);
-    var cell2 = row.insertCell(2);
-    var cell3 = row.insertCell(3);
-    var cell4 = row.insertCell(4);
-
-    thumb_url   = this_img.image_files["small"];
-    biggest_url = this_img.image_files["full_res"];
-    type        = this_img.sample_type;
-    camera      = this_img.camera.instrument;
-    image_id    = this_img.imageid;
-    date_lmst   = this_img.date_taken_mars.replace("M"," ");
-    date_utc    = this_img.date_taken_utc.replace("T"," ");    
-    date_local  = new Date(date_utc + " UTC").toString();    
-
-    cell0.innerHTML = '<img src=' + thumb_url + ' />';
-    cell1.innerHTML = camera;
-    cell2.innerHTML = '<a href=' + biggest_url + '>' + type + '</a>';
-    cell3.innerHTML = image_id;
-    cell4.innerHTML = date_lmst + ' <br/> ' + date_utc + ' <br/> ' + date_local;
+    var this_img = image_list_json.images[n];
+    var type     = this_img.sample_type;
+    var camera   = this_img.camera.instrument;
+    // console.log('image ' + n + ', ' + camera + ', ' + type);
 
     if(!cameras.includes(camera)) {
       cameras.push(camera);
@@ -198,7 +184,6 @@ function renderJson(json){
       image_types.push(type);
       image_type_img_counts[type]=0;
     }
-    
     camera_type_img_counts[camera]++;
     image_type_img_counts[type]++;
   }
@@ -209,8 +194,61 @@ function renderJson(json){
   // Clear and repopulate filter checkboxes:
   document.getElementById("cam_filter").innerHTML = "";
   document.getElementById("type_filter").innerHTML = "";
-  cameras.forEach(function(camera){makeCheckbox("cam_filter",camera)});
-  image_types.forEach(function(type){makeCheckbox("type_filter",type)});
+  cameras.forEach(function(cam_type){makeCheckbox("cam_filter",cam_type)});
+  image_types.forEach(function(img_type){makeCheckbox("type_filter",img_type)});
+  setBusyIndicator(false);
+}
+
+
+
+function buildTable(){
+  console.log("building table");
+  clearTable();
+
+  // rebuild checked-checkboxes list:
+  checked_checkbox_names = [];
+  var checked_checkboxes = document.querySelectorAll('input[type=checkbox]:checked');
+  console.log(checked_checkboxes);
+  for (var i=0; i<checked_checkboxes.length; i++) {
+    checked_checkbox_names.push(checked_checkboxes[i].name);
+  }
+  console.log(checked_checkbox_names);
+
+  // build table:
+  for(n=0; n<num_images; n++){
+    var this_img = image_list_json.images[n];
+    img_type     = this_img.sample_type;
+    cam_type     = this_img.camera.instrument;
+  
+    if(checked_checkbox_names.includes(cam_type) && checked_checkbox_names.includes(img_type)){
+      //console.log("showing image " + n + " " + cam_type + " " + img_type);    
+
+      thumb_url   = this_img.image_files["small"];
+      biggest_url = this_img.image_files["full_res"];
+      image_id    = this_img.imageid;
+      date_lmst   = this_img.date_taken_mars.replace("M"," ");
+      date_utc    = this_img.date_taken_utc.replace("T"," ");    
+      date_local  = new Date(date_utc + " UTC").toString();  
+
+      num_rows++;
+      var row = table.insertRow(num_rows);
+      var cell0 = row.insertCell(0);
+      var cell1 = row.insertCell(1);
+      var cell2 = row.insertCell(2);
+      var cell3 = row.insertCell(3);
+      var cell4 = row.insertCell(4);
+
+      cell0.innerHTML = '<img src=' + thumb_url + ' />';
+      cell1.innerHTML = cam_type;
+      cell2.innerHTML = '<a href=' + biggest_url + '>' + img_type + '</a>';
+      cell3.innerHTML = image_id;
+      cell4.innerHTML = date_lmst + ' <br/> ' + date_utc + ' <br/> ' + date_local;
+
+    } else {
+      //console.log("skipping image " + n + " " + cam_type + " " + img_type);
+    }    
+  }
+  setBusyIndicator(false);
 }
 
 
@@ -224,28 +262,18 @@ function makeCheckbox(container_name, checkbox_name){
 
 function doFilter() {
   console.log("filtering");
-  checked_checkbox_names = [];
-  var checked_checkboxes = document.querySelectorAll('input[type=checkbox]:checked');
-  for (var i = 0; i < checked_checkboxes.length; i++) {
-    checked_checkbox_names.push(checked_checkboxes[i].name);
-  }
-  console.log(checked_checkbox_names);
-  for(r=1; r<table.rows.length; r++){
-    cam_type = table.rows[r].cells[1].innerText;
-    img_type = table.rows[r].cells[2].innerText;
-    if(checked_checkbox_names.includes(cam_type) && checked_checkbox_names.includes(img_type)){
-      table.rows[r].style.display = 'table-row';
-      console.log("showing row " + r + " " + cam_type + " " + img_type);
-    } else {
-      table.rows[r].style.display = 'none';
-      console.log("hiding row " + r + " " + cam_type + " " + img_type);
-    }
-  }
+  setBusyIndicator(true);
+  setTimeout(function(){buildTable()}, 200);
 }
 
 
+function sortTable(n){
+  setBusyIndicator(true);
+  setTimeout(function(){ doSort(n) }, 200);
+}
 
-function sortTable(n) {
+
+function doSort(n) {
   console.log("starting sort");
   var rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
   switching = true;
@@ -292,7 +320,22 @@ function sortTable(n) {
     }
   }
   console.log("done sorting");
+  setBusyIndicator(false);
 }
+
+
+
+
+function setBusyIndicator(busy) {
+  if(busy) {
+    console.log("busy");
+    spinner.style.display = "inline-block";
+  } else {
+    console.log("done being busy");
+    spinner.style.display = "none";  
+  }
+}
+
 
 
 
