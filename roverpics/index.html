@@ -134,8 +134,6 @@ table {
           Down-select further via checkboxes in the Select column and click "Export selected image URLs" to save a text file containing URLs to the full-frame (or max available) images which can be used in conjunction with command-line tools such as wget and curl.
         </li>
       </ol>
-      
-    
   </div>
 </div>
 
@@ -146,8 +144,8 @@ table {
   <div style="display: block">
     <div style="display: inline-block">
       <div style="display: block; padding: 5px">
-        <button onclick="getLatest('msl')" >MSL latest</button> 
-        <button onclick="getSol('msl')" >MSL sol</button>
+        <button onclick="getLatest('msl')" >MSL Latest</button> 
+        <button onclick="getSol('msl')" >MSL Sol</button>
       </div>
       <div style="display: block; padding: 5px">
         <button onclick="getLatest('mars2020')" >Mars 2020 Latest</button>
@@ -160,8 +158,8 @@ table {
     </div>
   </div>
   
-  <div style="display:inline-block" id="summary"> 
-    <h3>Empty</h3> 
+  <div style="display:inline-block"> 
+    <h3 id="summary">Empty</h3> 
   </div>
 </div>
 
@@ -317,9 +315,7 @@ function tabulateImages(){
   
   num_images = image_list_json.images.length;
   start_sol = image_list_json.images[0].sol;
-  end_sol = image_list_json.images[num_images-1].sol;
-
-  document.getElementById("summary").innerHTML = '<h3>' + image_list_json.images.length + ' images from ' + image_list_json.mission.toUpperCase() + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'') + '</h3>';
+  end_sol = image_list_json.images[0].sol;
 
   for(n=0; n<num_images; n++){
     var this_img = image_list_json.images[n];
@@ -337,8 +333,22 @@ function tabulateImages(){
     }
     camera_type_img_counts[camera]++;
     image_type_img_counts[type]++;
+    
+    // Get sol range:
+    if(image_list_json.images[n].sol<start_sol) {
+      start_sol = image_list_json.images[n].sol;
+    }
+    if(image_list_json.images[n].sol<end_sol) {
+      end_sol = image_list_json.images[n].sol;
+    }
+    
   }
-  
+
+  // Update summary:
+  document.getElementById("summary").innerText = '' + image_list_json.images.length + ' images from ' + image_list_json.mission.toUpperCase() + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'');
+
+  console.log([start_sol, end_sol]);
+
   console.log(camera_type_img_counts);
   console.log(image_type_img_counts);
   
