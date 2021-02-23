@@ -79,16 +79,25 @@ table {
   </div>
 </div>
 
-<div id="content" ><h3>Empty</h3></div>
+<div>
+  <div style="display:inline-block" id="content"> <h3>Empty</h3> </div>
+  <div style="float:right"> <button onclick="makeManifestFile()" style="float:right">Export selected image URLs</button> </div>
+</div>
 
 
 <table id="images_table">
 <tr>
-  <th>Thumbnail</th>
-  <th>Camera <br/> <form id="cam_filter"></form>  </th>
-  <th onclick="sortTable(2)">Type   <br/> <form id="type_filter"></form> </th>
-  <th onclick="sortTable(3)">Image ID</th>
-  <th onclick="sortTable(4)">Date Taken</th>
+  <th> <h3>Select</h3> 
+    <div>
+      <a onclick="selectAll()">[all]</a>&nbsp;
+      <a onclick="selectNone()">[none]</a>
+    </div>
+  </th>
+  <th> <h3>Thumbnail</h3> </th>
+  <th> <h3 onclick="sortTable(1)">Camera</h3> <form id="cam_filter"></form> </th>
+  <th> <h3 onclick="sortTable(2)">Type</h3>  <form id="type_filter"></form> </th>
+  <th> <h3 onclick="sortTable(3)">Image ID</h3> </th>
+  <th> <h3 onclick="sortTable(4)">Date Taken</h3> </th>
 </tr>
 </table>
 
@@ -105,6 +114,22 @@ var num_rows = 0;
 var num_images = 0;
 var image_list_json;
 var checked_checkbox_names = [];
+
+
+function selectAll(){
+  console.log("selecting all");
+  for(var r=1; r<=num_rows; r++){
+    table.rows[r].cells[0].querySelector('input[type="checkbox"]').checked = true;
+  }
+}
+
+function selectNone(){
+  console.log("deselecting all");
+  for(var r=1; r<=num_rows; r++){
+    table.rows[r].cells[0].querySelector('input[type="checkbox"]').checked = false;
+  }
+}
+
 
 
 function getLatest(mission){
@@ -168,7 +193,7 @@ function tabulateImages(){
   start_sol = image_list_json.images[0].sol;
   end_sol = image_list_json.images[num_images-1].sol;
 
-  document.getElementById("content").innerHTML = '<h3>' + image_list_json.images.length + ' images image_list_json ' + image_list_json.mission.toUpperCase() + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'') + '</h3>';
+  document.getElementById("content").innerHTML = '<h3>' + image_list_json.images.length + ' images from ' + image_list_json.mission.toUpperCase() + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'') + '</h3>';
 
   for(n=0; n<num_images; n++){
     var this_img = image_list_json.images[n];
@@ -237,12 +262,14 @@ function buildTable(){
       var cell2 = row.insertCell(2);
       var cell3 = row.insertCell(3);
       var cell4 = row.insertCell(4);
+      var cell5 = row.insertCell(5);
 
-      cell0.innerHTML = '<img src=' + thumb_url + ' />';
-      cell1.innerHTML = cam_type;
-      cell2.innerHTML = '<a href=' + biggest_url + '>' + img_type + '</a>';
-      cell3.innerHTML = image_id;
-      cell4.innerHTML = date_lmst + ' <br/> ' + date_utc + ' <br/> ' + date_local;
+      cell0.innerHTML = '<input type="checkbox" id="SEL_' + image_id + '">';
+      cell1.innerHTML = '<img src=' + thumb_url + ' />';
+      cell2.innerHTML = cam_type;
+      cell3.innerHTML = '<a href=' + biggest_url + ' download>' + img_type + '</a>';
+      cell4.innerHTML = image_id;
+      cell5.innerHTML = date_lmst + ' <br/> ' + date_utc + ' <br/> ' + date_local;
 
     } else {
       //console.log("skipping image " + n + " " + cam_type + " " + img_type);
@@ -324,6 +351,24 @@ function doSort(n) {
 }
 
 
+function makeManifestFile(){
+  var urls_text = '';
+  for(var r=1; r<=num_rows; r++){
+    var checked = table.rows[r].cells[0].querySelector('input[type="checkbox"]').checked;
+    if(checked){
+      urls_text += table.rows[r].cells[3].querySelector('a').href + '\n';
+    }
+  }
+  urls_text = urls_text.replace(/\n$/, "");
+  console.log(urls_text);
+  var blob = new Blob([urls_text], { type: "text/plain;charset=utf-8" });
+  const a = document.createElement('a');
+  a.href= URL.createObjectURL(blob);
+  a.download = "image_urls.txt";
+  a.click();
+	URL.revokeObjectURL(a.href);
+}
+
 
 
 function setBusyIndicator(busy) {
@@ -337,10 +382,7 @@ function setBusyIndicator(busy) {
 }
 
 
-
-
 </script>
-
 
 </body>
 </html>
