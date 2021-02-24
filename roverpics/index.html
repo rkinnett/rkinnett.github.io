@@ -77,14 +77,14 @@ table {
 .modal-content {
   background-color: #fefefe;
   margin: auto;
-  padding: 20px;
+  padding: 0px 20px 0px 20px;
   border: 1px solid #888;
   width: 80%;
   color: #321;
 }
 
 .modal_close_button {
-  color: #aaaaaa;
+  color: #666;
   float: right;
   font-size: 28px;
   font-weight: bold;
@@ -106,34 +106,51 @@ table {
 <!-- INFO -->
 <div id="info_modal" class="modal">
   <div class="modal-content">
-    <span class="modal_close_button">&times;</span>
-    <h2>Rover Pics</h2>
-    <p>
-      R. Kinnett, 2021.
-    </p>
+    <div style="display: inline-block">
+      <h2>Rover Pics</h2>
+      <p> R. Kinnett, 2021. </p>
+    </div>
+    <div style="float: right">
+      <span class="modal_close_button">&times;</span>
+    </div>
+    <hr/>
     <p>   
-      Also see NASA's raw images pages for <a href="https://mars.nasa.gov/msl/multimedia/raw-images/">MSL (Curiosity)</a> and <a href="https://mars.nasa.gov/mars2020/multimedia/raw-images/">Mars 2020 (Perseverance)</a> <br/><br/>
+      Also see NASA's raw images pages for <a href="https://mars.nasa.gov/msl/multimedia/raw-images/">MSL (Curiosity)</a> and <a href="https://mars.nasa.gov/mars2020/multimedia/raw-images/">Mars 2020 (Perseverance)</a> which are much better for casual perusal.
+      <br/><br/>
     
-      This interface retrieves image information lists via JPL's RSS API and builds a table showing thumbnails and basic metadata for each image, along with links to the maximum available resolution images. <br/><br/>
-    
-      Start by querying image lists using the mission "Latest" or "Sol" buttons in the upper left.
-      <ul>
-        <li>The MSL and Mars 2020 "Latest" buttons retrieve information about and links to the latest 25 images from each mission.</li>
-        <li>The MSL and Mars 2020 "Sol" buttons prompt the user for a sol number (single sol, for now..) and retrieves information about all available images for a specified sol.</li>
-      </ul> 
-          
-      After retrieving image information via the mission "Latest" or "Sol" buttons, the user may:
+      This interface retrieves image information lists via <a href="https://mars.nasa.gov/rss/">JPL's RSS API</a> and builds a table showing thumbnails and basic metadata for each image, along with links to the maximum available resolution images.  Note: full image credits are provided in the JSON file which can be exported via the Export JSON button
+      <br/>
+
       <ol>
-        <li>
-          Export a JSON file containing all info retrieved from JPL,
+        <li> Start by querying image lists using the mission "Latest" or "Sol" buttons in the upper left.
+          <ul>
+            <li>The MSL and Mars 2020 "Latest" buttons retrieve information about and links to the latest 25 images from each mission.</li>
+            <li>The MSL and Mars 2020 "Sol" buttons prompt the user for a sol number (single sol, for now..) and retrieves information about all available images for a specified sol.</li>
+          </ul> 
         </li>
-        <li>
-          Use checkboxes under the Camera and Type headings to narrow the table to specific images of interest, then use a browser extension (for Chrome, I recommend <a href="https://chrome.google.com/webstore/detail/simple-mass-downloader/abdkkegmcbiomijcbdaodaflgehfffed?hl=en-US">Simple Mass Downloader</a>) to download all full-frame (or largest available) images remaining in the table via the provided links.
-        </li>
-        <li>
-          Down-select further via checkboxes in the Select column and click "Export selected image URLs" to save a text file containing URLs to the full-frame (or max available) images which can be used in conjunction with command-line tools such as wget and curl.
+        <li> After retrieving image information via the mission "Latest" or "Sol" buttons, the user may:
+          <ul>
+            <li>
+              Export a JSON file containing all info retrieved from JPL,
+            </li>
+            <li>
+              Use checkboxes under the Camera and Type headings to narrow the table to specific images of interest, then use a browser extension to download all full-frame (or largest available) images remaining in the table via the provided links. 
+              <li>
+                Try <a href="https://www.downthemall.net/">DownThemAll!</a> for Chrome, Firefox or Opera
+              </li>
+            </li>
+            <li>
+              Down-select further via checkboxes in the Select column and click "Export selected image URLs" to save a text file containing URLs to the full-frame (or max available) images which can be used in conjunction with command-line tools such as wget and curl.
+            </li>
+          </ul>
         </li>
       </ol>
+      <hr/>
+      Get the source code on <a href="https://github.com/rkinnett/rkinnett.github.io/tree/master/roverpics">Github</a>.<br/>
+      
+      <b>Comments and suggestions: </b> <a href="https://twitter.com/rover_18">twitter</a> or <a href="https://discord.gg/C9EuvvfGZP">Discord</a>
+      
+    </p>
   </div>
 </div>
 
