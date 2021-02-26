@@ -1,10 +1,9 @@
 theme: jekyll-theme-slate
-title: Ryan's pages
 
 google_analytics: G-HY1FPZXLPS
 
 layout: default
-title: UI Components
+title: Ryan's miscellaneous public pages
 nav_order: 2
 has_children: true
 has_toc: true
