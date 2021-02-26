@@ -31,12 +31,17 @@ td {
 }
 
 th {
+  vertical-align: text-top;
   background-color: #dcb
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
+}
+
+h3 {
+  text-decoration: underline;
 }
 
 #loading {
@@ -107,7 +112,7 @@ table {
 <div id="info_modal" class="modal">
   <div class="modal-content">
     <div style="display: inline-block">
-      <h2>Rover Pics</h2>
+      <h1>Rover Pics</h1>
       <p> R. Kinnett, 2021. </p>
     </div>
     <div style="float: right">
@@ -135,9 +140,11 @@ table {
             </li>
             <li>
               Use checkboxes under the Camera and Type headings to narrow the table to specific images of interest, then use a browser extension to download all full-frame (or largest available) images remaining in the table via the provided links. 
-              <li>
-                Try <a href="https://www.downthemall.net/">DownThemAll!</a> for Chrome, Firefox or Opera
-              </li>
+              <ul>
+                <li>
+                  Try <a href="https://www.downthemall.net/">DownThemAll!</a> for Chrome, Firefox or Opera
+                </li>
+              </ul>
             </li>
             <li>
               Down-select further via checkboxes in the Select column and click "Export selected image URLs" to save a text file containing URLs to the full-frame (or max available) images which can be used in conjunction with command-line tools such as wget and curl.
@@ -204,7 +211,7 @@ table {
   </th>
   <th> <h3>Thumbnail</h3> </th>
   <th> <h3 onclick="sortTable(1)">Camera</h3> <form id="cam_filter"></form> </th>
-  <th> <h3 onclick="sortTable(2)">Type</h3>  <form id="type_filter"></form> </th>
+  <th> <h3 onclick="sortTable(2)">Frame Type</h3>  <form id="type_filter"></form> </th>
   <th> <h3 onclick="sortTable(3)">Image ID</h3> </th>
   <th> <h3 onclick="sortTable(4)">Date Taken</h3> </th>
 </tr>
