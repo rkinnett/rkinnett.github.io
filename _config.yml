@@ -1,4 +1,4 @@
-theme: grayscale-theme
+theme: jekyll-theme-midnight
 
 layout: default
 title: UI Components
