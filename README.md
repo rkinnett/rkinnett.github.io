@@ -3,5 +3,5 @@
  * [Jupiter Globe](https://rkinnett.github.io/jupiter/) - virtual Jupiter globe with selectable maps.
   
   
-My [Github.io project tree](https://github.com/rkinnett/rkinnett.github.io)
-My [other github stuff](https://github.com/rkinnett)
+My [Github.io project tree](https://github.com/rkinnett/rkinnett.github.io)  
+My [other github stuff](https://github.com/rkinnett)  
