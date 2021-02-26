@@ -1,4 +1,7 @@
 theme: jekyll-theme-slate
+title: Ryan's pages
+
+google_analytics: G-HY1FPZXLPS
 
 layout: default
 title: UI Components
