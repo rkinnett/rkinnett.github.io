@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - glTF loader</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+	</head>
+
+	<body>
+		<div id="info">
+			Perseverance model via <a href="https://mars.nasa.gov/resources/25042/mars-perseverance-rover-3d-model/" target="_blank" rel="noopener">NASA/JPL</a><br />
+		</div>
+
+		<script type="module">
+    
+      let arm_joint = [];
+      arm_joint[1] = {model_obj_name: "arm003",     axis: "y", dir:  1, offset: 0};
+      arm_joint[2] = {model_obj_name: "arm002",     axis: "z", dir: -1, offset: 0};
+      arm_joint[3] = {model_obj_name: "arm",        axis: "z", dir: -1, offset: -1*Math.PI/2};
+      arm_joint[4] = {model_obj_name: "arm004",     axis: "z", dir: -1, offset: Math.PI/2};
+      arm_joint[5] = {model_obj_name: "turret_obj", axis: "y", dir: -1, offset: 0};
+    
+			import * as THREE from './build/three.module.js';
+
+			import { OrbitControls } from './js/OrbitControls.js';
+			import { GLTFLoader } from './js/GLTFLoader.js';
+
+			let camera, scene, renderer, rover;
+      let modulevars = {camera, scene, renderer, rover}
+      window.modulevars = modulevars;
+
+      window.render = render;
+
+			init();
+			render();
+
+			function init() {
+
+				const container = document.createElement( 'div' );
+				document.body.appendChild( container );
+
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.25, 20 );
+				camera.position.set( - 1.8, 0.6, 2.7 );
+
+				scene = new THREE.Scene();
+        window.scene = scene;
+        scene.background = new THREE.Color( 0xaaaaaa );
+
+        const light = new THREE.AmbientLight( 0x403020 ); // soft white light
+        scene.add( light );
+        const directionalLight = new THREE.DirectionalLight( 0xffeecc, 0.5 );
+        scene.add( directionalLight );
+
+        //const loader = new GLTFLoader().setPath( 'model/' );
+        const loader = new GLTFLoader();
+        loader.crossOrigin='';
+        loader.mimeType = 'application/octet-stream';
+        loader.setRequestHeader = { "X-Requested-With": "XMLHttpRequest" };
+
+        //loader.load( 'Perseverance.glb', function ( gltf ) {
+        let model_url = "https://cors-anywhere.herokuapp.com/mars.nasa.gov/system/resources/gltf_files/25042_Perseverance.glb";
+        loader.load( model_url, function ( gltf ) {
+          rover = gltf;
+          window.rover = rover;
+          rover.scene.traverse( function ( child ) {
+          
+            // Check if this is an arm joint object:
+            for(var i=1; i<=5; i++){
+              if(child.name == arm_joint[i].model_obj_name){
+                console.log("found " + child.name);
+                arm_joint[i].obj = child;
+                arm_joint[i].theta0 = child.rotation[arm_joint[i].axis].valueOf();
+              }
+            }
+
+            if ( child.isMesh ) {
+              // TOFIX RoughnessMipmapper seems to be broken with WebGL 2.0
+              // roughnessMipmapper.generateMipmaps( child.material );              
+            }
+          } );
+          console.log(rover);
+          window.arm_joint = arm_joint;
+          scene.add( rover.scene );
+          render();
+        } );
+
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.toneMapping = THREE.ACESFilmicToneMapping;
+				renderer.toneMappingExposure = 1;
+				renderer.outputEncoding = THREE.sRGBEncoding;
+				container.appendChild( renderer.domElement );
+
+				const pmremGenerator = new THREE.PMREMGenerator( renderer );
+				pmremGenerator.compileEquirectangularShader();
+
+				const controls = new OrbitControls( camera, renderer.domElement );
+				controls.addEventListener( 'change', render ); // use if there is no animation loop
+				controls.minDistance = 2;
+				controls.maxDistance = 10;
+				controls.target.set( 0, 0, - 0.2 );
+				controls.update();
+
+				window.addEventListener( 'resize', onWindowResize );
+			}
+
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				render();
+			}
+
+			//
+
+			function render() {
+				renderer.render( scene, camera );
+			}
+
+
+      function setArmPose(joint_angles){
+        for(var n=1; n<=5; n++){
+          arm_joint[n].obj.rotation[arm_joint[n].axis] = arm_joint[n].dir*joint_angles[n-1] + arm_joint[n].theta0 + arm_joint[n].offset;
+        }
+      }
+      window.setArmPose = setArmPose;
+
+
+		</script>
+
+	</body>
+</html>
