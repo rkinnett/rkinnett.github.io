@@ -106,7 +106,7 @@ h3 {
 </head>
 
 
-<body>
+<body onload="parseUrl()">
 
 <!-- INFO -->
 <div id="info_modal" class="modal">
@@ -169,11 +169,11 @@ h3 {
     <div style="display: inline-block">
       <div style="display: block; padding: 5px">
         <button onclick="getLatest('msl')" >MSL Latest</button> 
-        <button onclick="getSol('msl')" >MSL Sol</button>
+        <button onclick="askSol('msl')" >MSL Sol</button>
       </div>
       <div style="display: block; padding: 5px">
         <button onclick="getLatest('mars2020')" >Mars 2020 Latest</button>
-        <button onclick="getSol('mars2020')" >Mars 2020 Sol</button>
+        <button onclick="askSol('mars2020')" >Mars 2020 Sol</button>
       </div>
     </div>
     
@@ -203,7 +203,7 @@ h3 {
 
 <table id="images_table">
 <tr>
-  <th> <h3>Select</h3> 
+  <th> <h3 title="This is currently only used for exporting URLs to file">Select</h3> 
     <div>
       <a onclick="selectAll()">[all]</a>&nbsp;
       <a onclick="selectNone()">[none]</a>
@@ -216,6 +216,10 @@ h3 {
   <th> <h3 onclick="sortTable(4)">Date Taken</h3> </th>
 </tr>
 </table>
+
+
+
+
 
 
 <script>
@@ -232,7 +236,7 @@ var num_images = 0;
 var image_list_json;
 var checked_checkbox_names = [];
 
-
+var urlParams;
 
 
 
@@ -263,6 +267,69 @@ window.onclick = function(event) {
 }
 
 
+
+////////// FUNCTION DEFINITIONS ///////////////
+
+function parseUrl(){
+  console.log("parsing URL arguments...");
+  url_query = {mission: '', sol: ''};
+  console.log(url_query);
+  let paramString = window.location.search.toLowerCase().split('?')[1]; 
+  let queryString = new URLSearchParams(paramString); 
+
+  for (let pair of queryString.entries()) { 
+    key = pair[0];
+    val = pair[1];
+    console.log(key + (val.length>0? (": " + val) : "") );
+    if(key=="m" || key=="mission"){
+      console.log("MISSION");
+      if(val=="msl" || val=="curiosity"){
+        url_query.mission = "msl";
+      } else if(val=="mars2020" || val=="m2020" || val=="perseverance"){
+        url_query.mission = "mars2020"
+      } else {
+        console.log("unrecognized mission name:  " + val);
+        return;
+      }
+    } else if(key=="msl" || key=="curiosity"){
+      url_query.mission = "msl";
+    } else if(key=="mars2020" || key=="m2020" || key=="perseverance"){
+      url_query.mission = "mars2020";
+    } else if(key=="latest"){
+      console.log("LATEST");
+      url_query.sol = "latest";
+    } else if(key=="s" || key=="sol") {
+      console.log("SOL");
+      if((/^[0-9]+$/).test(val)){
+        url_query.sol = val;
+      } else {
+        console.log("invalid sol string: " + val);
+        return;
+      }
+    } else if((/^sol[0-9]+$/).test(key)) {
+      console.log("SOL#");
+      url_query.sol = key.replace("sol","");
+    } else {
+      console.log("unrecognized url parameter: " + key);
+    }
+  }
+
+  if(url_query.mission=="msl" || url_query.mission=="mars2020"){
+    if(url_query.sol=="latest" || url_query.sol==""){
+      getLatest(url_query.mission);
+    } else if( (/^[0-9]+$/).test(url_query.sol)){
+      getSol(url_query.mission, url_query.sol);
+      setThisPageUrlParams(url_query.mission + "&sol" & url_query.sol);
+    } else {
+      console.log("URL params specified mission but not sol");
+    }
+  }
+  
+}
+
+
+
+
 function selectAll(){
   console.log("selecting all");
   for(var r=1; r<=num_rows; r++){
@@ -280,17 +347,36 @@ function selectNone(){
 
 
 function getLatest(mission){
+  setThisPageUrlParams(mission);
   fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission);
 }
 
-function getSol(mission){
+function askSol(mission){
   var sol = parseInt(window.prompt("Specify sol", 0), 0);
-  if ( /^[0-9.,]+$/.test(sol)) {
-    fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission + '&sol=' + sol);
+  if ( /^[0-9]+$/.test(sol)) {
+    getSol(mission, sol);
   } else {
     console.log("not a number, or canceled.");
   }
 }
+
+function getSol(mission, sol){
+  if ( /^[0-9]+$/.test(sol)) {
+    fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission + '&sol=' + sol);
+    setThisPageUrlParams(mission + "&sol" + sol);
+  } else {
+    console.log("not a number: " + sol);
+  }
+}
+
+
+function setThisPageUrlParams(strParams){
+  this_page_url_base = location.protocol + '//' + location.host + location.pathname;
+  newUrl = this_page_url_base + "?" + strParams
+  console.log("Setting url to:  " + newUrl);
+  window.history.pushState({}, null, newUrl);
+}
+
 
   
 function fetchRss(rss_url){

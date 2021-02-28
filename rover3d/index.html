@@ -40,30 +40,53 @@
 				const container = document.createElement( 'div' );
 				document.body.appendChild( container );
 
-				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.25, 20 );
-				camera.position.set( - 1.8, 0.6, 2.7 );
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 1000 );
+				camera.position.set( 1.8, 2, 3 );
 
 				scene = new THREE.Scene();
         window.scene = scene;
         scene.background = new THREE.Color( 0xaaaaaa );
 
-        const light = new THREE.AmbientLight( 0x403020 ); // soft white light
-        scene.add( light );
-        const directionalLight = new THREE.DirectionalLight( 0xffeecc, 0.5 );
+        const ambientlight = new THREE.AmbientLight( 0x302010 ); // soft white light
+        scene.add( ambientlight );
+        const directionalLight = new THREE.DirectionalLight( 0xfff6ee, 0.8 );
         scene.add( directionalLight );
+        //const pointlight = new THREE.PointLight( 0xffeecc, 1, 200 );
+        //pointlight.position.set( 10, 15, 5 );
+        //scene.add( pointlight );
+        directionalLight.castShadow = true;
+        directionalLight.shadow.camera.near = 0.01;
+        directionalLight.shadow.camera.far = 100;
+        directionalLight.position.set(10,10,4);
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
 
-        //const loader = new GLTFLoader().setPath( 'model/' );
-        const loader = new GLTFLoader();
-        loader.crossOrigin='';
-        loader.mimeType = 'application/octet-stream';
-        //loader.setRequestHeader = { "X-Requested-With": "XMLHttpRequest" };
+        
+        //pointlight.shadow.camera.near = 0.1;
+        //pointlight.shadow.camera.far = 40;
 
-        //loader.load( 'Perseverance.glb', function ( gltf ) {
-        let model_url = "https://cors-anywhere.herokuapp.com/mars.nasa.gov/system/resources/gltf_files/25042_Perseverance.glb";
-        loader.load( model_url, function ( gltf ) {
+const geometry = new THREE.PlaneGeometry( 20, 20, 32 );
+const groundMaterial = new THREE.MeshPhongMaterial({ color: 0xaa9977  });
+const plane = new THREE.Mesh( geometry, groundMaterial );
+plane.rotation.x = -1*Math.PI/2;
+plane.receiveShadow = true;
+scene.add( plane );
+
+        //const loader = new GLTFLoader();
+        //loader.crossOrigin='';
+        //loader.mimeType = 'application/octet-stream';
+        //loader.setRequestHeader  = {"X-Requested-With": "XMLHttpRequest"};
+        //let model_url = "https://cors-anywhere.herokuapp.com/https://mars.nasa.gov/system/resources/gltf_files/25042_Perseverance.glb";
+
+        const loader = new GLTFLoader().setPath( 'model/' );        
+        loader.load( 'Perseverance.glb', function ( gltf ) {
+        //loader.load( model_url, function ( gltf ) {
           rover = gltf;
           window.rover = rover;
           rover.scene.traverse( function ( child ) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          
           
             // Check if this is an arm joint object:
             for(var i=1; i<=5; i++){
@@ -75,9 +98,15 @@
             }
 
             if ( child.isMesh ) {
-              // TOFIX RoughnessMipmapper seems to be broken with WebGL 2.0
-              // roughnessMipmapper.generateMipmaps( child.material );              
+              child.material.side = THREE.FrontSide;
+              var prevMaterial = child.material;
+              child.material = new THREE.MeshPhongMaterial();
+              THREE.MeshBasicMaterial.prototype.copy.call( child.material, prevMaterial );
+              //child.material = new THREE.MeshPhongMaterial({ flatShading: true });
+            } else {
+              console.log(child);
             }
+            
           } );
           console.log(rover);
           window.arm_joint = arm_joint;
@@ -89,19 +118,19 @@
 				renderer = new THREE.WebGLRenderer( { antialias: true } );
 				renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( window.innerWidth, window.innerHeight );
-				renderer.toneMapping = THREE.ACESFilmicToneMapping;
-				renderer.toneMappingExposure = 1;
-				renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.shadowMap.enabled = true; 
+    renderer.shadowMapSoft = true; 
+        //renderer.gammaOutput = true;
+        //renderer.gammaFactor = 2.2;
+        window.renderer = renderer;
 				container.appendChild( renderer.domElement );
 
-				const pmremGenerator = new THREE.PMREMGenerator( renderer );
-				pmremGenerator.compileEquirectangularShader();
 
 				const controls = new OrbitControls( camera, renderer.domElement );
 				controls.addEventListener( 'change', render ); // use if there is no animation loop
-				controls.minDistance = 2;
-				controls.maxDistance = 10;
-				controls.target.set( 0, 0, - 0.2 );
+				controls.minDistance = 0.1;
+				controls.maxDistance = 100;
+				controls.target.set( 0, 1, 0 );
 				controls.update();
 
 				window.addEventListener( 'resize', onWindowResize );
