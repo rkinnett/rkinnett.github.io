@@ -139,9 +139,10 @@
         var folderScene = gui.addFolder('Scene');
         folderScene.add(sun, 'az', -180, 180).listen().name("Sun azimuth").onChange(function(val){placeSun()});
         folderScene.add(sun, 'el', 0, 90).listen().name("Sun elevation").onChange(function(val){placeSun()});
+        folderScene.addColor(options,'sunlightColor').name("Sunlight color").onChange(function(val){directionalLight.color.set(val); render()});
         folderScene.add(directionalLight, 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){render()});
         folderScene.add(ambientlight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(function(val){render()});
-        folderScene.addColor(options,'skyColor').name("Sky color").onChange(function(val){scene.background.set(val); render()});
+        folderScene.addColor(options,'skyColor').name("Sky color").onChange(function(val){scene.background.set(val); ambientlight.color.set(val); render()});
         folderScene.addColor(options,'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
         //gui.add(options, 'showSun').listen().name("Show sun").onChange(function(val){ noOp() });
         //gui.add(options, 'showFloor').listen().name("Show floor").onChange(function(val){ noOp() });
@@ -192,7 +193,7 @@
               child.material.side = THREE.FrontSide;
               var prevMaterial = child.material;
               
-              child.material = new THREE.MeshLambertMaterial();
+              child.material = new THREE.MeshPhongMaterial();
               THREE.MeshBasicMaterial.prototype.copy.call( child.material, prevMaterial );
             } else {
               //console.log(child);
