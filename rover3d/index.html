@@ -56,6 +56,12 @@
         {name: "az", model_obj_name: "top",  axis: "y", dir: -1, angle: 0},
         {name: "el", model_obj_name: "head", axis: "x", dir: -1, angle: 0},
       ];
+      
+      let hga = [
+        {name: "az", model_obj_name: "hga_az",     axis: "y", dir: -1, angle: 0},
+        {name: "el", model_obj_name: "hga_paddle", axis: "x", dir: -1, angle: 0},
+      ];
+      
     
       let sun = {az: -60, el: 60, dist: 20, x:0, y:0, z:0, obj:null};
     
@@ -148,9 +154,15 @@
         //gui.add(armStowFcnWrapper,'add').name("Stow Arm");
         //gui.add(armUnstowFcnWrapper,'add').name("Unstow Arm");
 
-        var folderRSM = gui.addFolder('RSM');
+        var folderRSM = gui.addFolder('Remote Sensing Mast');
         folderRSM.add(rsm[0], 'angle',  -185, 185).listen().name("Azimuth").onChange(function(val){rsmSetJoint(0,val); render()});
         folderRSM.add(rsm[1], 'angle',  -87, 91).listen().name("Elevation").onChange(function(val){rsmSetJoint(1,val); render()});
+        
+        var folderHGA = gui.addFolder('High-Gain Antenna');
+        folderHGA.add(hga[0], 'angle',  -185, 185).listen().name("Azimuth").onChange(function(val){hgaSetJoint(0,val); render()});
+        folderHGA.add(hga[1], 'angle',  0, 180).listen().name("Elevation").onChange(function(val){hgaSetJoint(1,val); render()});
+
+        var folderHGA = gui.addFolder('Suspension');
         
         var folderArm = gui.addFolder('Robotic Arm');
         folderArm.add(options, 'armPose', armPoseNames).listen().name("Arm pose").onChange(function(poseName){armGoToPose(poseName)});
@@ -187,6 +199,14 @@
                 rsm[joint].obj = child;
               }
             }
+            
+            // Check if this is an HGA joint object:
+            for(var joint=0; joint<2; joint++){
+              if(child.name == hga[joint].model_obj_name){
+                console.log("found " + child.name);
+                hga[joint].obj = child;
+              }
+            }
 
             if ( child.isMesh ) {
               child.material.side = THREE.FrontSide;
@@ -205,6 +225,8 @@
           window.arm = arm;
           window.rsm = rsm;
           armGoToPose("STOW");
+          hgaSetJoint(0, -62);
+          hgaSetJoint(1, 90);
           scene.add( rover.scene );
 
           // need to make RSM "head" child of mast "top":
@@ -275,6 +297,11 @@
         rsm[joint].obj.rotation[rsm[joint].axis] = rsm[joint].dir*angle*deg2rad;
       }  
   
+      function hgaSetJoint(joint, angle){
+        //console.log("hga joint " + joint + ", angle " + angle);
+        hga[joint].angle = angle;
+        hga[joint].obj.rotation[hga[joint].axis] = hga[joint].dir*angle*deg2rad;
+      } 
 
       function placeSun(){
         sun.x = sun.dist * Math.cos(sun.el * deg2rad) * Math.sin(-1*sun.az * deg2rad) ;
