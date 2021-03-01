@@ -27,11 +27,11 @@
 			import { GLTFLoader } from './js/GLTFLoader.js';
     
       let arm = [
-        {name: "shoulder_az", model_obj_name: "arm003",     axis: "y", angle: 0.001, dir:  1, offset: 0},
-        {name: "shoulder_el", model_obj_name: "arm002",     axis: "z", angle: 0.001, dir: -1, offset: 0},
-        {name: "elbow",       model_obj_name: "arm",        axis: "z", angle: 0.001, dir: -1, offset: -1*Math.PI/2},
-        {name: "wrist",       model_obj_name: "arm004",     axis: "z", angle: 0.001, dir: -1, offset: Math.PI/2},
-        {name: "turret",      model_obj_name: "turret_obj", axis: "y", angle: 0.001, dir: -1, offset: Math.PI},
+        {name: "shoulder_az", model_obj_name: "arm003",     axis: "y", angle: 0.1, dir:  1, offset: 0},
+        {name: "shoulder_el", model_obj_name: "arm002",     axis: "z", angle: 0.1, dir: -1, offset: 0},
+        {name: "elbow",       model_obj_name: "arm",        axis: "z", angle: 0.1, dir: -1, offset: -1*Math.PI/2},
+        {name: "wrist",       model_obj_name: "arm004",     axis: "z", angle: 0.1, dir: -1, offset: Math.PI/2},
+        {name: "turret",      model_obj_name: "turret_obj", axis: "y", angle: 0.1, dir: -1, offset: Math.PI},
       ];
       
       let armPose = {
@@ -60,6 +60,13 @@
       let hga = [
         {name: "az", model_obj_name: "hga_az",     axis: "y", dir: -1, angle: 0},
         {name: "el", model_obj_name: "hga_paddle", axis: "x", dir: -1, angle: 0},
+      ];
+      
+      let mob = [
+        {name: "steer_rf", model_obj_name: "suspension_strut_RF",  axis: "y", dir: -1, angle: 0},
+        {name: "steer_rr", model_obj_name: "suspension_strut_RR",  axis: "y", dir: -1, angle: 0},
+        {name: "steer_lf", model_obj_name: "suspension_strut_LF",  axis: "y", dir: -1, angle: 0},
+        {name: "steer_lr", model_obj_name: "suspension_strut_LR",  axis: "y", dir: -1, angle: 0},
       ];
       
     
@@ -162,7 +169,11 @@
         folderHGA.add(hga[0], 'angle',  -185, 185).listen().name("Azimuth").onChange(function(val){hgaSetJoint(0,val); render()});
         folderHGA.add(hga[1], 'angle',  0, 180).listen().name("Elevation").onChange(function(val){hgaSetJoint(1,val); render()});
 
-        var folderHGA = gui.addFolder('Suspension');
+        var folderMob = gui.addFolder('Suspension');
+        folderMob.add(mob[0], 'angle',  -90, 90).listen().name("Steer Right-Front").onChange(function(val){mobSetSteer(0,val); render()});
+        folderMob.add(mob[1], 'angle',  -90, 90).listen().name("Steer Right-Rear").onChange(function(val){mobSetSteer(1,val); render()});
+        folderMob.add(mob[2], 'angle',  -90, 90).listen().name("Steer Left-Front").onChange(function(val){mobSetSteer(2,val); render()});
+        folderMob.add(mob[3], 'angle',  -90, 90).listen().name("Steer Left-Rear").onChange(function(val){mobSetSteer(3,val); render()});
         
         var folderArm = gui.addFolder('Robotic Arm');
         folderArm.add(options, 'armPose', armPoseNames).listen().name("Arm pose").onChange(function(poseName){armGoToPose(poseName)});
@@ -207,6 +218,15 @@
                 hga[joint].obj = child;
               }
             }
+
+            // Check if this is an Mob joint object:
+            for(var joint=0; joint<4; joint++){
+              if(child.name == mob[joint].model_obj_name){
+                console.log("found " + child.name);
+                mob[joint].obj = child;
+              }
+            }
+
 
             if ( child.isMesh ) {
               child.material.side = THREE.FrontSide;
@@ -302,6 +322,12 @@
         hga[joint].angle = angle;
         hga[joint].obj.rotation[hga[joint].axis] = hga[joint].dir*angle*deg2rad;
       } 
+
+      function mobSetSteer(joint, angle){
+        mob[joint].angle = angle;
+        mob[joint].obj.rotation[mob[joint].axis] = mob[joint].dir*angle*deg2rad;      
+      }
+
 
       function placeSun(){
         sun.x = sun.dist * Math.cos(sun.el * deg2rad) * Math.sin(-1*sun.az * deg2rad) ;
