@@ -84,9 +84,10 @@
         rsm: {
           STOW:          [-2.09, -1],
           STRAIGHT:      [0, 0],
+          WORKSPACE:     [-0.5, -0.8],
         },
         hga: {
-          STOW:          [1.05, 1.5708],
+          STOW:          [-1.05, 1.5708],
         },
         mob: {
           STRAIGHT:       [0, 0, 0, 0],
@@ -206,9 +207,9 @@
         });
 
         // make pose selectors:
-        folder["arm"].add(options["pose"], 'arm', poseNames["arm"]).listen().name("Arm pose").onChange(function(poseName){goToPose("arm", poseName)});
-        folder["rsm"].add(options["pose"], 'rsm', poseNames["rsm"]).listen().name("RSM pose").onChange(function(poseName){goToPose("rsm", poseName)});
-        folder["mob"].add(options["pose"], 'mob', poseNames["mob"]).listen().name("Mobility pose").onChange(function(poseName){goToPose("mob", poseName)});
+        jointGroupNames.forEach(function(jointGroupName){          
+          folder[jointGroupName].add(options["pose"], jointGroupName, poseNames[jointGroupName]).listen().name("Pose").onChange(function(poseName){goToPose(jointGroupName, poseName)});
+        });
 
         // add joint controls to each joint group folder:
         jointGroupNames.forEach(function(jointGroupName){          
