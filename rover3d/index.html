@@ -26,50 +26,83 @@
 			import { OrbitControls } from './js/OrbitControls.js';
 			import { GLTFLoader } from './js/GLTFLoader.js';
     
-      let arm = [
-        {name: "shoulder_az", model_obj_name: "arm003",     axis: "y", angle: 0.1, dir:  1, offset: 0},
-        {name: "shoulder_el", model_obj_name: "arm002",     axis: "z", angle: 0.1, dir: -1, offset: 0},
-        {name: "elbow",       model_obj_name: "arm",        axis: "z", angle: 0.1, dir: -1, offset: -1*Math.PI/2},
-        {name: "wrist",       model_obj_name: "arm004",     axis: "z", angle: 0.1, dir: -1, offset: Math.PI/2},
-        {name: "turret",      model_obj_name: "turret_obj", axis: "y", angle: 0.1, dir: -1, offset: Math.PI},
-      ];
-      
-      let armPose = {
-        STOW:          [ 1.5721, -0.2778, -2.8163,  3.1211,  1.5708],
-        READY_OUT:     [ 0.0000, -1.5708,  1.5708,  0.0000,  3.1416],
-        READY_IN:      [-3.1416, -1.5708, -1.5708, -3.1416,  3.1416],
-        DEACK_READY:   [-0.1586, -1.1120, -1.2482,  0.7949,  0.0458],
-        BIT_BOX:       [-1.4525, -1.9292, -1.3844,  0.1139,  1.2716],
-        DRILL_SIEUWU:  [-2.474, -2.3378, -2.1335, 2.9149, 6.281],
-        DRILL_SOEUWU:  [0.38626, -0.70338, 2.225, 3.1873, -0.0405],
-        DRILL_SOEUWD:  [0.38626, -0.43097, 2.0207, 0, 3.118],
-        PIXL_SIEUWU:   [-2.474, -2.3378, -2.4059, 3.1873, 4.6995],
-        PIXL_SOEUWD:   [0.045751, -0.22666, 1.8164, 0, 1.6084],
-        ZERO:          [0, 0, 0, 0, 0],
-      };
-      let armPoseNames = [];
-      for(var poseName in armPose) { armPoseNames.push(poseName); }
-      
-
-      
-      let rsm = [
-        {name: "az", model_obj_name: "top",  axis: "y", dir: -1, angle: 0},
-        {name: "el", model_obj_name: "head", axis: "x", dir: -1, angle: 0},
-      ];
-      
-      let hga = [
-        {name: "az", model_obj_name: "hga_az",     axis: "y", dir: -1, angle: 0},
-        {name: "el", model_obj_name: "hga_paddle", axis: "x", dir: -1, angle: 0},
-      ];
-      
-      let mob = [
-        {name: "steer_rf", model_obj_name: "suspension_strut_RF",  axis: "y", dir: -1, angle: 0},
-        {name: "steer_rr", model_obj_name: "suspension_strut_RR",  axis: "y", dir: -1, angle: 0},
-        {name: "steer_lf", model_obj_name: "suspension_strut_LF",  axis: "y", dir: -1, angle: 0},
-        {name: "steer_lr", model_obj_name: "suspension_strut_LR",  axis: "y", dir: -1, angle: 0},
-      ];
-      
+      let jointGroupNames = ["arm", "rsm", "hga", "mob"];
+      let jointGroupLongNames = {arm: "Robotic Arm", rsm: "Remote Sensing Mast", hga: "High-Gain Antenna", mob: "Suspension"};
     
+      let joints = {
+        arm: {
+          az:     {name: "Azimuth",   model_obj_name: "arm_az",     axis: "y",  dir:-1,  angle: 0.1,  min:-180,  max:180},
+          el:     {name: "Elevation", model_obj_name: "arm_el",     axis: "x",  dir: 1,  angle: 0.1,  min:-180,  max:180},
+          elbow:  {name: "Elbow",     model_obj_name: "arm_elbow",  axis: "x",  dir: 1,  angle: 0.1,  min:-180,  max:180},
+          wrist:  {name: "Wrist",     model_obj_name: "arm_wrist",  axis: "x",  dir: 1,  angle: 0.1,  min:0,     max:360},
+          turret: {name: "Turret",    model_obj_name: "arm_turret", axis: "y",  dir:-1,  angle: 0.1,  min:-10,   max:370},
+        },
+        
+        rsm: {
+          az:     {name: "Azimuth",   model_obj_name: "rsm_az",     axis: "y",  dir:-1,  angle: 0.1,  min:-185,  max:185 },
+          el:     {name: "Elevation", model_obj_name: "rsm_el",     axis: "x",  dir:-1,  angle: 0.1,  min:-87,   max:91 },
+        },
+
+        hga: {
+          az:     {name: "Azimuth",   model_obj_name: "hga_az",     axis: "y",  dir:-1,  angle: 0.1,  min:-185,  max:185 },
+          el:     {name: "Elevation", model_obj_name: "hga_el",     axis: "x",  dir:-1,  angle: 0.1,  min:0,     max:180 },
+        },
+        
+        mob: {
+          steer_rf:  {name: "Steer Right-Front",  model_obj_name: "suspension_strut_RF",  axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
+          steer_rr:  {name: "Steer Right-Rear",   model_obj_name: "suspension_strut_RR",  axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
+          steer_lf:  {name: "Steer Left-Front",   model_obj_name: "suspension_strut_LF",  axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
+          steer_lr:  {name: "Steer Left-Rear",    model_obj_name: "suspension_strut_LR",  axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
+        },
+      };
+      
+      // factor the joint names:
+      let jointNames = {arm:[], rsm:[], hga:[], mob:[]};
+      window.jointNames = jointNames;
+      jointGroupNames.forEach(function(jointGroupName){
+        for(var jointName in joints[jointGroupName]) { 
+          console.log(jointNames);
+          jointNames[jointGroupName].push(jointName);
+        }
+      });
+      
+      // Define canonical poses:
+      let poses = {
+        arm: {
+          STOW:          [ 1.5721, -0.2778, -2.8163,  3.1211,  1.5708],
+          READY_OUT:     [ 0.0000, -1.5708,  1.5708,  0.0000,  3.1416],
+          READY_IN:      [-3.1416, -1.5708, -1.5708, -3.1416,  0.0000],
+          DEACK_READY:   [-0.1586, -1.1120, -1.2482,  0.7949,  0.0458],
+          BIT_BOX:       [-1.4525, -1.9292, -1.3844,  0.1139,  1.2716],
+          DRILL_SIEUWU:  [-2.474, -2.3378, -2.1335, 2.9149, 6.281],
+          DRILL_SOEUWU:  [0.38626, -0.70338, 2.225, 3.1873, -0.0405],
+          DRILL_SOEUWD:  [0.38626, -0.43097, 2.0207, 0, 3.118],
+          PIXL_SIEUWU:   [-2.474, -2.3378, -2.4059, 3.1873, 4.6995],
+          PIXL_SOEUWD:   [0.045751, -0.22666, 1.8164, 0, 1.6084],
+          ZERO:          [0, 0, 0, 0, 0],
+        },
+        rsm: {
+          STOW:          [-2.09, -1],
+          STRAIGHT:      [0, 0],
+        },
+        hga: {
+          STOW:          [1.05, 1.5708],
+        },
+        mob: {
+          STRAIGHT:       [0, 0, 0, 0],
+          TURN_IN_PLACE:  [0.785, -0.785, -0.785, 0.785],
+          TURN_RIGHT:     [-0.785, 0.785, -0.785, 0.785],
+          TURN_LEFT:      [0.785, -0.785, 0.785, -0.785],
+        },
+      };
+            
+      // factor the poses:
+      let poseNames = {arm:[], rsm:[], hga:[], mob:[]};
+      jointGroupNames.forEach(function(jointGroupName){
+        for(var poseName in poses[jointGroupName]) { poseNames[jointGroupName].push(poseName); }
+      });
+      
+      
       let sun = {az: -60, el: 60, dist: 20, x:0, y:0, z:0, obj:null};
     
 			let camera, scene, renderer, rover;
@@ -88,7 +121,12 @@
         diffuseLightIntensity: 0.81,
         sunlightColor:         0xfae4d8,
         sunlightIntensity:     0.81,
-        armPose:               "STOW",
+        pose: {
+          arm: "STOW",
+          hga: "STOW",
+          rsm: "STRAIGHT",
+          mob: "STRAIGHT",
+        },
       };
       window.options = options;
 
@@ -147,42 +185,46 @@
         //var armStowFcnWrapper = { add:function(){ armGoToPose("STOW") }};
 
         var gui = new dat.GUI();
+        let folder = {};
         
-        var folderScene = gui.addFolder('Scene');
-        folderScene.add(sun, 'az', -180, 180).listen().name("Sun azimuth").onChange(function(val){placeSun()});
-        folderScene.add(sun, 'el', 0, 90).listen().name("Sun elevation").onChange(function(val){placeSun()});
-        folderScene.addColor(options,'sunlightColor').name("Sunlight color").onChange(function(val){directionalLight.color.set(val); render()});
-        folderScene.add(directionalLight, 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){render()});
-        folderScene.add(ambientlight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(function(val){render()});
-        folderScene.addColor(options,'skyColor').name("Sky color").onChange(function(val){scene.background.set(val); ambientlight.color.set(val); render()});
-        folderScene.addColor(options,'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
+        folder["scene"] = gui.addFolder('Scene');
+        folder["scene"].add(sun, 'az', -180, 180).listen().name("Sun azimuth").onChange(function(val){placeSun()});
+        folder["scene"].add(sun, 'el', 0, 90).listen().name("Sun elevation").onChange(function(val){placeSun()});
+        folder["scene"].addColor(options,'sunlightColor').name("Sunlight color").onChange(function(val){directionalLight.color.set(val); render()});
+        folder["scene"].add(directionalLight, 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){render()});
+        folder["scene"].add(ambientlight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(function(val){render()});
+        folder["scene"].addColor(options,'skyColor').name("Sky color").onChange(function(val){scene.background.set(val); ambientlight.color.set(val); render()});
+        folder["scene"].addColor(options,'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
         //gui.add(options, 'showSun').listen().name("Show sun").onChange(function(val){ noOp() });
         //gui.add(options, 'showFloor').listen().name("Show floor").onChange(function(val){ noOp() });
         //gui.add(armStowFcnWrapper,'add').name("Stow Arm");
         //gui.add(armUnstowFcnWrapper,'add').name("Unstow Arm");
 
-        var folderRSM = gui.addFolder('Remote Sensing Mast');
-        folderRSM.add(rsm[0], 'angle',  -185, 185).listen().name("Azimuth").onChange(function(val){rsmSetJoint(0,val); render()});
-        folderRSM.add(rsm[1], 'angle',  -87, 91).listen().name("Elevation").onChange(function(val){rsmSetJoint(1,val); render()});
-        
-        var folderHGA = gui.addFolder('High-Gain Antenna');
-        folderHGA.add(hga[0], 'angle',  -185, 185).listen().name("Azimuth").onChange(function(val){hgaSetJoint(0,val); render()});
-        folderHGA.add(hga[1], 'angle',  0, 180).listen().name("Elevation").onChange(function(val){hgaSetJoint(1,val); render()});
+        // make GUI folder for each joint group:
+        jointGroupNames.forEach(function(jointGroupName){
+          folder[jointGroupName] = gui.addFolder(jointGroupLongNames[jointGroupName]);
+        });
 
-        var folderMob = gui.addFolder('Suspension');
-        folderMob.add(mob[0], 'angle',  -90, 90).listen().name("Steer Right-Front").onChange(function(val){mobSetSteer(0,val); render()});
-        folderMob.add(mob[1], 'angle',  -90, 90).listen().name("Steer Right-Rear").onChange(function(val){mobSetSteer(1,val); render()});
-        folderMob.add(mob[2], 'angle',  -90, 90).listen().name("Steer Left-Front").onChange(function(val){mobSetSteer(2,val); render()});
-        folderMob.add(mob[3], 'angle',  -90, 90).listen().name("Steer Left-Rear").onChange(function(val){mobSetSteer(3,val); render()});
-        
-        var folderArm = gui.addFolder('Robotic Arm');
-        folderArm.add(options, 'armPose', armPoseNames).listen().name("Arm pose").onChange(function(poseName){armGoToPose(poseName)});
-        folderArm.add(arm[0], 'angle', -180, 180).listen().name("Azimuth").onChange(function(val){armSetJoint(0,val); render()});
-        folderArm.add(arm[1], 'angle', -180, 180).listen().name("Elevation").onChange(function(val){armSetJoint(1,val); render()});
-        folderArm.add(arm[2], 'angle', -180, 180).listen().name("Elbow").onChange(function(val){armSetJoint(2,val); render()});
-        folderArm.add(arm[3], 'angle',    0, 360).listen().name("Wrist").onChange(function(val){armSetJoint(3,val); render()});
-        folderArm.add(arm[4], 'angle',  -10, 370).listen().name("Turret").onChange(function(val){armSetJoint(4,val); render()});
+        // make pose selectors:
+        folder["arm"].add(options["pose"], 'arm', poseNames["arm"]).listen().name("Arm pose").onChange(function(poseName){goToPose("arm", poseName)});
+        folder["rsm"].add(options["pose"], 'rsm', poseNames["rsm"]).listen().name("RSM pose").onChange(function(poseName){goToPose("rsm", poseName)});
+        folder["mob"].add(options["pose"], 'mob', poseNames["mob"]).listen().name("Mobility pose").onChange(function(poseName){goToPose("mob", poseName)});
 
+        // add joint controls to each joint group folder:
+        jointGroupNames.forEach(function(jointGroupName){          
+          jointNames[jointGroupName].forEach(function(jointName){
+            console.log(jointName);
+            var joint = joints[jointGroupName][jointName];
+            folder[jointGroupName].add(joint, 'angle', joint.min, joint.max)
+              .listen()
+              .name(joint.name)
+              .onChange(function(val){
+                setJoint(jointGroupName, jointName, val); 
+                render();
+              });
+          });
+        });
+        
 
         const loader = new GLTFLoader().setPath( 'model/' );        
         loader.load( 'Perseverance.glb', function ( gltf ) {
@@ -193,41 +235,18 @@
             child.castShadow = true;
             child.receiveShadow = true;
          
-            // Check if this is an arm joint object:
-            for(var joint=0; joint<5; joint++){
-              if(child.name == arm[joint].model_obj_name){
-                console.log("found " + child.name);
-                console.log(child);
-                arm[joint].obj = child;
-                arm[joint].theta0 = child.rotation[arm[joint].axis].valueOf();
-              }
-            }
-            
-            // Check if this is an RSM joint object:
-            for(var joint=0; joint<2; joint++){
-              if(child.name == rsm[joint].model_obj_name){
-                console.log("found " + child.name);
-                rsm[joint].obj = child;
-              }
-            }
-            
-            // Check if this is an HGA joint object:
-            for(var joint=0; joint<2; joint++){
-              if(child.name == hga[joint].model_obj_name){
-                console.log("found " + child.name);
-                hga[joint].obj = child;
-              }
-            }
-
-            // Check if this is an Mob joint object:
-            for(var joint=0; joint<4; joint++){
-              if(child.name == mob[joint].model_obj_name){
-                console.log("found " + child.name);
-                mob[joint].obj = child;
-              }
-            }
-
-
+            // Check if this is a named joint:
+            jointGroupNames.forEach(function(jointGroupName){     
+              jointNames[jointGroupName].forEach(function(jointName){
+                if(child.name == joints[jointGroupName][jointName].model_obj_name){
+                  console.log("found " + child.name);
+                  //console.log(child);
+                  joints[jointGroupName][jointName].obj = child;
+                }
+              });
+            });
+             
+ 
             if ( child.isMesh ) {
               child.material.side = THREE.FrontSide;
               var prevMaterial = child.material;
@@ -240,18 +259,14 @@
             
           } );
                     
-          
           console.log(rover);
-          window.arm = arm;
-          window.rsm = rsm;
-          armGoToPose("STOW");
-          hgaSetJoint(0, -62);
-          hgaSetJoint(1, 90);
+          
+          // Go to initial poses:
+          jointGroupNames.forEach(function(jointGroupName){     
+            goToPose(jointGroupName, options["pose"][jointGroupName]);
+          });
+      
           scene.add( rover.scene );
-
-          // need to make RSM "head" child of mast "top":
-          scene.attach(rsm[1].obj); // attach rsm head to scene, preserving original position
-          rsm[0].obj.attach(rsm[1].obj); // attach to rsm mast top
 
           render();
         } );
@@ -266,6 +281,9 @@
 				window.addEventListener( 'resize', onWindowResize );
 			}
 
+
+
+
 			function onWindowResize() {
 				camera.aspect = window.innerWidth / window.innerHeight;
 				camera.updateProjectionMatrix();
@@ -273,59 +291,36 @@
 				render();
 			}
 
-			//
-
 			function render() {
 				renderer.render( scene, camera );
 			}
 
 
-      function armGoToPose(posename){
-        console.log("Go to pose: " + posename);
-        var joints = armPose[posename].map(function(angle) { return angle*rad2deg; });
-        console.log("pose: " + joints);
-        armSetJoints(joints);
+
+      function goToPose(jointGroup, poseName){
+        //console.log("Go to " + jointGroup + " pose: " + poseName);
+        var joints = poses[jointGroup][poseName].map(function(angle) { return angle*rad2deg; });
+        //console.log("joints: " + joints);
+        setJoints(jointGroup, joints);
       }
 
-      function armSetJoints(joint_angles){
-        for(var n=0; n<5; n++){
-          armSetJoint(n, joint_angles[n]);
-        }
+      function setJoints(jointGroup, jointAngles){
+        //console.log("joint group " + jointGroup);
+        var n = 0;
+        //console.log(jointNames);
+        jointNames[jointGroup].forEach(function(jointName){
+          setJoint(jointGroup, jointName, jointAngles[n++]);
+        });
         render();
       }
-      window.armSetJoints = armSetJoints;
+   
 
-      function armSetJoint(joint, angle){
-        //console.log("arm joint " + joint + ", angle " + angle);
-        arm[joint].angle = angle;
-        arm[joint].obj.rotation[arm[joint].axis] = arm[joint].dir*angle*deg2rad + arm[joint].theta0 + arm[joint].offset;
-      }
-      
-      
-      function setRsmPose(joint_angles){
-        for(var n=0; n<2; n++){
-          rsmSetJoint(n, joint_angles[n]);
-        }
-        render();
-      }
-      window.setRsmPose = setRsmPose;
-
-      
-      function rsmSetJoint(joint, angle){
-        //console.log("rsm joint " + joint + ", angle " + angle);
-        rsm[joint].angle = angle;
-        rsm[joint].obj.rotation[rsm[joint].axis] = rsm[joint].dir*angle*deg2rad;
-      }  
-  
-      function hgaSetJoint(joint, angle){
-        //console.log("hga joint " + joint + ", angle " + angle);
-        hga[joint].angle = angle;
-        hga[joint].obj.rotation[hga[joint].axis] = hga[joint].dir*angle*deg2rad;
-      } 
-
-      function mobSetSteer(joint, angle){
-        mob[joint].angle = angle;
-        mob[joint].obj.rotation[mob[joint].axis] = mob[joint].dir*angle*deg2rad;      
+      function setJoint(jointGroupName, jointName, angle){
+        //console.log(jointGroupName + ", joint " + jointName + ", angle " + angle);
+        var joint = joints[jointGroupName][jointName];
+        //console.log(joint);
+        joint.angle = angle;
+        joint.obj.rotation[joint.axis] = joint.dir*angle*deg2rad;
       }
 
 
@@ -337,13 +332,9 @@
         render();
       }
 
-
       function noOp(){
         return;
       }
-      
-      
-
 
 		</script>
 
