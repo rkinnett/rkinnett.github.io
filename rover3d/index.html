@@ -49,12 +49,17 @@
         },
         
         mob: {
-          steer_rf:  {name: "Steer Right-Front",  model_obj_name: "suspension_strut_RF",  axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
-          steer_rr:  {name: "Steer Right-Rear",   model_obj_name: "suspension_strut_RR",  axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
-          steer_lf:  {name: "Steer Left-Front",   model_obj_name: "suspension_strut_LF",  axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
-          steer_lr:  {name: "Steer Left-Rear",    model_obj_name: "suspension_strut_LR",  axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
+          steer_rf:  {name: "Steer Right-Front",   model_obj_name: "suspension_strut_RF",     axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
+          steer_rr:  {name: "Steer Right-Rear",    model_obj_name: "suspension_strut_RR",     axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
+          steer_lf:  {name: "Steer Left-Front",    model_obj_name: "suspension_strut_LF",     axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
+          steer_lr:  {name: "Steer Left-Rear",     model_obj_name: "suspension_strut_LR",     axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
+          diff:      {name: "Rocker Differential", model_obj_name: "suspension_diff",         axis: "y",  dir:-1,  angle: 0.1,  min:-8,   max:8  },
+          bogie_left: {name: "Bogie Left",         model_obj_name: "suspension_bogie_left",   axis: "x",  dir: 1,  angle: 0.1,  min:-40,   max:40  },
+          bogie_right: {name: "Bogie Right",       model_obj_name: "suspension_bogie_right",  axis: "x",  dir: 1,  angle: 0.1,  min:-40,   max:40  },
         },
       };
+      window.joints = joints;
+      
       
       // factor the joint names:
       let jointNames = {arm:[], rsm:[], hga:[], mob:[]};
@@ -90,10 +95,10 @@
           STOW:          [-1.05, 1.5708],
         },
         mob: {
-          STRAIGHT:       [0, 0, 0, 0],
-          TURN_IN_PLACE:  [0.785, -0.785, -0.785, 0.785],
-          TURN_RIGHT:     [-0.785, 0.785, -0.785, 0.785],
-          TURN_LEFT:      [0.785, -0.785, 0.785, -0.785],
+          STRAIGHT:       [0, 0, 0, 0,    0, 0, 0, 0, 0],
+          TURN_IN_PLACE:  [0.785, -0.785, -0.785, 0.785,    0, 0, 0, 0, 0],
+          TURN_RIGHT:     [-0.785, 0.785, -0.785, 0.785,    0, 0, 0, 0, 0],
+          TURN_LEFT:      [0.785, -0.785, 0.785, -0.785,    0, 0, 0, 0, 0],
         },
       };
             
@@ -131,6 +136,8 @@
       };
       window.options = options;
 
+      let parts = {};
+      window.parts = parts;
 
 			init();
 			render();
@@ -186,6 +193,7 @@
         //var armStowFcnWrapper = { add:function(){ armGoToPose("STOW") }};
 
         var gui = new dat.GUI();
+        window.gui = gui;
         let folder = {};
         
         folder["scene"] = gui.addFolder('Scene');
@@ -216,7 +224,7 @@
           jointNames[jointGroupName].forEach(function(jointName){
             console.log(jointName);
             var joint = joints[jointGroupName][jointName];
-            folder[jointGroupName].add(joint, 'angle', joint.min, joint.max)
+            joints[jointGroupName][jointName].gui = folder[jointGroupName].add(joint, 'angle', joint.min, joint.max)
               .listen()
               .name(joint.name)
               .onChange(function(val){
@@ -225,6 +233,10 @@
               });
           });
         });
+        
+        
+        // modify differential onchange callback:
+        joints["mob"]["diff"].gui.onChange(function(val){ mobSetRockers(val); });
         
 
         const loader = new GLTFLoader().setPath( 'model/' );        
@@ -235,6 +247,8 @@
           rover.scene.traverse( function ( child ) {
             child.castShadow = true;
             child.receiveShadow = true;
+
+            parts[child.name] = child;
          
             // Check if this is a named joint:
             jointGroupNames.forEach(function(jointGroupName){     
@@ -303,6 +317,7 @@
         var joints = poses[jointGroup][poseName].map(function(angle) { return angle*rad2deg; });
         //console.log("joints: " + joints);
         setJoints(jointGroup, joints);
+        if(jointGroup == "mob") mobSetRockers(0);
       }
 
       function setJoints(jointGroup, jointAngles){
@@ -322,6 +337,17 @@
         //console.log(joint);
         joint.angle = angle;
         joint.obj.rotation[joint.axis] = joint.dir*angle*deg2rad;
+      }
+
+
+      function mobSetRockers(diffAngle){
+        setJoint("mob", "diff", diffAngle); 
+        var rocker_angle = diffAngle*2.2 * deg2rad;
+        parts["suspension_rocker_right"].rotation.x = -1*rocker_angle;
+        parts["suspension_rocker_left"].rotation.x = rocker_angle;
+        parts["suspension_diff_link_right"].rotation.x = rocker_angle;
+        parts["suspension_diff_link_left"].rotation.x = -1*rocker_angle;
+        render();
       }
 
 
