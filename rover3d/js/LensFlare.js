@@ -366,7 +366,7 @@ LensflareElement.Shader = {
 		'}'
 
 	].join( '\n' )
-
+ 
 };
 
 Lensflare.Geometry = ( function () {
