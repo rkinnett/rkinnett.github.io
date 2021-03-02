@@ -97,7 +97,7 @@
           STOW:          [ 1.5721, -0.2778, -2.8163,  3.1211,  1.5708],
           READY_OUT:     [ 0.0000, -1.5708,  1.5708,  0.0000,  3.1416],
           READY_IN:      [-3.1416, -1.5708, -1.5708, -3.1416,  0.0000],
-          DEACK_READY:   [-0.1586, -1.1120, -1.2482,  0.7949,  0.0458],
+          DECK_READY:    [-0.1586, -1.1120, -1.2482,  0.7949,  0.0458],
           BIT_BOX:       [-1.4525, -1.9292, -1.3844,  0.1139,  1.2716],
           DRILL_SIEUWU:  [-2.474, -2.3378, -2.1335, 2.9149, 6.281],
           DRILL_SOEUWU:  [0.38626, -0.70338, 2.225, 3.1873, -0.0405],
@@ -426,7 +426,7 @@
       function tiltRover(){
         var newAttitude = new THREE.Vector3(options["attitude"].pitch*-1*deg2rad, 0, options["attitude"].roll*deg2rad);
         //console.log(newAttitude);
-        rover.rotation.setFromVector3(newAttitude, 'XYZ');
+        rover.rotation.setFromVector3(newAttitude, 'YXZ');
         render();
       }
       
