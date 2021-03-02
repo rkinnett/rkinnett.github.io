@@ -28,9 +28,14 @@
 			import { Sky } from './js/Sky.js';
 
     
-			let camera, scene, renderer, rover;
-
+			let camera, scene, renderer, rover, ambientlight;
 			let sky, uniforms;
+      let deg2rad = Math.PI/180;
+      let rad2deg = 180/Math.PI;
+
+      let parts = {};
+      window.parts = parts;
+      window.render = render;
     
       let sun = {
         pos:  new THREE.Vector3(),
@@ -118,13 +123,6 @@
       jointGroupNames.forEach(function(jointGroupName){
         for(var poseName in poses[jointGroupName]) { poseNames[jointGroupName].push(poseName); }
       });
-      
-      
-
-      window.render = render;
-
-      let deg2rad = Math.PI/180;
-      let rad2deg = 180/Math.PI;
 
       let options = {
         surfaceColor:          0x594c3b,
@@ -141,7 +139,8 @@
 					mieCoefficient: 0.002,
 					mieDirectionalG: 0.8,
           diffuseLightColor:     0xfff6ee,
-          diffuseLightIntensity: 0.81,
+          initialDiffuseLightIntensity: 0.81,
+          minDiffuseLightIntensity: 0.2,
         },
         sun: {
           az: -180, 
@@ -151,13 +150,10 @@
           y:0, 
           z:0, 
           lightColor:      0xfae4d8,
-          lightIntensity:  0.81,
+          initialLightIntensity:  0.81,
         }
       };
       window.options = options;
-
-      let parts = {};
-      window.parts = parts;
 
 			init();
 			render();
@@ -194,10 +190,10 @@
         uniforms = sky.material.uniforms;
 				scene.add( sky );
 
-        const ambientlight = new THREE.AmbientLight( options["sky"].diffuseLightColor ); // soft white light
-        ambientlight.intensity = options["sky"].diffuseLightIntensity;
+        ambientlight = new THREE.AmbientLight( options["sky"].diffuseLightColor ); // soft white light
+        ambientlight.intensity = options["sky"].initialDiffuseLightIntensity;
         scene.add( ambientlight );
-        sun.directionalLight = new THREE.DirectionalLight( options["sun"].lightColor, options["sun"].lightIntensity);
+        sun.directionalLight = new THREE.DirectionalLight( options["sun"].lightColor, options["sun"].initialLightIntensity);
         //const pointlight = new THREE.PointLight( 0xffeecc, 1, 200 );
         //pointlight.position.set( 10, 15, 5 );
         //scene.add( pointlight );
@@ -230,10 +226,10 @@
         folder["scene"] = gui.addFolder('Scene');
         folder["scene"].add(options["sun"], 'az', -180, 180).listen().name("Sun azimuth").onChange(function(val){placeSun()});
         folder["scene"].add(options["sun"], 'el', 0, 90).listen().name("Sun elevation").onChange(function(val){placeSun()});
-        //folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){sun.directionalLight.color.set(val); render()});
+        folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){sun.directionalLight.color.set(val); render()});
         folder["scene"].add(sun.directionalLight, 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){render()});
         folder["scene"].add(ambientlight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(function(val){render()});
-        folder["scene"].addColor(options,'skyColor').name("Sky color").onChange(function(val){scene.background.set(val); ambientlight.color.set(val); render()});
+        //folder["scene"].addColor(options,'skyColor').name("Sky color").onChange(function(val){scene.background.set(val); ambientlight.color.set(val); render()});
         folder["scene"].addColor(options,'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
         //gui.add(options, 'showSun').listen().name("Show sun").onChange(function(val){ noOp() });
         //gui.add(options, 'showFloor').listen().name("Show floor").onChange(function(val){ noOp() });
@@ -390,6 +386,7 @@
         sun.pos.set(sunX, sunY, sunZ);
         sun.directionalLight.position.set(sunX, sunY, sunZ);
 				sky.material.uniforms[ "sunPosition" ].value.copy( sun.pos );
+        ambientlight.intensity =  options["sky"].initialDiffuseLightIntensity * Math.max(options["sky"].minDiffuseLightIntensity, Math.min(1, options["sun"].el/20));
         render();
       }
 
