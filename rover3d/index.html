@@ -25,6 +25,17 @@
       import * as THREE from './js/three.module.js';
 			import { OrbitControls } from './js/OrbitControls.js';
 			import { GLTFLoader } from './js/GLTFLoader.js';
+			import { Sky } from './js/Sky.js';
+
+    
+			let camera, scene, renderer, rover;
+
+			let sky, uniforms;
+    
+      let sun = {
+        pos:  new THREE.Vector3(),
+        directionalLight:  null,
+      }
     
       let jointGroupNames = ["arm", "rsm", "hga", "mob"];
       let jointGroupLongNames = {arm: "Robotic Arm", rsm: "Remote Sensing Mast", hga: "High-Gain Antenna", mob: "Suspension"};
@@ -109,11 +120,6 @@
       });
       
       
-      let sun = {az: -60, el: 60, dist: 20, x:0, y:0, z:0, obj:null};
-    
-			let camera, scene, renderer, rover;
-      let modulevars = {camera, scene, renderer, rover}
-      window.modulevars = modulevars;
 
       window.render = render;
 
@@ -123,16 +129,30 @@
       let options = {
         surfaceColor:          0x594c3b,
         skyColor:              0xcfba9d,
-        diffuseLightColor:     0xfff6ee,
-        diffuseLightIntensity: 0.81,
-        sunlightColor:         0xfae4d8,
-        sunlightIntensity:     0.81,
         pose: {
           arm: "STOW",
           hga: "STOW",
           rsm: "STRAIGHT",
           mob: "STRAIGHT",
         },
+        sky: {
+					turbidity: 10,
+					rayleigh: 0.1,
+					mieCoefficient: 0.002,
+					mieDirectionalG: 0.8,
+          diffuseLightColor:     0xfff6ee,
+          diffuseLightIntensity: 0.81,
+        },
+        sun: {
+          az: -180, 
+          el: 2, 
+          dist: 80, 
+          x:0, 
+          y:0, 
+          z:0, 
+          lightColor:      0xfae4d8,
+          lightIntensity:  0.81,
+        }
       };
       window.options = options;
 
@@ -153,6 +173,9 @@
 				renderer.setSize( window.innerWidth, window.innerHeight );
         renderer.shadowMap.enabled = true; 
         renderer.shadowMapSoft = true; 
+				renderer.outputEncoding = THREE.sRGBEncoding;
+				renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 0.25; 
         window.renderer = renderer;
 				container.appendChild( renderer.domElement );
 
@@ -162,27 +185,35 @@
 
 				scene = new THREE.Scene();
         window.scene = scene;
-        scene.background = new THREE.Color( options.skyColor );
+        //scene.fog = new THREE.Fog(0x443322, 1, 20);
+        //scene.background = new THREE.Color( options.skyColor );
 
-        const ambientlight = new THREE.AmbientLight( options.diffuseLightColor ); // soft white light
-        ambientlight.intensity = options.diffuseLightIntensity;
+				// Add Sky
+				sky = new Sky();
+				sky.scale.setScalar( 4500 );
+        uniforms = sky.material.uniforms;
+				scene.add( sky );
+
+        const ambientlight = new THREE.AmbientLight( options["sky"].diffuseLightColor ); // soft white light
+        ambientlight.intensity = options["sky"].diffuseLightIntensity;
         scene.add( ambientlight );
-        const directionalLight = new THREE.DirectionalLight( options.sunlightColor, options.sunlightIntensity);
+        sun.directionalLight = new THREE.DirectionalLight( options["sun"].lightColor, options["sun"].lightIntensity);
         //const pointlight = new THREE.PointLight( 0xffeecc, 1, 200 );
         //pointlight.position.set( 10, 15, 5 );
         //scene.add( pointlight );
-        directionalLight.castShadow = true;
-        directionalLight.shadow.camera.near = 0.01;
-        directionalLight.shadow.camera.far = 100;
-        directionalLight.position.set(10,10,4);
-        directionalLight.shadow.mapSize.width = 2048;
-        directionalLight.shadow.mapSize.height = 2048;
-        sun.obj = directionalLight;
+        sun.directionalLight.castShadow = true;
+        sun.directionalLight.shadow.camera.near = 0.01;
+        sun.directionalLight.shadow.camera.far = 100;
+        sun.directionalLight.position.set(10,10,4);
+        sun.directionalLight.shadow.mapSize.width = 2048;
+        sun.directionalLight.shadow.mapSize.height = 2048;
+        scene.add( sun.directionalLight );
         placeSun();
-        scene.add( directionalLight );
+        
+      
         
         // Make Ground plane:
-        const geometry = new THREE.PlaneGeometry( 200, 200, 32 );
+        const geometry = new THREE.PlaneGeometry( 300, 300, 32 );
         const groundMaterial = new THREE.MeshPhongMaterial({ color: options.surfaceColor  });
         const groundPlane = new THREE.Mesh( geometry, groundMaterial );
         groundPlane.rotation.x = -1*Math.PI/2;
@@ -197,10 +228,10 @@
         let folder = {};
         
         folder["scene"] = gui.addFolder('Scene');
-        folder["scene"].add(sun, 'az', -180, 180).listen().name("Sun azimuth").onChange(function(val){placeSun()});
-        folder["scene"].add(sun, 'el', 0, 90).listen().name("Sun elevation").onChange(function(val){placeSun()});
-        folder["scene"].addColor(options,'sunlightColor').name("Sunlight color").onChange(function(val){directionalLight.color.set(val); render()});
-        folder["scene"].add(directionalLight, 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){render()});
+        folder["scene"].add(options["sun"], 'az', -180, 180).listen().name("Sun azimuth").onChange(function(val){placeSun()});
+        folder["scene"].add(options["sun"], 'el', 0, 90).listen().name("Sun elevation").onChange(function(val){placeSun()});
+        //folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){sun.directionalLight.color.set(val); render()});
+        folder["scene"].add(sun.directionalLight, 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){render()});
         folder["scene"].add(ambientlight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(function(val){render()});
         folder["scene"].addColor(options,'skyColor').name("Sky color").onChange(function(val){scene.background.set(val); ambientlight.color.set(val); render()});
         folder["scene"].addColor(options,'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
@@ -234,6 +265,7 @@
           });
         });
         
+        folder["scene"].open();
         
         // modify differential onchange callback:
         joints["mob"]["diff"].gui.onChange(function(val){ mobSetRockers(val); });
@@ -352,10 +384,12 @@
 
 
       function placeSun(){
-        sun.x = sun.dist * Math.cos(sun.el * deg2rad) * Math.sin(-1*sun.az * deg2rad) ;
-        sun.z = sun.dist * Math.cos(sun.el * deg2rad) * Math.cos(sun.az * deg2rad);
-        sun.y = sun.dist * Math.sin(sun.el * deg2rad);
-        sun.obj.position.set(sun.x, sun.y, sun.z);
+        var sunX = options["sun"].dist * Math.cos(options["sun"].el * deg2rad) * Math.sin(-1*options["sun"].az * deg2rad) ;
+        var sunZ = options["sun"].dist * Math.cos(options["sun"].el * deg2rad) * Math.cos(options["sun"].az * deg2rad);
+        var sunY = options["sun"].dist * Math.sin(options["sun"].el * deg2rad);
+        sun.pos.set(sunX, sunY, sunZ);
+        sun.directionalLight.position.set(sunX, sunY, sunZ);
+				sky.material.uniforms[ "sunPosition" ].value.copy( sun.pos );
         render();
       }
 
