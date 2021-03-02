@@ -47,10 +47,10 @@ Sky.prototype = Object.create( Mesh.prototype );
 Sky.SkyShader = {
 
 	uniforms: {
-		'turbidity': { value: 10 },
-		'rayleigh': { value: 0.05 },
-		'mieCoefficient': { value: 0.002 },
-		'mieDirectionalG': { value: 0.9 },
+		'turbidity': { value: 12 },
+		'rayleigh': { value: 0.1 },
+		'mieCoefficient': { value: 0.005 },
+		'mieDirectionalG': { value: 0.85 },
 		'sunPosition': { value: new Vector3() },
 		'up': { value: new Vector3( 0, 1, 0 ) }
 	},
@@ -80,16 +80,16 @@ Sky.SkyShader = {
 		// this pre-calcuation replaces older TotalRayleigh(vec3 lambda) function:
 		// (8.0 * pow(pi, 3.0) * pow(pow(n, 2.0) - 1.0, 2.0) * (6.0 + 3.0 * pn)) / (3.0 * N * pow(lambda, vec3(4.0)) * (6.0 - 7.0 * pn))
 		//'const vec3 totalRayleigh = vec3( 5.804542996261093E-6, 1.3562911419845635E-5, 3.0265902468824876E-5 );',
-    'const vec3 totalRayleigh = vec3( 8E-4, 7E-4, 3E-4 );',  // RK  - lower value increases intensity
+    'const vec3 totalRayleigh = vec3( 3.5E-4, 2.0E-4, 1.0E-4 );',  // RK  - lower value increases intensity
 
 		// mie stuff
 		// K coefficient for the primaries
 		//'const float v = 4.0;',
-    'const float v = 1.0;',
+    'const float v = 20.0;',
 		'const vec3 K = vec3( 0.686, 0.678, 0.666 );',
     //'const vec3 K = vec3( 0.001, 0.1, 0.1 );', //RK unknown effect
 		// MieConst = pi * pow( ( 2.0 * pi ) / lambda, vec3( v - 2.0 ) ) * K
-		'const vec3 MieConst = vec3( 2.2E14, 2.7E14, 2.1E14 );',  // RK: affects horizon color at low elevation
+		'const vec3 MieConst = vec3( 1.4E14, 1.2E14, 1.1E14 );',  // RK: affects horizon color at low elevation
     //'const vec3 MieConst = vec3( 4.8399918514433978E14, 2.7798023919660528E14, 3.0790479543861094E14 );',
 
 		// earth shadow hack
@@ -159,8 +159,8 @@ Sky.SkyShader = {
     'const float N = 2.545E24;', // number of molecules per unit volume for air at 288.15K and 1013mb (sea level -45 celsius)
 
 		// optical length at zenith for molecules
-		'const float rayleighZenithLength = 8.4E3;',
-		'const float mieZenithLength = 3.25E3;',
+		'const float rayleighZenithLength = 9.4E3;',
+		'const float mieZenithLength = 4.25E3;',
 		// 66 arc seconds -> degrees, and the cosine of that
 		//'const float sunAngularDiameterCos = 0.999956676946448443553574619906976478926848692873900859324;',
     'const float sunAngularDiameterCos = 0.99997;',  //RK: slightly smaller sun
