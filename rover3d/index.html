@@ -424,7 +424,7 @@
       }
 
       function tiltRover(){
-        var newAttitude = new THREE.Vector3(options["attitude"].pitch*deg2rad, 0, options["attitude"].roll*deg2rad);
+        var newAttitude = new THREE.Vector3(options["attitude"].pitch*-1*deg2rad, 0, options["attitude"].roll*deg2rad);
         //console.log(newAttitude);
         rover.rotation.setFromVector3(newAttitude, 'XYZ');
         render();
