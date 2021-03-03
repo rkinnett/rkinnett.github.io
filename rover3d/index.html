@@ -33,7 +33,7 @@
       window.THREE = THREE;
 
     
-			let camera, scene, renderer, rover, ambientlight, selected, roverNavCoordFrameAxes;
+			let camera, scene, renderer, rover, diffuselight, selected, roverNavCoordFrameAxes;
       let mirrorCamera, rmiMirror, insetWidth, insetHeight, mirrorMaterial, mirror, mirrorRendertTarget;
 			let sky, uniforms;
       let deg2rad = Math.PI/180;
@@ -135,8 +135,10 @@
       });
 
       let options = {
-        surfaceColor:          0x594c3b,
-        skyColor:              0xcfba9d,
+        scene: {
+          surfaceColor:  0x3c332c,
+          showHaze:   false,
+        },
         pose: {
           arm: "STOW",
           hga: "STOW",
@@ -154,7 +156,7 @@
 					rayleigh: 0.1,
 					mieCoefficient: 0.002,
 					mieDirectionalG: 0.8,
-          diffuseLightColor:     0xfff6ee,
+          diffuseLightColor:     0xffd0a8,
           initialDiffuseLightIntensity: 0.4,
           minDiffuseLightIntensity: 0.05,
         },
@@ -165,7 +167,7 @@
           x:0, 
           y:0, 
           z:0, 
-          lightColor:      0xfae4d8,
+          lightColor:      0xffd48f,
           initialLightIntensity:  0.81,
         }
       };
@@ -190,18 +192,18 @@
         renderer.shadowMapSoft = true; 
 				renderer.outputEncoding = THREE.sRGBEncoding;
 				renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 0.3; 
+        renderer.toneMappingExposure = 0.6; 
         window.renderer = renderer;
 				container.appendChild( renderer.domElement );
 
-				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 1000 );
+				camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 1000 );
 				camera.position.set( 0.7, 1.0, 4.3 );
         window.camera = camera;
         
         
 				scene = new THREE.Scene();
         window.scene = scene;
-        //scene.fog = new THREE.Fog(0x443322, 1, 20);
+        scene.fog = new THREE.Fog(0x443322, 0.1, 10);
         //scene.background = new THREE.Color( options.skyColor );
 
         // Make RMI mirror:
@@ -223,14 +225,16 @@
 
 				// Add Sky
 				sky = new Sky();
-				sky.scale.setScalar( 4500 );
+				sky.scale.setScalar( 450 );
         uniforms = sky.material.uniforms;
 				scene.add( sky );
 
         // Make lighting:
-        ambientlight = new THREE.AmbientLight( options["sky"].diffuseLightColor ); // soft white light
-        ambientlight.intensity = options["sky"].initialDiffuseLightIntensity;
-        scene.add( ambientlight );
+        // diffuselight = new THREE.AmbientLight( options["sky"].diffuseLightColor );
+        // diffuselight.intensity = options["sky"].initialDiffuseLightIntensity;
+        diffuselight = new THREE.HemisphereLight( options["sky"].diffuseLightColor, options.surfaceColor, options["sky"].initialDiffuseLightIntensity );
+        scene.add( diffuselight );
+        
         sun.directionalLight = new THREE.DirectionalLight( options["sun"].lightColor, options["sun"].initialLightIntensity);
         sun.directionalLight.castShadow = true;
         sun.directionalLight.shadow.camera.near = 0.01;
@@ -256,7 +260,7 @@
         
         // Make Ground plane:
         const geometry = new THREE.PlaneGeometry( 300, 300, 32 );
-        const groundMaterial = new THREE.MeshPhongMaterial({ color: options.surfaceColor  });
+        const groundMaterial = new THREE.MeshPhongMaterial({ color: options["scene"].surfaceColor, fog: false  });
         const groundPlane = new THREE.Mesh( geometry, groundMaterial );
         groundPlane.name = "ground";
         groundPlane.rotation.x = -1*Math.PI/2;
@@ -277,11 +281,12 @@
         folder["scene"] = gui.addFolder('Scene');
         folder["scene"].add(options["sun"], 'az', -180, 180).listen().name("Sun azimuth").onChange(function(val){placeSun()});
         folder["scene"].add(options["sun"], 'el', -0.5, 180.5).listen().name("Sun elevation").onChange(function(val){placeSun()});
-        folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){sun.directionalLight.color.set(val); render()});
         folder["scene"].add(sun.directionalLight, 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){render()});
-        folder["scene"].add(ambientlight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(function(val){render()});
-        //folder["scene"].addColor(options,'skyColor').name("Sky color").onChange(function(val){scene.background.set(val); ambientlight.color.set(val); render()});
-        folder["scene"].addColor(options,'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
+        folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){sun.directionalLight.color.set(val); render()});
+        folder["scene"].add(diffuselight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(function(val){render()});
+        folder["scene"].addColor(options["sky"],'diffuseLightColor').name("Diffuse light color").onChange(function(val){diffuselight.color.set(val); render()});
+        folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
+        folder["scene"].add(options["scene"], 'showHaze').listen().name("Foreground haze").onChange(function(val){scene.fog.far = val?10:0; render()});
         //gui.add(options, 'showSun').listen().name("Show sun").onChange(function(val){ noOp() });
         //gui.add(options, 'showFloor').listen().name("Show floor").onChange(function(val){ noOp() });
         //gui.add(armStowFcnWrapper,'add').name("Stow Arm");
@@ -462,10 +467,10 @@
         sun.directionalLight.position.set(sunX, sunY, sunZ);
 				sky.material.uniforms[ "sunPosition" ].value.copy( sun.pos );
         if(options["sun"].el<90){
-          ambientlight.intensity =  options["sky"].initialDiffuseLightIntensity * Math.max(options["sky"].minDiffuseLightIntensity, Math.min(1, options["sun"].el/20));
+          diffuselight.intensity =  options["sky"].initialDiffuseLightIntensity * Math.max(options["sky"].minDiffuseLightIntensity, Math.min(1, options["sun"].el/20));
           sun.directionalLight.intensity =  options["sun"].initialLightIntensity * Math.max(0, Math.min(1, options["sun"].el/20));
         } else {
-          ambientlight.intensity =  options["sky"].initialDiffuseLightIntensity * Math.max(options["sky"].minDiffuseLightIntensity, Math.min(1, (180-options["sun"].el)/20));
+          diffuselight.intensity =  options["sky"].initialDiffuseLightIntensity * Math.max(options["sky"].minDiffuseLightIntensity, Math.min(1, (180-options["sun"].el)/20));
           sun.directionalLight.intensity =  options["sun"].initialLightIntensity * Math.max(0, Math.min(1, (180-options["sun"].el)/20));
         }
         render();
@@ -517,15 +522,32 @@
         mouse.y = - ( event.clientY / renderer.domElement.clientHeight ) * 2 + 1;
         raycaster.setFromCamera( mouse, camera );
         var intersects = raycaster.intersectObjects( scene.children, true );
+        console.log(intersects[0].object.name);
         console.log(intersects[0].object);
         window.selected = intersects[0].object;
         console.log("ancestors:");
         intersects[0].object.traverseAncestors( function ( ancestor ) {
           console.log(ancestor.name);
         });
+        console.log("descendents:");
+        intersects[0].object.traverse(function(child){
+          console.log(child.name);
+        });
         
       }
 
+      function show( object, includeDescendents, doShow){
+        object.visible = doShow;
+        if(includeDescendents){
+          object.traverse(function(child){
+            console.log(child.name);
+            child.visible = doShow;
+          });
+        }
+        render();
+      }
+      window.show = show;
+  
 
 		</script>
 
