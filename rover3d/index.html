@@ -203,7 +203,7 @@
         
 				scene = new THREE.Scene();
         window.scene = scene;
-        scene.fog = new THREE.Fog(0x443322, 0.1, 10);
+        scene.fog = new THREE.Fog(0x443322, 0.1, options["scene"].showHaze?10:0 );
         //scene.background = new THREE.Color( options.skyColor );
 
         // Make RMI mirror:
