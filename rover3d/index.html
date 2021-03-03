@@ -247,8 +247,8 @@
         const textureFlare1 = textureLoader.load( "./images/lensflare2.png" );
         const textureFlare2 = textureLoader.load( "./images/lensflare3.png" );
         const lensflare = new Lensflare();
-        lensflare.addElement( new LensflareElement( textureFlare0, 88, 0 ) );
-        lensflare.addElement( new LensflareElement( textureFlare1, 512, 0.01 ) );
+        //lensflare.addElement( new LensflareElement( textureFlare0, 88, 0 ) );
+        lensflare.addElement( new LensflareElement( textureFlare1, 120, 0 ) );
         lensflare.addElement( new LensflareElement( textureFlare2, 80,  0.3 ) );
         lensflare.addElement( new LensflareElement( textureFlare2, 200, 0.4 ) );
         lensflare.addElement( new LensflareElement( textureFlare2, 120, 0.55 ) );
@@ -291,7 +291,7 @@
         folder["attitude"].add(options["attitude"], 'roll', -30, 30).listen().name("Roll").onChange(function(){tiltRover()});
         folder["attitude"].add(options["attitude"], 'pitch', -30, 30).listen().name("Pitch").onChange(function(){tiltRover()});
         folder["attitude"].add(options["attitude"], 'height', -3.0, 3.0).listen().name("Height").onChange(function(){liftRover()});
-        folder["attitude"].add(options["attitude"], 'showRnavCoordFrame').listen().name("Show Rover Frame").onChange(function(val){
+        folder["attitude"].add(options["attitude"], 'showRnavCoordFrame').listen().name("Show RNAV").onChange(function(val){
           roverNavCoordFrameAxes.visible = val; 
           render(); 
         });
