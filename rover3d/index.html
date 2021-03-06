@@ -283,14 +283,13 @@
           urlHeightMap: 'images/JEZ_hirise_soc_006_hexMap_p8_crop.png',
           urlTextureMap: 'images/JEZ_hirise_soc_006_crop.jpg',
           hscale: 8000,
-          vscale: 80,
+          vscale: 160,
           color:  options.surfaceColor,
           onload: function(){
             console.log("loaded terrain");
             terrain.rotation.x = -1*Math.PI;
             terrain.rotation.z = -1*Math.PI/2;
-            //terrain.position.set(-320,-32.1,-900);
-            terrain.position.set(2260,-760,32.4);
+            terrain.position.set(2260,-760,0.405*160);
             scene.add(terrain);
             render();
           }
