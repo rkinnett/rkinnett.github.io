@@ -33,7 +33,7 @@
       window.THREE = THREE;
 
     
-			let camera, scene, renderer, rover, diffuselight, selected, roverNavCoordFrameAxes;
+			let camera, scene, renderer, rover, diffuselight, selected, roverNavCoordFrameAxes, terrain;
       let mirrorCamera, rmiMirror, insetWidth, insetHeight, mirrorMaterial, mirror, mirrorRendertTarget;
 			let sky, uniforms;
       let deg2rad = Math.PI/180;
@@ -57,31 +57,31 @@
     
       let joints = {
         arm: {
-          az:     {name: "Azimuth",   model_obj_name: "arm_az",     axis: "y",  dir:-1,  angle: 0.1,  min:-180,  max:180},
-          el:     {name: "Elevation", model_obj_name: "arm_el",     axis: "x",  dir: 1,  angle: 0.1,  min:-180,  max:180},
-          elbow:  {name: "Elbow",     model_obj_name: "arm_elbow",  axis: "x",  dir: 1,  angle: 0.1,  min:-180,  max:180},
-          wrist:  {name: "Wrist",     model_obj_name: "arm_wrist",  axis: "x",  dir: 1,  angle: 0.1,  min:0,     max:360},
-          turret: {name: "Turret",    model_obj_name: "arm_turret", axis: "y",  dir:-1,  angle: 0.1,  min:-10,   max:370},
+          az:     {name: "Azimuth",   model_obj_name: "arm_az",     axis: "z",  dir: 1,  angle: 0.1,  min:-180,  max:180},
+          el:     {name: "Elevation", model_obj_name: "arm_el",     axis: "y",  dir:-1,  angle: 0.1,  min:-180,  max:180},
+          elbow:  {name: "Elbow",     model_obj_name: "arm_elbow",  axis: "y",  dir:-1,  angle: 0.1,  min:-180,  max:180},
+          wrist:  {name: "Wrist",     model_obj_name: "arm_wrist",  axis: "y",  dir:-1,  angle: 0.1,  min:0,     max:360},
+          turret: {name: "Turret",    model_obj_name: "arm_turret", axis: "z",  dir:-1,  angle: 0.1,  min:-10,   max:370},
         },
         
         rsm: {
-          az:     {name: "Azimuth",   model_obj_name: "rsm_az",     axis: "y",  dir:-1,  angle: 0.1,  min:-185,  max:185 },
-          el:     {name: "Elevation", model_obj_name: "rsm_el",     axis: "x",  dir:-1,  angle: 0.1,  min:-87,   max:91 },
+          az:     {name: "Azimuth",   model_obj_name: "rsm_az",     axis: "z",  dir: 1,  angle: 0.1,  min:-185,  max:185 },
+          el:     {name: "Elevation", model_obj_name: "rsm_el",     axis: "y",  dir: 1,  angle: 0.1,  min:-87,   max:91 },
         },
 
         hga: {
-          az:     {name: "Azimuth",   model_obj_name: "hga_az",     axis: "y",  dir:-1,  angle: 0.1,  min:-185,  max:185 },
-          el:     {name: "Elevation", model_obj_name: "hga_el",     axis: "x",  dir:-1,  angle: 0.1,  min:0,     max:180 },
+          az:     {name: "Azimuth",   model_obj_name: "hga_az",     axis: "z",  dir: 1,  angle: 0.1,  min:-185,  max:185 },
+          el:     {name: "Elevation", model_obj_name: "hga_el",     axis: "y",  dir: 1,  angle: 0.1,  min:0,     max:180 },
         },
         
         mob: {
-          steer_rf:  {name: "Steer Right-Front",   model_obj_name: "suspension_strut_RF",     axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
-          steer_rr:  {name: "Steer Right-Rear",    model_obj_name: "suspension_strut_RR",     axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
-          steer_lf:  {name: "Steer Left-Front",    model_obj_name: "suspension_strut_LF",     axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
-          steer_lr:  {name: "Steer Left-Rear",     model_obj_name: "suspension_strut_LR",     axis: "y",  dir: 1,  angle: 0.1,  min:-90,  max:90 },
-          diff:      {name: "Rocker Differential", model_obj_name: "suspension_diff",         axis: "y",  dir:-1,  angle: 0.1,  min:-8,   max:8  },
-          bogie_left: {name: "Bogie Left",         model_obj_name: "suspension_bogie_left",   axis: "x",  dir: 1,  angle: 0.1,  min:-40,   max:40  },
-          bogie_right: {name: "Bogie Right",       model_obj_name: "suspension_bogie_right",  axis: "x",  dir: 1,  angle: 0.1,  min:-40,   max:40  },
+          steer_rf:  {name: "Steer Right-Front",   model_obj_name: "suspension_strut_RF",     axis: "z",  dir:-1,  angle: 0.1,  min:-90,  max:90 },
+          steer_rr:  {name: "Steer Right-Rear",    model_obj_name: "suspension_strut_RR",     axis: "z",  dir:-1,  angle: 0.1,  min:-90,  max:90 },
+          steer_lf:  {name: "Steer Left-Front",    model_obj_name: "suspension_strut_LF",     axis: "z",  dir:-1,  angle: 0.1,  min:-90,  max:90 },
+          steer_lr:  {name: "Steer Left-Rear",     model_obj_name: "suspension_strut_LR",     axis: "z",  dir:-1,  angle: 0.1,  min:-90,  max:90 },
+          diff:      {name: "Rocker Differential", model_obj_name: "suspension_diff",         axis: "z",  dir: 1,  angle: 0.1,  min:-8,   max:8  },
+          bogie_left: {name: "Bogie Left",         model_obj_name: "suspension_bogie_left",   axis: "y",  dir: 1,  angle: 0.1,  min:-40,   max:40  },
+          bogie_right: {name: "Bogie Right",       model_obj_name: "suspension_bogie_right",  axis: "y",  dir: 1,  angle: 0.1,  min:-40,   max:40  },
         },
       };
       window.joints = joints;
@@ -119,6 +119,7 @@
         },
         hga: {
           STOW:          [-1.05, 1.5708],
+          READY:         [0, 0.5],
         },
         mob: {
           STRAIGHT:       [0, 0, 0, 0,    0, 0, 0, 0, 0],
@@ -148,13 +149,14 @@
         attitude: {
           roll: 0,
           pitch: 0,
+          yaw: 0,
           height: -0.01,
           showRnavCoordFrame: false,
         },
         sky: {
-					turbidity: 10,
-					rayleigh: 0.1,
-					mieCoefficient: 0.002,
+					turbidity: 4,
+					rayleigh: 0.02,
+					mieCoefficient: 0.001,
 					mieDirectionalG: 0.8,
           diffuseLightColor:     0xffd0a8,
           initialDiffuseLightIntensity: 0.4,
@@ -192,41 +194,50 @@
         renderer.shadowMapSoft = true; 
 				renderer.outputEncoding = THREE.sRGBEncoding;
 				renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 0.6; 
+        renderer.toneMappingExposure = 0.5; 
         window.renderer = renderer;
 				container.appendChild( renderer.domElement );
 
-				camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 1000 );
-				camera.position.set( 0.7, 1.0, 4.3 );
+				camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 8000 );
+        camera.up.set( 0, 0, -1 );
+        camera.lookAt(0,0,-1);
+				//camera.position.set( 3.6, -0.1, -0.65 );
+        camera.position.set( 3.6, 0, -0.65 );
         window.camera = camera;
         
         
 				scene = new THREE.Scene();
         window.scene = scene;
-        scene.fog = new THREE.Fog(0x443322, 0.1, options["scene"].showHaze?10:0 );
+        scene.fog = new THREE.Fog(0x332211, 0.1, options["scene"].showHaze?20:0 );
         //scene.background = new THREE.Color( options.skyColor );
 
         // Make RMI mirror:
         // to-do:  vertically invert the reflection
         mirrorCamera = new THREE.PerspectiveCamera( 15, window.innerWidth / window.innerHeight, 0.1, 1000 );
         window.mirrorCamera = mirrorCamera;
-        mirrorCamera.rotation.y = Math.PI;
+        mirrorCamera.rotation.y = -1*Math.PI/2;
         scene.add( mirrorCamera );
         //const helper = new THREE.CameraHelper( mirrorCamera );  //handy for debugging
         //scene.add( helper );
-        var mirrorGeom = new THREE.CircleGeometry( 0.06, 32 );
+        var mirrorGeom = new THREE.CircleGeometry( 0.07, 32 );
 				mirror = new Reflector( mirrorGeom, {
 					clipBias: 0.003,
 					textureWidth: window.innerWidth * window.devicePixelRatio,
 					textureHeight: window.innerHeight * window.devicePixelRatio,
-					color: 0xaaaa66
+					color: 0xaaaa66,
 				} );
+        mirror.rotation.y = -1*Math.PI/2;
         
 
 				// Add Sky
 				sky = new Sky();
-				sky.scale.setScalar( 450 );
+				sky.scale.setScalar( 45000 );
         uniforms = sky.material.uniforms;
+        uniforms.turbidity.value        = options.sky.turbidity;
+        uniforms.rayleigh.value         = options.sky.rayleigh;
+        uniforms.mieCoefficient.value   = options.sky.mieCoefficient;
+        uniforms.mieDirectionalG.value  = options.sky.mieDirectionalG;
+        uniforms.up.value               = new THREE.Vector3(0, 0, -1);
 				scene.add( sky );
 
         // Make lighting:
@@ -252,11 +263,11 @@
         const textureFlare2 = textureLoader.load( "./images/lensflare3.png" );
         const lensflare = new Lensflare();
         //lensflare.addElement( new LensflareElement( textureFlare0, 88, 0 ) );
-        lensflare.addElement( new LensflareElement( textureFlare1, 120, 0 ) );
-        lensflare.addElement( new LensflareElement( textureFlare2, 80,  0.3 ) );
-        lensflare.addElement( new LensflareElement( textureFlare2, 200, 0.4 ) );
-        lensflare.addElement( new LensflareElement( textureFlare2, 120, 0.55 ) );
-        sun.directionalLight.add( lensflare );
+        //lensflare.addElement( new LensflareElement( textureFlare1, 120, 0 ) );
+        lensflare.addElement( new LensflareElement( textureFlare2, 80,  0 ) );
+        lensflare.addElement( new LensflareElement( textureFlare2, 200, 0.1 ) );
+        lensflare.addElement( new LensflareElement( textureFlare2, 120, 0.15 ) );
+        //sun.directionalLight.add( lensflare );
         
         // Make Ground plane:
         const geometry = new THREE.PlaneGeometry( 300, 300, 32 );
@@ -265,7 +276,26 @@
         groundPlane.name = "ground";
         groundPlane.rotation.x = -1*Math.PI/2;
         groundPlane.receiveShadow = true;
-        scene.add( groundPlane );
+        //scene.add( groundPlane );
+        
+        
+        makeTerrain({
+          urlHeightMap: 'images/JEZ_hirise_soc_006_hexMap_p8_crop.png',
+          urlTextureMap: 'images/JEZ_hirise_soc_006_crop.jpg',
+          hscale: 8000,
+          vscale: 80,
+          color:  options.surfaceColor,
+          onload: function(){
+            console.log("loaded terrain");
+            terrain.rotation.x = -1*Math.PI;
+            terrain.rotation.z = -1*Math.PI/2;
+            //terrain.position.set(-320,-32.1,-900);
+            terrain.position.set(2260,-760,32.4);
+            scene.add(terrain);
+            render();
+          }
+        });
+        
 
         // Make coordinate frame axes:
         roverNavCoordFrameAxes = createCoordAxes(scene, 0.5);
@@ -286,7 +316,7 @@
         folder["scene"].add(diffuselight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(function(val){render()});
         folder["scene"].addColor(options["sky"],'diffuseLightColor').name("Diffuse light color").onChange(function(val){diffuselight.color.set(val); render()});
         folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
-        folder["scene"].add(options["scene"], 'showHaze').listen().name("Foreground haze").onChange(function(val){scene.fog.far = val?10:0; render()});
+        folder["scene"].add(options["scene"], 'showHaze').listen().name("Foreground haze").onChange(function(val){scene.fog.far = val?20:0; render()});
         //gui.add(options, 'showSun').listen().name("Show sun").onChange(function(val){ noOp() });
         //gui.add(options, 'showFloor').listen().name("Show floor").onChange(function(val){ noOp() });
         //gui.add(armStowFcnWrapper,'add').name("Stow Arm");
@@ -295,6 +325,7 @@
         folder["attitude"] = gui.addFolder('Attitude');
         folder["attitude"].add(options["attitude"], 'roll', -30, 30).listen().name("Roll").onChange(function(){tiltRover()});
         folder["attitude"].add(options["attitude"], 'pitch', -30, 30).listen().name("Pitch").onChange(function(){tiltRover()});
+        folder["attitude"].add(options["attitude"], 'yaw', -10, 370).listen().name("Heading").onChange(function(){tiltRover()});
         folder["attitude"].add(options["attitude"], 'height', -3.0, 3.0).listen().name("Height").onChange(function(){liftRover()});
         folder["attitude"].add(options["attitude"], 'showRnavCoordFrame').listen().name("Show RNAV").onChange(function(val){
           roverNavCoordFrameAxes.visible = val; 
@@ -383,6 +414,8 @@
             goToPose(jointGroupName, options["pose"][jointGroupName]);
           });
 
+          tiltRover();
+
           rover.attach(roverNavCoordFrameAxes);
       
           scene.add(rover);
@@ -392,9 +425,10 @@
 				const controls = new OrbitControls( camera, renderer.domElement );
 				controls.addEventListener( 'change', render ); // use if there is no animation loop
 				controls.minDistance = 0.1;
-				controls.maxDistance = 100;
-				controls.target.set( 0, 1, 0 );
+				controls.maxDistance = 1000;
+				controls.target.set( 0, 0, -1 );
 				controls.update();
+
 
 				window.addEventListener( 'resize', onWindowResize );
         window.addEventListener( 'pointerdown', onPointerDown, false );
@@ -418,6 +452,68 @@
 			function render() {        
         renderer.render( scene, camera );
 			}
+
+
+
+      function makeTerrain(params){
+        if(params.urlHeightMap==undefined) {
+          console.log("makeTerrain error: expected urlHeightMap in parameters array");
+          return;
+        }
+        var hscale = (params.hscale==undefined) ? 1 : params.hscale;
+        var vscale = (params.vscale==undefined) ? 1 : params.vscale;
+        var color  = (params.color==undefined) ? '0x3c332c' : params.color;
+        var position = (params.position==undefined) ? new THREE.Vector3(0,0,0) : params.position;
+        
+        const loader  = new THREE.ImageLoader();
+        loader.load(params.urlHeightMap, function(img){
+          // have to render image in invisible canvas in order to retrieve color data..
+          const canvas = document.createElement( 'canvas' );
+          canvas.width = img.width;
+          canvas.height = img.height;
+          var context = canvas.getContext( '2d' );
+          context.drawImage(img, 0, 0);
+          var imgd = context.getImageData(0, 0, img.width, img.height);
+          window.imgd = imgd;
+          var pix = imgd.data;  // returns 1-D array of SRGB pixel data
+          var numPixels = img.width * img.height;
+          
+          // Recompute 32-bit height values by effectively concatenating 8bit values in each SRGB quartet:
+          var heightData = new Float32Array(numPixels);
+          var j = 0;
+          for(var i=0; i<pix.length; i+=4) {
+            heightData[j++] = ( pix[i]*16777216 + pix[i+1]*65536 +pix[i+2]*256 +pix[i+2] )/1073741824 *vscale;
+            //heightData[j++] = ( pix[i]+pix[i+1]+pix[i+2] )/128/3 *scale;
+          }
+          window.heightData = heightData;
+
+          var material = new THREE.MeshLambertMaterial();
+          if(params.urlTextureMap!==undefined){
+            material.map = new THREE.TextureLoader().load(params.urlTextureMap);
+          }
+          material.color.setHex(color);
+
+          //var geometry = new THREE.PlaneBufferGeometry(img.width*scale, img.hegiht*scale, img.width-1, img.height-1);
+          var geometry = new THREE.PlaneBufferGeometry(hscale, hscale, img.width-1, img.height-1);
+          terrain = new THREE.Mesh(geometry, material);
+          window.terrain = terrain;
+          
+          //set height of vertices:
+          const vertices = terrain.geometry.attributes.position;
+          for(var i=0; i<vertices.count; i++ ) {
+            vertices.setZ(i, heightData[i]);
+          }
+
+          terrain.castShadow = true;
+          terrain.receiveShadow = true;
+
+          console.log("done loading terrain");
+          console.log(params.onload);
+          if(params.onload!==undefined) params.onload();
+
+        });
+      }
+      window.makeTerrain = makeTerrain;
 
 
       function goToPose(jointGroup, poseName){
@@ -451,18 +547,18 @@
       function mobSetRockers(diffAngle){
         setJoint("mob", "diff", diffAngle); 
         var rocker_angle = diffAngle*2.2 * deg2rad;
-        parts["suspension_rocker_right"].rotation.x = -1*rocker_angle;
-        parts["suspension_rocker_left"].rotation.x = rocker_angle;
-        parts["suspension_diff_link_right"].rotation.x = rocker_angle;
-        parts["suspension_diff_link_left"].rotation.x = -1*rocker_angle;
+        parts["suspension_rocker_right"].rotation.y = rocker_angle;
+        parts["suspension_rocker_left"].rotation.y = -1*rocker_angle;
+        parts["suspension_diff_link_right"].rotation.y = -1*rocker_angle;
+        parts["suspension_diff_link_left"].rotation.y = rocker_angle;
         render();
       }
 
 
       function placeSun(){
-        var sunX = options["sun"].dist * Math.cos(options["sun"].el * deg2rad) * Math.sin(-1*options["sun"].az * deg2rad) ;
-        var sunZ = options["sun"].dist * Math.cos(options["sun"].el * deg2rad) * Math.cos(options["sun"].az * deg2rad);
-        var sunY = options["sun"].dist * Math.sin(Math.max(-0.5,options["sun"].el) * deg2rad);
+        var sunX = options["sun"].dist * Math.cos(options["sun"].el * deg2rad) * Math.cos(options["sun"].az * deg2rad) ;
+        var sunY = options["sun"].dist * Math.cos(options["sun"].el * deg2rad) * Math.sin(options["sun"].az * deg2rad);
+        var sunZ = -1 * options["sun"].dist * Math.sin(Math.max(-0.5,options["sun"].el) * deg2rad);
         sun.pos.set(sunX, sunY, sunZ);
         sun.directionalLight.position.set(sunX, sunY, sunZ);
 				sky.material.uniforms[ "sunPosition" ].value.copy( sun.pos );
@@ -470,21 +566,25 @@
           diffuselight.intensity =  options["sky"].initialDiffuseLightIntensity * Math.max(options["sky"].minDiffuseLightIntensity, Math.min(1, options["sun"].el/20));
           sun.directionalLight.intensity =  options["sun"].initialLightIntensity * Math.max(0, Math.min(1, options["sun"].el/20));
         } else {
-          diffuselight.intensity =  options["sky"].initialDiffuseLightIntensity * Math.max(options["sky"].minDiffuseLightIntensity, Math.min(1, (180-options["sun"].el)/20));
+          diffuselight.intensity =  options["sky"].initialDiffuseLightIntensity * Math.max(options["sky"].minDiffuseLightIntensity, Math.min(0.5, (180-options["sun"].el)/20));
           sun.directionalLight.intensity =  options["sun"].initialLightIntensity * Math.max(0, Math.min(1, (180-options["sun"].el)/20));
         }
         render();
       }
 
       function tiltRover(){
-        var newAttitude = new THREE.Vector3(options["attitude"].pitch*-1*deg2rad, 0, options["attitude"].roll*deg2rad);
+        var newAttitude = new THREE.Vector3(
+          options["attitude"].roll*deg2rad,
+          options["attitude"].pitch*deg2rad, 
+          options["attitude"].yaw*deg2rad, 
+        );
         //console.log(newAttitude);
-        rover.rotation.setFromVector3(newAttitude, 'YXZ');
+        rover.rotation.setFromVector3(newAttitude, 'ZYX');
         render();
       }
       
       function liftRover(){
-        rover.position.y = options["attitude"].height;
+        rover.position.z = -1*options["attitude"].height;
         render();
       }
 

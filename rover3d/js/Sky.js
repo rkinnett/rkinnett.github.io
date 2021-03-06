@@ -52,7 +52,7 @@ Sky.SkyShader = {
 		'mieCoefficient': { value: 0.005 },
 		'mieDirectionalG': { value: 0.85 },
 		'sunPosition': { value: new Vector3() },
-		'up': { value: new Vector3( 0, 1, 0 ) }
+		'up': { value: new Vector3( 0, 0, -1 ) }
 	},
 
 	vertexShader: [
@@ -123,8 +123,8 @@ Sky.SkyShader = {
 
 		'	vSunE = sunIntensity( dot( vSunDirection, up ) );',
 
-		'	vSunfade = 1.0 - clamp( 1.0 - exp( ( sunPosition.y / 100.0 ) ), 0.0, 1.0 );',
-		//'	vSunfade = (1.0 - clamp( 1.0 - exp( ( sunPosition.y / 100.0 ) ), 0.0, 1.0 )) *0.999 + 0.01;',
+		'	vSunfade = 1.0 - clamp( 1.0 - exp( ( -1.0*sunPosition.z / 100.0 ) ), 0.0, 1.0 );',
+		//'	vSunfade = (1.0 - clamp( 1.0 - exp( ( 1*sunPosition.z / 100.0 ) ), 0.0, 1.0 )) *0.999 + 0.01;',
 
 		'	float rayleighCoefficient = rayleigh - ( 1.0 * ( 1.0 - vSunfade ) );',
 
@@ -208,8 +208,8 @@ Sky.SkyShader = {
 		'	Lin *= mix( vec3( 1.0 ), pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * Fex, vec3( 1.0 / 2.0 ) ), clamp( pow( 1.0 - dot( up, vSunDirection ), 5.0 ), 0.0, 1.0 ) );',
 
 		// nightsky
-		'	float theta = acos( direction.y ); // elevation --> y-axis, [-pi/2, pi/2]',
-		'	float phi = atan( direction.z, direction.x ); // azimuth --> x-axis [-pi/2, pi/2]',
+		'	float theta = acos( -1.0*direction.z ); // elevation --> z-axis, [-pi/2, pi/2]',
+		'	float phi = atan( direction.y, direction.x ); // azimuth --> z-axis [-pi/2, pi/2]',
 		'	vec2 uv = vec2( phi, theta ) / vec2( 2.0 * pi, pi ) + vec2( 0.5, 0.0 );',
 		//'	vec3 L0 = vec3( 0.1 ) * Fex;',
     '	vec3 L0 = vec3( 0.1 ) * Fex;', //RK: unknown effect
