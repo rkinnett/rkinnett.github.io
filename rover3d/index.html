@@ -249,7 +249,7 @@
         sun.directionalLight = new THREE.DirectionalLight( options["sun"].lightColor, options["sun"].initialLightIntensity);
         sun.directionalLight.castShadow = true;
         sun.directionalLight.shadow.camera.near = 0.01;
-        sun.directionalLight.shadow.camera.far = 100;
+        sun.directionalLight.shadow.camera.far = 4000;
         sun.directionalLight.position.set(10,10,4);
         sun.directionalLight.shadow.mapSize.width = 2048;
         sun.directionalLight.shadow.mapSize.height = 2048;
@@ -278,18 +278,19 @@
         groundPlane.receiveShadow = true;
         //scene.add( groundPlane );
         
-        
+        const vscale = 320;
         makeTerrain({
           urlHeightMap: 'images/JEZ_hirise_soc_006_hexMap_p8_crop.png',
           urlTextureMap: 'images/JEZ_hirise_soc_006_crop.jpg',
+          urlNormalsMap: 'images/JEZ_hirise_soc_006_normal_2k_crop.png',
           hscale: 8000,
-          vscale: 160,
+          vscale: vscale,
           color:  options.surfaceColor,
           onload: function(){
             console.log("loaded terrain");
             terrain.rotation.x = -1*Math.PI;
             terrain.rotation.z = -1*Math.PI/2;
-            terrain.position.set(2260,-760,0.405*160);
+            terrain.position.set(2260,-760,0.369375*vscale);
             scene.add(terrain);
             render();
           }
@@ -486,9 +487,13 @@
           }
           window.heightData = heightData;
 
-          var material = new THREE.MeshLambertMaterial();
+          var material = new THREE.MeshPhongMaterial();
           if(params.urlTextureMap!==undefined){
             material.map = new THREE.TextureLoader().load(params.urlTextureMap);
+          }
+          material.shininess = 3;
+          if(params.urlNormalsMap!==undefined){
+            material.normalMap = new THREE.TextureLoader().load(params.urlNormalsMap);
           }
           material.color.setHex(color);
 
@@ -506,8 +511,6 @@
           terrain.castShadow = true;
           terrain.receiveShadow = true;
 
-          console.log("done loading terrain");
-          console.log(params.onload);
           if(params.onload!==undefined) params.onload();
 
         });
