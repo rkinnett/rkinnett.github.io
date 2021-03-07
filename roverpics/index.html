@@ -205,12 +205,18 @@ h3 {
 <tr>
   <th> <h3 title="This is currently only used for exporting URLs to file">Select</h3> 
     <div>
-      <a onclick="selectAll()">[all]</a>&nbsp;
-      <a onclick="selectNone()">[none]</a>
+      <a onclick='selectImages("all")'>[all]</a>&nbsp;
+      <a onclick='selectImages("none")'>[none]</a>
     </div>
   </th>
   <th> <h3>Thumbnail</h3> </th>
-  <th> <h3 onclick="sortTable(1)">Camera</h3> <form id="cam_filter"></form> </th>
+  <th> <h3 onclick="sortTable(1)">Camera</h3> 
+    <div>
+      <a onclick='selectCams("all")'>[all]</a>&nbsp;
+      <a onclick='selectCams("none")'>[none]</a>
+    </div>  
+    <form id="cam_filter"></form>
+  </th>
   <th> <h3 onclick="sortTable(2)">Frame Type</h3>  <form id="type_filter"></form> </th>
   <th> <h3 onclick="sortTable(3)">Image ID</h3> </th>
   <th> <h3 onclick="sortTable(4)">Date Taken</h3> </th>
@@ -328,22 +334,27 @@ function parseUrl(){
 }
 
 
-
-
-function selectAll(){
-  console.log("selecting all");
-  for(var r=1; r<=num_rows; r++){
-    table.rows[r].cells[0].querySelector('input[type="checkbox"]').checked = true;
+function selectCams(allOrNone){
+  console.log("selecting " + allOrNone + " cameras");
+  var include = (allOrNone=="all")? true : false;  
+  var camCheckboxes = table.rows[0].cells[2].querySelectorAll('input[type="checkbox"]');
+  console.log(camCheckboxes);
+  console.log(camCheckboxes.length);
+  for(var i=0; i<camCheckboxes.length; i++){
+    console.log(camCheckboxes[i]);
+    camCheckboxes[i].checked = include;
   }
 }
 
-function selectNone(){
-  console.log("deselecting all");
+
+
+function selectImages(allOrNone){
+  console.log("selecting " + allOrNone + " images");
+  var include = (allOrNone=="all")? true : false;
   for(var r=1; r<=num_rows; r++){
-    table.rows[r].cells[0].querySelector('input[type="checkbox"]').checked = false;
+    table.rows[r].cells[0].querySelector('input[type="checkbox"]').checked = include;
   }
 }
-
 
 
 function getLatest(mission){
