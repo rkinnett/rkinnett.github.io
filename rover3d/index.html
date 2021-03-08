@@ -138,7 +138,7 @@
 
       let options = {
         scene: {
-          surfaceColor:  0x726868,
+          surfaceColor:  0xa28f7e,
           showHaze:   false,
         },
         pose: {
@@ -170,7 +170,7 @@
           x:0, 
           y:0, 
           z:0, 
-          lightColor:      0xffd48f,
+          lightColor:      0xf0dacb,
           initialLightIntensity:  0.81,
         }
       };
@@ -290,7 +290,7 @@
             console.log("loaded terrain");
             terrain.rotation.x = -1*Math.PI;
             terrain.rotation.z = -1*Math.PI/2;
-            terrain.position.set(850,-1200,240.7);
+            terrain.position.set(850,-1200,240.65);
             scene.add(terrain);
             render();
           }
@@ -478,6 +478,7 @@
 
           if(params.urlTextureMap!==undefined){
             terrain.material.map = new THREE.TextureLoader().load(params.urlTextureMap);
+            render();
           }
           terrain.material.shininess = 3;
           if(params.urlNormalsMap!==undefined){
