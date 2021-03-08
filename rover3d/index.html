@@ -19,6 +19,7 @@
     -->
 
     <script src="js/dat.gui.min.js"></script>
+    <script src="js/decode-tiff.min.js"></script>
 
 
 		<script type="module">
@@ -28,8 +29,7 @@
 			import { Sky } from './js/Sky.js';
       import { Lensflare, LensflareElement } from './js/LensFlare.js';
       import { Reflector } from './js/Reflector.js';
-
-
+      const { decode } = window.decodeTiff;
       window.THREE = THREE;
 
     
@@ -93,7 +93,7 @@
       window.jointNames = jointNames;
       jointGroupNames.forEach(function(jointGroupName){
         for(var jointName in joints[jointGroupName]) { 
-          console.log(jointNames);
+          //console.log(jointNames);
           jointNames[jointGroupName].push(jointName);
         }
       });
@@ -138,7 +138,7 @@
 
       let options = {
         scene: {
-          surfaceColor:  0xbb9988,
+          surfaceColor:  0x726868,
           showHaze:   false,
         },
         pose: {
@@ -279,19 +279,18 @@
         groundPlane.receiveShadow = true;
         //scene.add( groundPlane );
                 
-        const vscale = 320;
+        const vscale = 0.02;
         makeTerrain({
-          urlHeightMap: 'images/JEZ_hirise_soc_006_hexMap_p8_crop.png',
-          urlTextureMap: 'images/JEZ_hirise_soc_006_crop.jpg',
-          urlNormalsMap: 'images/JEZ_hirise_soc_006_normal_2k_crop.png',
-          hscale: 8000,
-          vscale: vscale,
+          urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h4m.tif',  // must be 16-bit grayscale tif
+          urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop8192m_rescale_2m_CRISM_color.jpg',
+          hscale: 4,    // m/px
+          vscale: vscale,  // m/px
           color:  options["scene"].surfaceColor,
           onload: function(){
             console.log("loaded terrain");
             terrain.rotation.x = -1*Math.PI;
             terrain.rotation.z = -1*Math.PI/2;
-            terrain.position.set(2260,-760,0.369375*vscale);
+            terrain.position.set(850,-1200,240.7);
             scene.add(terrain);
             render();
           }
@@ -349,7 +348,7 @@
         // add joint controls to each joint group folder:
         jointGroupNames.forEach(function(jointGroupName){          
           jointNames[jointGroupName].forEach(function(jointName){
-            console.log(jointName);
+            //console.log(jointName);
             var joint = joints[jointGroupName][jointName];
             joints[jointGroupName][jointName].gui = folder[jointGroupName].add(joint, 'angle', joint.min, joint.max)
               .listen()
@@ -383,7 +382,7 @@
             for(var jointGroupName of jointGroupNames){
               for(var jointName of jointNames[jointGroupName]){
                 if(child.name == joints[jointGroupName][jointName].model_obj_name){
-                  console.log("found " + child.name);
+                  //console.log("found " + child.name);
                   //console.log(child);
                   joints[jointGroupName][jointName].obj = child;
                   break;
@@ -467,34 +466,15 @@
         var color  = (params.color==undefined) ? '0x3c332c' : params.color;
         var position = (params.position==undefined) ? new THREE.Vector3(0,0,0) : params.position;
 
-        //terrain = new THREE.Mesh(geometry, terrainMaterial);
+        console.log("loading terrain");
         terrain = new THREE.Mesh();
         terrain.material = new THREE.MeshPhongMaterial();
         window.terrain = terrain;
         
-        const loader  = new THREE.ImageLoader();
-        loader.load(params.urlHeightMap, function(img){
-          // have to render image in invisible canvas in order to retrieve color data..
-          const canvas = document.createElement( 'canvas' );
-          canvas.width = img.width;
-          canvas.height = img.height;
-          var context = canvas.getContext( '2d' );
-          context.drawImage(img, 0, 0);
-          var imgd = context.getImageData(0, 0, img.width, img.height);
-          window.imgd = imgd;
-          var pix = imgd.data;  // returns 1-D array of SRGB pixel data
-          var numPixels = img.width * img.height;
-          
-          // Recompute 32-bit height values by effectively concatenating 8bit values in each SRGB quartet:
-          var heightData = new Float32Array(numPixels);
-          var j = 0;
-          for(var i=0; i<pix.length; i+=4) {
-            heightData[j++] = ( pix[i]*16777216 + pix[i+1]*65536 +pix[i+2]*256 +pix[i+2] )/1073741824 *vscale;
-            //heightData[j++] = ( pix[i]+pix[i+1]+pix[i+2] )/128/3 *scale;
-          }
-          window.heightData = heightData;
+        console.log("loading height map");
+        readTiff(params.urlHeightMap, function(heightMap){
 
-          terrain.geometry = new THREE.PlaneBufferGeometry(hscale, hscale, img.width-1, img.height-1);
+          terrain.geometry = new THREE.PlaneBufferGeometry(heightMap.width*hscale, heightMap.height*hscale, heightMap.width-1, heightMap.height-1);
 
           if(params.urlTextureMap!==undefined){
             terrain.material.map = new THREE.TextureLoader().load(params.urlTextureMap);
@@ -508,11 +488,12 @@
           //set height of vertices:
           const vertices = terrain.geometry.attributes.position;
           for(var i=0; i<vertices.count; i++ ) {
-            vertices.setZ(i, heightData[i]);
+            vertices.setZ(i, heightMap.data[i]*vscale);
           }
 
           terrain.castShadow = true;
           terrain.receiveShadow = true;
+          console.log("done loading terrain");
 
           if(params.onload!==undefined) params.onload();
 
@@ -652,6 +633,35 @@
         render();
       }
       window.show = show;
+
+
+      function readTiff(url, onload) {
+        var xhr = new XMLHttpRequest();
+        console.log("getting tiff file: " + url);
+        xhr.open("GET", url);
+        //xhr.responseType = "blob";
+        xhr.responseType = 'arraybuffer';
+
+        xhr.onload = function (e) {
+          if (this.status == 200) {
+            console.log(xhr.response);
+            console.log("Reading tiff file");
+            //var blob = new Blob([xhr.response], {type: "image/tiff"});
+            const { width, height, data, ifdEntries } = decode(xhr.response, {singlePage: true, normalizeStripData: false} );
+            const metadata = JSON.stringify({ width, height, ifdEntries }, null, 2);
+            console.log(metadata);
+            if(onload!==undefined) onload({width: width, height: height, data: data});
+            return {width: width, height: height, data: data};
+          } else {
+            console.log("Error, return status: " + this.status);
+            console.log(e);
+          }
+        };
+        xhr.onerror = function(e) {
+          alert("Error Status: " + e.target.status);
+        };
+        xhr.send();
+      }
   
 
 		</script>
