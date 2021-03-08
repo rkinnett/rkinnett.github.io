@@ -218,7 +218,12 @@ h3 {
     <form id="cam_filter"></form>
   </th>
   <th> <h3 onclick="sortTable(2)">Frame Type</h3>  <form id="type_filter"></form> </th>
-  <th> <h3 onclick="sortTable(3)">Image ID</h3> </th>
+  <th> 
+    <h3 onclick="sortTable(3)">Image ID</h3> 
+    <input type="text" id="imageIdFilterPattern" name="imageIdFilterPattern" value="Keyword" onclick="initImageIdFilter()" style="color:lightgray ">
+    <input type="button" value="Filter" onclick="imageIdFilter()">
+    <input type="button" value="Clear" onclick="clearImageIdFilter()">
+  </th>
   <th> <h3 onclick="sortTable(4)">Date Taken</h3> </th>
 </tr>
 </table>
@@ -240,9 +245,8 @@ var num_rows = 0;
 var num_images = 0;
 var image_list_json;
 var checked_checkbox_names = [];
-
+var imageNameFilter = "";
 var urlParams;
-
 
 
 // Get the modal
@@ -271,7 +275,13 @@ window.onclick = function(event) {
   }
 }
 
-
+// Handle enter key inside filter text box:
+document.getElementById("imageIdFilterPattern").addEventListener("keyup", event => {
+  if(event.key == "Enter") {
+    imageIdFilter();
+    event.preventDefault();
+  }
+});
 
 ////////// FUNCTION DEFINITIONS ///////////////
 
@@ -330,6 +340,34 @@ function parseUrl(){
     }
   }
   
+}
+
+
+
+
+function initImageIdFilter(){
+  var keywordFilterTextbox = document.getElementById("imageIdFilterPattern");
+  if(keywordFilterTextbox.value=="Keyword") {
+    keywordFilterTextbox.value="";
+    keywordFilterTextbox.style.color = "black";
+  }
+}
+
+function clearImageIdFilter(){
+  var keywordFilterTextbox = document.getElementById("imageIdFilterPattern");  
+  keywordFilterTextbox.value="Keyword";
+  keywordFilterTextbox.style.color = "lightgray";
+  imageNameFilter = "";
+  doFilter();
+}
+
+function imageIdFilter(){
+  var keywordFilterTextbox = document.getElementById("imageIdFilterPattern");
+  if(keywordFilterTextbox.value!=="Keyword") {
+    imageNameFilter = keywordFilterTextbox.value.toUpperCase();
+    console.log("Filter: " + imageNameFilter);
+    doFilter();
+  }
 }
 
 
@@ -500,13 +538,16 @@ function buildTable(){
     var this_img = image_list_json.images[n];
     img_type     = this_img.sample_type;
     cam_type     = this_img.camera.instrument;
+    image_id     = this_img.imageid
   
-    if(checked_checkbox_names.includes(cam_type) && checked_checkbox_names.includes(img_type)){
+    console.log("Filter pattern: " + imageNameFilter);
+    var image_id_filter = new RegExp(imageNameFilter);
+  
+    if(checked_checkbox_names.includes(cam_type) && checked_checkbox_names.includes(img_type) && image_id_filter.test(image_id) ){
       //console.log("showing image " + n + " " + cam_type + " " + img_type);    
 
       thumb_url   = this_img.image_files["small"];
       biggest_url = this_img.image_files["full_res"];
-      image_id    = this_img.imageid;
       date_lmst   = this_img.date_taken_mars.replace("M"," ");
       date_utc    = this_img.date_taken_utc.replace("T"," ");    
       date_local  = new Date(date_utc + " UTC").toString();  
