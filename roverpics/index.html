@@ -220,7 +220,7 @@ h3 {
   <th> <h3 onclick="sortTable(2)">Frame Type</h3>  <form id="type_filter"></form> </th>
   <th> 
     <h3 onclick="sortTable(3)">Image ID</h3> 
-    <input type="text" id="imageIdFilterPattern" name="imageIdFilterPattern" value="Keyword" onclick="initImageIdFilter()" style="color:lightgray ">
+    <input type="text" id="imageIdFilterPattern" name="imageIdFilterPattern" value="Keyword" onclick='setImageIdFilter("")' style="color:lightgray ">
     <input type="button" value="Filter" onclick="imageIdFilter()">
     <input type="button" value="Clear" onclick="clearImageIdFilter()">
   </th>
@@ -246,7 +246,7 @@ var num_images = 0;
 var image_list_json;
 var checked_checkbox_names = [];
 var imageNameFilter = "";
-var urlParams;
+var urlParams = {mission: "", sol: "", filter: ""};
 
 
 // Get the modal
@@ -287,8 +287,6 @@ document.getElementById("imageIdFilterPattern").addEventListener("keyup", event 
 
 function parseUrl(){
   console.log("parsing URL arguments...");
-  url_query = {mission: '', sol: ''};
-  console.log(url_query);
   let paramString = window.location.search.toLowerCase().split('?')[1]; 
   let queryString = new URLSearchParams(paramString); 
 
@@ -299,42 +297,51 @@ function parseUrl(){
     if(key=="m" || key=="mission"){
       console.log("MISSION");
       if(val=="msl" || val=="curiosity"){
-        url_query.mission = "msl";
+        urlParams.mission = "msl";
       } else if(val=="mars2020" || val=="m2020" || val=="perseverance"){
-        url_query.mission = "mars2020"
+        urlParams.mission = "mars2020"
       } else {
         console.log("unrecognized mission name:  " + val);
         return;
       }
     } else if(key=="msl" || key=="curiosity"){
-      url_query.mission = "msl";
+      urlParams.mission = "msl";
     } else if(key=="mars2020" || key=="m2020" || key=="perseverance"){
-      url_query.mission = "mars2020";
+      urlParams.mission = "mars2020";
     } else if(key=="latest"){
       console.log("LATEST");
-      url_query.sol = "latest";
+      urlParams.sol = "latest";
     } else if(key=="s" || key=="sol") {
       console.log("SOL");
       if((/^[0-9]+$/).test(val)){
-        url_query.sol = val;
+        urlParams.sol = val;
       } else {
         console.log("invalid sol string: " + val);
         return;
       }
     } else if((/^sol[0-9]+$/).test(key)) {
       console.log("SOL#");
-      url_query.sol = key.replace("sol","");
+      urlParams.sol = key.replace("sol","");
+    } else if(key=="f" || key=="filt" || key=="filter") {
+      if( (/^[a-z0-9_]+$/).test(val) ){
+        val = val.toUpperCase();
+        console.log("Filter: " + val);
+        imageNameFilter = val;
+        setImageIdFilter(val);
+        urlParams.filter = val;
+      } else {
+        console.log("warning: invalid filter pattern specified in url parameters: " + val);
+      }
     } else {
       console.log("unrecognized url parameter: " + key);
     }
   }
 
-  if(url_query.mission=="msl" || url_query.mission=="mars2020"){
-    if(url_query.sol=="latest" || url_query.sol==""){
-      getLatest(url_query.mission);
-    } else if( (/^[0-9]+$/).test(url_query.sol)){
-      getSol(url_query.mission, url_query.sol);
-      setThisPageUrlParams(url_query.mission + "&sol" & url_query.sol);
+  if(urlParams.mission=="msl" || urlParams.mission=="mars2020"){
+    if(urlParams.sol=="latest" || urlParams.sol==""){
+      getLatest(urlParams.mission);
+    } else if( (/^[0-9]+$/).test(urlParams.sol)){
+      getSol(urlParams.mission, urlParams.sol);
     } else {
       console.log("URL params specified mission but not sol");
     }
@@ -344,13 +351,10 @@ function parseUrl(){
 
 
 
-
-function initImageIdFilter(){
+function setImageIdFilter(toString){
   var keywordFilterTextbox = document.getElementById("imageIdFilterPattern");
-  if(keywordFilterTextbox.value=="Keyword") {
-    keywordFilterTextbox.value="";
-    keywordFilterTextbox.style.color = "black";
-  }
+  keywordFilterTextbox.value = toString;
+  keywordFilterTextbox.style.color = "black";
 }
 
 function clearImageIdFilter(){
@@ -397,6 +401,9 @@ function selectImages(allOrNone){
 function getLatest(mission){
   setThisPageUrlParams(mission);
   fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission);
+  urlParams.sol = "";
+  urlParams.mission = mission;
+  setThisPageUrlParams();
 }
 
 function askSol(mission){
@@ -411,18 +418,43 @@ function askSol(mission){
 function getSol(mission, sol){
   if ( /^[0-9]+$/.test(sol)) {
     fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission + '&sol=' + sol);
-    setThisPageUrlParams(mission + "&sol" + sol);
+    urlParams.sol = sol;
+    urlParams.mission = mission;
+    setThisPageUrlParams();
   } else {
     console.log("not a number: " + sol);
   }
 }
 
 
-function setThisPageUrlParams(strParams){
-  this_page_url_base = location.protocol + '//' + location.host + location.pathname;
-  newUrl = this_page_url_base + "?" + strParams
-  console.log("Setting url to:  " + newUrl);
-  window.history.pushState({}, null, newUrl);
+function setThisPageUrlParams(){
+  var paramsCount = 0;
+  var paramString = "";
+  if(urlParams.mission!==""){
+    paramString += urlParams.mission;
+    paramsCount++;
+  }
+  if(urlParams.sol!==""){
+    if(paramsCount>0) paramString += "&";
+    paramString += "sol" + urlParams.sol;
+    paramsCount++;
+  }
+  if(urlParams.filter!==""){
+    if(paramsCount>0) paramString += "&";
+    paramString += "filter=" + urlParams.filter;
+    paramsCount++;
+  }
+
+  console.log(urlParams);
+  console.log(paramsCount + " url params");
+  console.log("URL param string: " + paramString);
+
+  if(paramsCount>0){
+    this_page_url_base = location.protocol + '//' + location.host + location.pathname;
+    newUrl = this_page_url_base + "?" + paramString
+    console.log("Setting url to:  " + newUrl);
+    window.history.pushState({}, null, newUrl);
+  }
 }
 
 
