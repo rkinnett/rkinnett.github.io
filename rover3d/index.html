@@ -24,7 +24,7 @@
 
 		<script type="module">
       import * as THREE from './js/three.module.js';
-			import { OrbitControls } from './js/OrbitControls.js';
+			import { OrbitControls, MapControls } from './js/OrbitControls.js';
 			import { GLTFLoader } from './js/GLTFLoader.js';
 			import { Sky } from './js/Sky.js';
       import { Lensflare, LensflareElement } from './js/LensFlare.js';
@@ -33,8 +33,8 @@
       window.THREE = THREE;
 
     
-			let camera, scene, renderer, rover, diffuselight, selected, roverNavCoordFrameAxes;
-      let terrain;
+			let camera, scene, renderer, controls;
+      let rover, diffuselight, selected, roverNavCoordFrameAxes, terrain;
       let mirrorCamera, rmiMirror, insetWidth, insetHeight, mirrorMaterial, mirror, mirrorRendertTarget;
 			let sky, uniforms;
       let deg2rad = Math.PI/180;
@@ -195,6 +195,7 @@
         renderer.shadowMapSoft = true; 
 				renderer.outputEncoding = THREE.sRGBEncoding;
 				renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.physicallyCorrectLights = true;
         renderer.toneMappingExposure = 0.5; 
         window.renderer = renderer;
 				container.appendChild( renderer.domElement );
@@ -242,9 +243,9 @@
 				scene.add( sky );
 
         // Make lighting:
-        // diffuselight = new THREE.AmbientLight( options["sky"].diffuseLightColor );
-        // diffuselight.intensity = options["sky"].initialDiffuseLightIntensity;
-        diffuselight = new THREE.HemisphereLight( options["sky"].diffuseLightColor, options.surfaceColor, options["sky"].initialDiffuseLightIntensity );
+        diffuselight = new THREE.AmbientLight( options["sky"].diffuseLightColor );
+        diffuselight.intensity = options["sky"].initialDiffuseLightIntensity;
+        //diffuselight = new THREE.HemisphereLight( options["sky"].diffuseLightColor, options.surfaceColor, options["sky"].initialDiffuseLightIntensity );
         scene.add( diffuselight );
         
         sun.directionalLight = new THREE.DirectionalLight( options["sun"].lightColor, options["sun"].initialLightIntensity);
@@ -282,7 +283,8 @@
         const vscale = 0.02;
         makeTerrain({
           urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h4m.tif',  // must be 16-bit grayscale tif
-          urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop8192m_rescale_2m_CRISM_color.jpg',
+          //urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop8192m_rescale_2m_CRISM_color.jpg',
+          urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale50cm_color.jpg',
           hscale: 4,    // m/px
           vscale: vscale,  // m/px
           color:  options["scene"].surfaceColor,
@@ -423,12 +425,19 @@
           render();
         } );
 
-				const controls = new OrbitControls( camera, renderer.domElement );
+				controls = new MapControls( camera, renderer.domElement );
+				//const controls = new OrbitControls( camera, renderer.domElement );
 				controls.addEventListener( 'change', render ); // use if there is no animation loop
+        //controls.mouseButtons = { ORBIT: THREE.MOUSE.LEFT, ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
+        //controls.mouseButtons = { ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
+        controls.mouseButtons = {LEFT: 0, MIDDLE: 1, RIGHT: 2};
+        controls.enableKeys = true;
+        //controls.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
 				controls.minDistance = 0.1;
 				controls.maxDistance = 1000;
 				controls.target.set( 0, 0, -1 );
 				controls.update();
+        window.controls = controls;
 
 
 				window.addEventListener( 'resize', onWindowResize );
@@ -477,7 +486,8 @@
           terrain.geometry = new THREE.PlaneBufferGeometry(heightMap.width*hscale, heightMap.height*hscale, heightMap.width-1, heightMap.height-1);
 
           if(params.urlTextureMap!==undefined){
-            terrain.material.map = new THREE.TextureLoader().load(params.urlTextureMap);
+            console.log("loading terrain texture..");
+            terrain.material.map = new THREE.TextureLoader().load(params.urlTextureMap, function(){console.log("done loading terrain texture")});
             render();
           }
           terrain.material.shininess = 3;
@@ -492,9 +502,14 @@
             vertices.setZ(i, heightMap.data[i]*vscale);
           }
 
+          terrain.geometry.computeVertexNormals();
+          terrain.geometry.computeFaceNormals();
           terrain.castShadow = true;
           terrain.receiveShadow = true;
+          //terrain.matrixAutoUpdate = false;;
           console.log("done loading terrain");
+
+          renderer.shadowMap.needsUpdate = true;
 
           if(params.onload!==undefined) params.onload();
 
