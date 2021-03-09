@@ -202,11 +202,22 @@ h3 {
 
 
 <table id="images_table">
+<thead>
 <tr>
   <th> <h3 title="This is currently only used for exporting URLs to file">Select</h3> 
     <div>
       <a onclick='selectImages("all")'>[all]</a>&nbsp;
       <a onclick='selectImages("none")'>[none]</a>
+    </div>
+    <div>
+      <div class="checkbox_div">
+        <input type="checkbox" id="checkboxShowSelected" name="checkboxShowSelected" onchange="doFilter()" checked>
+        <label for="checkboxShowSelected">selected</label>
+      </div>
+      <div class="checkbox_div">
+        <input type="checkbox" id="checkboxShowUnselected" name="checkboxShowUnselected" onchange="doFilter()" checked>
+        <label for="checkboxShowUnselected">unselected</label>
+      </div>
     </div>
   </th>
   <th> <h3>Thumbnail</h3> </th>
@@ -226,6 +237,9 @@ h3 {
   </th>
   <th> <h3 onclick="sortTable(4)">Date Taken</h3> </th>
 </tr>
+</thead>
+<tbody id="table_body">
+</tbody>
 </table>
 
 
@@ -243,7 +257,7 @@ var image_types = [];
 var image_type_img_counts = [];
 var num_rows = 0;
 var num_images = 0;
-var image_list_json;
+var image_list_json, image_list;
 var checked_checkbox_names = [];
 var imageNameFilter = "";
 var urlParams = {mission: "", sol: "", filter: ""};
@@ -378,13 +392,14 @@ function imageIdFilter(){
 function selectCams(allOrNone){
   console.log("selecting " + allOrNone + " cameras");
   var include = (allOrNone=="all")? true : false;  
-  var camCheckboxes = table.rows[0].cells[2].querySelectorAll('input[type="checkbox"]');
+  var camCheckboxes = table.tBodies[0].rows[0].cells[2].querySelectorAll('input[type="checkbox"]');
   console.log(camCheckboxes);
   console.log(camCheckboxes.length);
   for(var i=0; i<camCheckboxes.length; i++){
     console.log(camCheckboxes[i]);
     camCheckboxes[i].checked = include;
   }
+  doFilter();
 }
 
 
@@ -392,8 +407,8 @@ function selectCams(allOrNone){
 function selectImages(allOrNone){
   console.log("selecting " + allOrNone + " images");
   var include = (allOrNone=="all")? true : false;
-  for(var r=1; r<=num_rows; r++){
-    table.rows[r].cells[0].querySelector('input[type="checkbox"]').checked = include;
+  for(var r=0; r<num_rows; r++){
+    table.tBodies[0].rows[r].cells[0].querySelector('input[type="checkbox"]').checked = include;
   }
 }
 
@@ -470,6 +485,7 @@ function fetchRss(rss_url){
         console.log(this.responseText);
         image_list_json = JSON.parse(this.responseText);
         console.log(image_list_json);
+        image_list = image_list_json.images;
         got_images = true;
         tabulateImages();
         buildTable();
@@ -488,7 +504,8 @@ function fetchRss(rss_url){
 
 
 function clearTable(){
-  for (var r=table.rows.length-1; r>0; r--) {
+  // do this in reverse otherwise takes a lot of resources to rebuild bottom of table as top rows are deleted!
+  for (var r=table.tBodies[0].rows.length; r>0; r--) {
     table.deleteRow(r);
   }
   num_rows = 0;
@@ -503,12 +520,13 @@ function tabulateImages(){
   camera_type_img_counts = [];
   image_type_img_counts = [];
   
-  num_images = image_list_json.images.length;
-  start_sol = image_list_json.images[0].sol;
-  end_sol = image_list_json.images[0].sol;
+  num_images = image_list.length;
+  start_sol = image_list[0].sol; // initial value; will check each image
+  end_sol = image_list[0].sol; // initial value; will check each image
 
   for(n=0; n<num_images; n++){
-    var this_img = image_list_json.images[n];
+    image_list[n].selected = false;
+    var this_img = image_list[n];
     var type     = this_img.sample_type;
     var camera   = this_img.camera.instrument;
     // console.log('image ' + n + ', ' + camera + ', ' + type);
@@ -525,17 +543,17 @@ function tabulateImages(){
     image_type_img_counts[type]++;
     
     // Get sol range:
-    if(image_list_json.images[n].sol<start_sol) {
-      start_sol = image_list_json.images[n].sol;
+    if(image_list[n].sol<start_sol) {
+      start_sol = image_list[n].sol;
     }
-    if(image_list_json.images[n].sol<end_sol) {
-      end_sol = image_list_json.images[n].sol;
+    if(image_list[n].sol<end_sol) {
+      end_sol = image_list[n].sol;
     }
     
   }
 
   // Update summary:
-  document.getElementById("summary").innerText = '' + image_list_json.images.length + ' images from ' + image_list_json.mission.toUpperCase() + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'');
+  document.getElementById("summary").innerText = '' + image_list.length + ' images from ' + image_list_json.mission.toUpperCase() + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'');
 
   console.log([start_sol, end_sol]);
 
@@ -560,23 +578,36 @@ function buildTable(){
   checked_checkbox_names = [];
   var checked_checkboxes = document.querySelectorAll('input[type=checkbox]:checked');
   console.log(checked_checkboxes);
+
   for (var i=0; i<checked_checkboxes.length; i++) {
     checked_checkbox_names.push(checked_checkboxes[i].name);
   }
   console.log(checked_checkbox_names);
+  
+  var showSelected = checked_checkbox_names.includes("checkboxShowSelected");
+  var showUnselected = checked_checkbox_names.includes("checkboxShowUnselected");
+  console.log([showSelected, showUnselected]);
 
   // build table:
   for(n=0; n<num_images; n++){
-    var this_img = image_list_json.images[n];
-    img_type     = this_img.sample_type;
-    cam_type     = this_img.camera.instrument;
-    image_id     = this_img.imageid
+    var this_img = image_list[n];
+    img_type  = this_img.sample_type;
+    cam_type  = this_img.camera.instrument;
+    image_id  = this_img.imageid
+    selected  = this_img.selected;
   
     console.log("Filter pattern: " + imageNameFilter);
     var image_id_filter = new RegExp(imageNameFilter);
   
-    if(checked_checkbox_names.includes(cam_type) && checked_checkbox_names.includes(img_type) && image_id_filter.test(image_id) ){
+    if( checked_checkbox_names.includes(cam_type) && 
+        checked_checkbox_names.includes(img_type) && 
+        image_id_filter.test(image_id) &&
+        (selected && showSelected) || (!selected && showUnselected)
+      ){
       //console.log("showing image " + n + " " + cam_type + " " + img_type);    
+
+      console.log(selected);
+      console.log(image_id);
 
       thumb_url   = this_img.image_files["small"];
       biggest_url = this_img.image_files["full_res"];
@@ -584,8 +615,7 @@ function buildTable(){
       date_utc    = this_img.date_taken_utc.replace("T"," ");    
       date_local  = new Date(date_utc + " UTC").toString();  
 
-      num_rows++;
-      var row = table.insertRow(num_rows);
+      var row = table.tBodies[0].insertRow(num_rows++);
       var cell0 = row.insertCell(0);
       var cell1 = row.insertCell(1);
       var cell2 = row.insertCell(2);
@@ -593,7 +623,9 @@ function buildTable(){
       var cell4 = row.insertCell(4);
       var cell5 = row.insertCell(5);
 
-      cell0.innerHTML = '<input type="checkbox" id="SEL_' + image_id + '">';
+      row.img_idx = n;
+
+      cell0.innerHTML = '<input type="checkbox" class="selection_checkbox" id="SEL_' + image_id + '" ' + (selected?"checked":"") + '>';
       cell1.innerHTML = '<img src=' + thumb_url + ' />';
       cell2.innerHTML = cam_type;
       cell3.innerHTML = '<a href=' + biggest_url + ' download>' + img_type + '</a>';
@@ -619,6 +651,13 @@ function makeCheckbox(container_name, checkbox_name){
 function doFilter() {
   console.log("filtering");
   setBusyIndicator(true);
+  
+  // Note selection within images structure:
+  for(var row of table.tBodies[0].rows){
+    var checked = row.cells[0].getElementsByClassName("selection_checkbox")[0].checked;
+    image_list[row.img_idx].selected = checked; 
+  }
+  
   setTimeout(function(){buildTable()}, 200);
 }
 
@@ -638,13 +677,13 @@ function doSort(n) {
   // loop continues until no switching has been done:
   while (switching) {
     switching = false;
-    rows = table.rows;
+    rows = table.tBodies[0].rows;
     // Loop through all table rows (except the first, which contains table headers):
-    for (i = 1; i < (rows.length - 1); i++) {
+    for(var i=0; i<rows.length-1; i++) {
       shouldSwitch = false;
       /* Get the two elements you want to compare, one from current row and one from the next: */
       x = rows[i].getElementsByTagName("TD")[n];
-      y = rows[i + 1].getElementsByTagName("TD")[n];
+      y = rows[i+1].getElementsByTagName("TD")[n];
       /* Check if the two rows should switch place, based on the direction, asc or desc: */
       if (dir == "asc") {
         if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
@@ -687,9 +726,9 @@ function exportImageURLs(){
   }
   var urls_text = '';
   for(var r=1; r<=num_rows; r++){
-    var checked = table.rows[r].cells[0].querySelector('input[type="checkbox"]').checked;
+    var checked = table.tBodies[0].rows[r].cells[0].querySelector('input[type="checkbox"]').checked;
     if(checked){
-      urls_text += table.rows[r].cells[3].querySelector('a').href + '\n';
+      urls_text += table.tBodies[0].rows[r].cells[3].querySelector('a').href + '\n';
     }
   }
   urls_text = urls_text.replace(/\n$/, "");

@@ -193,6 +193,9 @@
 				renderer.setSize( window.innerWidth, window.innerHeight );
         renderer.shadowMap.enabled = true; 
         renderer.shadowMapSoft = true; 
+				//renderer.autoClear = false;
+        renderer.alpha = false;
+        //renderer.preserveDrawingBuffer = true;
 				renderer.outputEncoding = THREE.sRGBEncoding;
 				renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.physicallyCorrectLights = true;
@@ -284,7 +287,7 @@
         makeTerrain({
           urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h4m.tif',  // must be 16-bit grayscale tif
           //urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop8192m_rescale_2m_CRISM_color.jpg',
-          urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale50cm_color.jpg',
+          urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale1m_color.jpg',
           hscale: 4,    // m/px
           vscale: vscale,  // m/px
           color:  options["scene"].surfaceColor,
@@ -494,7 +497,7 @@
           if(params.urlNormalsMap!==undefined){
             terrain.material.normalMap = new THREE.TextureLoader().load(params.urlNormalsMap);
           }
-          terrain.material.color.setHex(color);
+          //terrain.material.color.setHex(color);
           
           //set height of vertices:
           const vertices = terrain.geometry.attributes.position;
@@ -502,7 +505,7 @@
             vertices.setZ(i, heightMap.data[i]*vscale);
           }
 
-          terrain.geometry.computeVertexNormals();
+          //terrain.geometry.computeVertexNormals();
           terrain.geometry.computeFaceNormals();
           terrain.castShadow = true;
           terrain.receiveShadow = true;
@@ -564,7 +567,7 @@
         sun.pos.set(sunX, sunY, sunZ);
         sun.directionalLight.position.set(sunX, sunY, sunZ);
 				sky.material.uniforms[ "sunPosition" ].value.copy( sun.pos );
-        if(options["sun"].el<90){
+        if(options["sun"].el<160){
           diffuselight.intensity =  options["sky"].initialDiffuseLightIntensity * Math.max(options["sky"].minDiffuseLightIntensity, Math.min(1, options["sun"].el/20));
           sun.directionalLight.intensity =  options["sun"].initialLightIntensity * Math.max(0, Math.min(1, options["sun"].el/20));
         } else {
