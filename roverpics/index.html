@@ -392,7 +392,7 @@ function imageIdFilter(){
 function selectCams(allOrNone){
   console.log("selecting " + allOrNone + " cameras");
   var include = (allOrNone=="all")? true : false;  
-  var camCheckboxes = table.tBodies[0].rows[0].cells[2].querySelectorAll('input[type="checkbox"]');
+  var camCheckboxes = table.tHead.rows[0].cells[2].querySelectorAll('input[type="checkbox"]');
   console.log(camCheckboxes);
   console.log(camCheckboxes.length);
   for(var i=0; i<camCheckboxes.length; i++){
@@ -586,28 +586,25 @@ function buildTable(){
   
   var showSelected = checked_checkbox_names.includes("checkboxShowSelected");
   var showUnselected = checked_checkbox_names.includes("checkboxShowUnselected");
-  console.log([showSelected, showUnselected]);
+  //console.log([showSelected, showUnselected]);
+
+  console.log('Filter pattern: "' + imageNameFilter + '"');
+  var image_id_filter = new RegExp(imageNameFilter);
 
   // build table:
   for(n=0; n<num_images; n++){
-    var this_img = image_list[n];
-    img_type  = this_img.sample_type;
-    cam_type  = this_img.camera.instrument;
-    image_id  = this_img.imageid
-    selected  = this_img.selected;
-  
-    console.log("Filter pattern: " + imageNameFilter);
-    var image_id_filter = new RegExp(imageNameFilter);
-  
+    var this_img  = image_list[n];
+    var img_type  = this_img.sample_type;
+    var cam_type  = this_img.camera.instrument;
+    var image_id  = this_img.imageid
+    var selected  = this_img.selected;
+    
     if( checked_checkbox_names.includes(cam_type) && 
         checked_checkbox_names.includes(img_type) && 
         image_id_filter.test(image_id) &&
-        (selected && showSelected) || (!selected && showUnselected)
+        ((selected && showSelected) || (!selected && showUnselected))
       ){
-      //console.log("showing image " + n + " " + cam_type + " " + img_type);    
-
-      console.log(selected);
-      console.log(image_id);
+      console.log("showing image " + n + " " + cam_type + " " + img_type);
 
       thumb_url   = this_img.image_files["small"];
       biggest_url = this_img.image_files["full_res"];
