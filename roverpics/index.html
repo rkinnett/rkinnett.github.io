@@ -160,7 +160,7 @@ h3 {
       <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?msl&sol3000&camera=HAZ">https://rkinnett.github.io/roverpics/?msl&sol3000&camera=haz</a>
       <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?msl&sol3052&filter=rhaz00311">https://rkinnett.github.io/roverpics/?msl&sol3052&filter=rhaz00311</a>
       <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?mars2020&sol0&filter=EDL">https://rkinnett.github.io/roverpics/?mars2020&sol0&filter=EDL</a>
-      
+      <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?mars2020&sol18&fullframe">https://rkinnett.github.io/roverpics/?mars2020&sol18&fullframe</a>
       
       <hr/>
       Get the source code on <a href="https://github.com/rkinnett/rkinnett.github.io/tree/master/roverpics">Github</a>.<br/>
@@ -275,6 +275,7 @@ var urlParams = {
   sol:      "",
   camera:   "",
   filter:   "",
+  frame:    "",
 };
 
 
@@ -368,7 +369,13 @@ function parseUrl(){
         urlParams.camera = val;
       } else {
         console.log('invalid camera descriptor "' + val + '"'); 
-      }
+      }      
+    } else if(key=="full" || key=="fullframe") {
+      urlParams.frame = "full";
+    } else if(key=="sub" || key=="subframe") {
+      urlParams.frame = "subframe";
+    } else if(key=="thumb" || key=="thumbnail") {
+      urlParams.frame = "thumbnail";
     } else {
       console.log("unrecognized url parameter: " + key);
     }
@@ -480,6 +487,11 @@ function setThisPageUrlParams(){
   if(urlParams.camera!==""){
     if(paramsCount>0) paramString += "&";
     paramString += "camera=" + urlParams.camera;
+    paramsCount++;
+  }
+  if(urlParams.frame!==""){
+    if(paramsCount>0) paramString += "&";
+    paramString += urlParams.frame;
     paramsCount++;
   }
   if(urlParams.filter!==""){
@@ -595,7 +607,10 @@ function tabulateImages(){
     var checked = (urlParams.camera=="" || new RegExp(urlParams.camera).test(cam_type) );
     makeCheckbox("cam_filter", cam_type, checked);
   });
-  image_types.forEach(function(img_type){makeCheckbox("type_filter",img_type)});
+  image_types.forEach(function(img_type){
+    var checked = (urlParams.frame=="" || new RegExp(urlParams.frame).test(img_type.toLowerCase()) );
+    makeCheckbox("type_filter",img_type, checked);
+  });
   setBusyIndicator(false);
 }
 
