@@ -154,13 +154,13 @@ h3 {
       </ol>
 
       Also try URL parameters!  Examples:
-      <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?msl">https://rkinnett.github.io/roverpics/?msl</a>
-      <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?mars2020">https://rkinnett.github.io/roverpics/?mars2020</a>
-      <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?msl&sol3000">https://rkinnett.github.io/roverpics/?msl&sol3000</a>
-      <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?msl&sol3000&camera=HAZ">https://rkinnett.github.io/roverpics/?msl&sol3000&camera=haz</a>
-      <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?msl&sol3052&filter=rhaz00311">https://rkinnett.github.io/roverpics/?msl&sol3052&filter=rhaz00311</a>
-      <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?mars2020&sol0&filter=EDL">https://rkinnett.github.io/roverpics/?mars2020&sol0&filter=EDL</a>
-      <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?mars2020&sol18&fullframe">https://rkinnett.github.io/roverpics/?mars2020&sol18&fullframe</a>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl">##PAGE_ADDR##?msl</a>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020">##PAGE_ADDR##?mars2020</a>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000">##PAGE_ADDR##?msl&sol3000</a>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000&camera=HAZ">##PAGE_ADDR##?msl&sol3000&camera=haz</a>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3052&filter=rhaz00311">##PAGE_ADDR##?msl&sol3052&filter=rhaz00311</a>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol0&filter=EDL">##PAGE_ADDR##?mars2020&sol0&filter=EDL</a>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol18&fullframe">##PAGE_ADDR##?mars2020&sol18&fullframe</a>
       
       <hr/>
       Get the source code on <a href="https://github.com/rkinnett/rkinnett.github.io/tree/master/roverpics">Github</a>.<br/>
@@ -319,6 +319,10 @@ function parseUrl(){
   console.log("parsing URL arguments...");
   let paramString = window.location.search.toLowerCase().split('?')[1]; 
   let queryString = new URLSearchParams(paramString); 
+
+  let page_address = window.location.origin + window.location.pathname;
+  var modal = document.getElementById("info_modal");
+  modal.innerHTML = modal.innerHTML.replaceAll("##PAGE_ADDR##",page_address);
 
   for (let pair of queryString.entries()) { 
     key = pair[0];
