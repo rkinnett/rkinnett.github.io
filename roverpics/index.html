@@ -152,6 +152,16 @@ h3 {
           </ul>
         </li>
       </ol>
+
+      Also try URL parameters!  Examples:
+      <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?msl">https://rkinnett.github.io/roverpics/?msl</a>
+      <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?mars2020">https://rkinnett.github.io/roverpics/?mars2020</a>
+      <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?msl&sol3000">https://rkinnett.github.io/roverpics/?msl&sol3000</a>
+      <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?msl&sol3000&camera=HAZ">https://rkinnett.github.io/roverpics/?msl&sol3000&camera=haz</a>
+      <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?msl&sol3052&filter=rhaz00311">https://rkinnett.github.io/roverpics/?msl&sol3052&filter=rhaz00311</a>
+      <br/>&nbsp;&nbsp;<a href="https://rkinnett.github.io/roverpics/?mars2020&sol0&filter=EDL">https://rkinnett.github.io/roverpics/?mars2020&sol0&filter=EDL</a>
+      
+      
       <hr/>
       Get the source code on <a href="https://github.com/rkinnett/rkinnett.github.io/tree/master/roverpics">Github</a>.<br/>
       
@@ -260,7 +270,12 @@ var num_images = 0;
 var image_list_json, image_list;
 var checked_checkbox_names = [];
 var imageNameFilter = "";
-var urlParams = {mission: "", sol: "", filter: ""};
+var urlParams = {
+  mission:  "",
+  sol:      "",
+  camera:   "",
+  filter:   "",
+};
 
 
 // Get the modal
@@ -345,6 +360,14 @@ function parseUrl(){
         urlParams.filter = val;
       } else {
         console.log("warning: invalid filter pattern specified in url parameters: " + val);
+      }
+    } else if(key=="c" || key=="cam" || key=="camera") {
+      if( val && (/^[a-z0-9_]+$/).test(val) ){
+        val = val.toUpperCase();
+        console.log("Camera: " + val);
+        urlParams.camera = val;
+      } else {
+        console.log('invalid camera descriptor "' + val + '"'); 
       }
     } else {
       console.log("unrecognized url parameter: " + key);
@@ -452,6 +475,11 @@ function setThisPageUrlParams(){
   if(urlParams.sol!==""){
     if(paramsCount>0) paramString += "&";
     paramString += "sol" + urlParams.sol;
+    paramsCount++;
+  }
+  if(urlParams.camera!==""){
+    if(paramsCount>0) paramString += "&";
+    paramString += "camera=" + urlParams.camera;
     paramsCount++;
   }
   if(urlParams.filter!==""){
@@ -563,7 +591,10 @@ function tabulateImages(){
   // Clear and repopulate filter checkboxes:
   document.getElementById("cam_filter").innerHTML = "";
   document.getElementById("type_filter").innerHTML = "";
-  cameras.forEach(function(cam_type){makeCheckbox("cam_filter",cam_type)});
+  cameras.forEach(function(cam_type){
+    var checked = (urlParams.camera=="" || new RegExp(urlParams.camera).test(cam_type) );
+    makeCheckbox("cam_filter", cam_type, checked);
+  });
   image_types.forEach(function(img_type){makeCheckbox("type_filter",img_type)});
   setBusyIndicator(false);
 }
@@ -638,10 +669,11 @@ function buildTable(){
 
 
 
-function makeCheckbox(container_name, checkbox_name){
+function makeCheckbox(container_name, checkbox_name, checked){
+  checked = (checked==undefined)? true : checked;
   var count = (container_name=="cam_filter") ? camera_type_img_counts[checkbox_name] : image_type_img_counts[checkbox_name];
   var container = document.getElementById(container_name);
-  container.innerHTML += '<div class="checkbox_div"><input type="checkbox" name="' + checkbox_name + '" id="' + checkbox_name + '" onchange="doFilter()" checked><label for="' + checkbox_name + '">' + checkbox_name + '&nbsp;(' + count + ')</label></div>';
+  container.innerHTML += '<div class="checkbox_div"><input type="checkbox" name="' + checkbox_name + '" id="' + checkbox_name + '" onchange="doFilter()" ' + (checked?'checked':'') + '><label for="' + checkbox_name + '">' + checkbox_name + '&nbsp;(' + count + ')</label></div>';
 }
 
 
