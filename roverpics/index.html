@@ -192,7 +192,12 @@ h3 {
     </div>
   </div>
   
-  <div style="display:inline-block"> 
+  <div style="display: block">
+    <input type="checkbox" id="checkboxUseAltAPI" name="checkboxUseAltAPI">
+    <label for="checkboxUseAltAPI">use alternate API</label>
+  </div>
+  
+  <div style="display: block"> 
     <h3 id="summary">Empty</h3> 
   </div>
 </div>
@@ -398,6 +403,46 @@ function parseUrl(){
 }
 
 
+function setThisPageUrlParams(){
+  var paramsCount = 0;
+  var paramString = "";
+  if(urlParams.mission!==""){
+    paramString += urlParams.mission;
+    paramsCount++;
+  }
+  if(urlParams.sol!==""){
+    if(paramsCount>0) paramString += "&";
+    paramString += "sol" + urlParams.sol;
+    paramsCount++;
+  }
+  if(urlParams.camera!==""){
+    if(paramsCount>0) paramString += "&";
+    paramString += "camera=" + urlParams.camera;
+    paramsCount++;
+  }
+  if(urlParams.frame!==""){
+    if(paramsCount>0) paramString += "&";
+    paramString += urlParams.frame;
+    paramsCount++;
+  }
+  if(urlParams.filter!==""){
+    if(paramsCount>0) paramString += "&";
+    paramString += "filter=" + urlParams.filter;
+    paramsCount++;
+  }
+
+  console.log(urlParams);
+  console.log(paramsCount + " url params");
+  console.log("URL param string: " + paramString);
+
+  if(paramsCount>0){
+    this_page_url_base = location.protocol + '//' + location.host + location.pathname;
+    newUrl = this_page_url_base + "?" + paramString
+    console.log("Setting url to:  " + newUrl);
+    window.history.pushState({}, null, newUrl);
+  }
+}
+
 
 function setImageIdFilter(toString){
   var keywordFilterTextbox = document.getElementById("imageIdFilterPattern");
@@ -466,7 +511,13 @@ function askSol(mission){
 
 function getSol(mission, sol){
   if ( /^[0-9]+$/.test(sol)) {
-    fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission + '&sol=' + sol);
+    var useAltAPI = document.getElementById("checkboxUseAltAPI").checked;
+    if(useAltAPI){
+      fetchRss('https://cors-anywhere.herokuapp.com/https://mars.nasa.gov/api/v1/raw_image_items/?condition_1=' + mission + ':mission&condition_2=' + sol + ':sol:gte&condition3=' + sol + ':sol:lte&per_page=10000');
+//      'https://mars.nasa.gov/api/v1/raw_image_items/?condition_1=' + mission + ':mission&condition_2=' + sol + ':sol&per_page=10000'
+    } else {
+      fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission + '&sol=' + sol);
+    }
     urlParams.sol = sol;
     urlParams.mission = mission;
     setThisPageUrlParams();
@@ -474,55 +525,14 @@ function getSol(mission, sol){
     console.log("not a number: " + sol);
   }
 }
-
-
-function setThisPageUrlParams(){
-  var paramsCount = 0;
-  var paramString = "";
-  if(urlParams.mission!==""){
-    paramString += urlParams.mission;
-    paramsCount++;
-  }
-  if(urlParams.sol!==""){
-    if(paramsCount>0) paramString += "&";
-    paramString += "sol" + urlParams.sol;
-    paramsCount++;
-  }
-  if(urlParams.camera!==""){
-    if(paramsCount>0) paramString += "&";
-    paramString += "camera=" + urlParams.camera;
-    paramsCount++;
-  }
-  if(urlParams.frame!==""){
-    if(paramsCount>0) paramString += "&";
-    paramString += urlParams.frame;
-    paramsCount++;
-  }
-  if(urlParams.filter!==""){
-    if(paramsCount>0) paramString += "&";
-    paramString += "filter=" + urlParams.filter;
-    paramsCount++;
-  }
-
-  console.log(urlParams);
-  console.log(paramsCount + " url params");
-  console.log("URL param string: " + paramString);
-
-  if(paramsCount>0){
-    this_page_url_base = location.protocol + '//' + location.host + location.pathname;
-    newUrl = this_page_url_base + "?" + paramString
-    console.log("Setting url to:  " + newUrl);
-    window.history.pushState({}, null, newUrl);
-  }
-}
-
+//https://mars.nasa.gov/api/v1/raw_image_items/?condition_1=msl:mission&condition_2=3046:sol:gte&condition3=3046:sol:lte&per_page=10000
 
   
 function fetchRss(rss_url){
   console.log("fetching rss feed:  " + rss_url);
   setBusyIndicator(true);
-  xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function() {
+  xhr = new XMLHttpRequest();
+  xhr.onreadystatechange = function() {
     if (this.readyState == 4) {
       clearTable();
       if (this.status == 200) {
@@ -542,8 +552,9 @@ function fetchRss(rss_url){
     }
   };
   setBusyIndicator(true);
-  xhttp.open("GET", rss_url, true);
-  setTimeout(function(){ xhttp.send(); }, 100);
+  xhr.open("GET", rss_url, true)
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  setTimeout(function(){ xhr.send(); }, 100);
 }
 
 
