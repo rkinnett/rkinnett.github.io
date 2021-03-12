@@ -103,6 +103,9 @@ h3 {
 }
 
 </style>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
 </head>
 
 
@@ -256,6 +259,8 @@ h3 {
 <tbody id="table_body">
 </tbody>
 </table>
+
+
 
 
 
@@ -531,6 +536,28 @@ function getSol(mission, sol){
 function fetchRss(rss_url){
   console.log("fetching rss feed:  " + rss_url);
   setBusyIndicator(true);
+  $.ajax({
+  url: rss_url,
+  //url: "http://127.0.0.1:8887/jupiter/Jmess.dat",
+  type: "GET",
+  dataType: "json",
+  contentType: "application/json",
+  headers: { "X-Requested-With": "XMLHttpRequest" },
+  success: function(result) {
+    console.log(result);
+    clearTable();
+    image_list_json = result;
+    image_list = image_list_json.images;
+    got_images = true;
+    tabulateImages();
+    buildTable();
+  },
+  error: function(error) {
+    console.log(`Error ${error}`)
+  },
+  });
+      
+  /*
   xhr = new XMLHttpRequest();
   xhr.onreadystatechange = function() {
     if (this.readyState == 4) {
@@ -552,9 +579,12 @@ function fetchRss(rss_url){
     }
   };
   setBusyIndicator(true);
-  xhr.open("GET", rss_url, true)
+  xhr.open("GET", rss_url);
+  xhr.setRequestHeader("Accept", 'application/json');
   xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
   setTimeout(function(){ xhr.send(); }, 100);
+  */
 }
 
 
