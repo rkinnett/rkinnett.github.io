@@ -569,6 +569,7 @@ function getSol(sol){
     document.getElementById("textSol").value = sol;
     fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission + '&sol=' + sol);
     urlParams.sol = sol;
+    urlParams.mission = mission;
     setThisPageUrlParams();
   } else {
     console.log("not a number: " + sol);
