@@ -11,6 +11,12 @@ body {
   color: #eeeeee
 }
 
+div {
+  border-style: solid;
+  border-color: yellow;
+  margin: 1px;
+}
+
 button {
   width: 18ch;
   font-weight: bold;
@@ -102,6 +108,16 @@ h3 {
   cursor: pointer;
 }
 
+strong {
+  font-weight: bold;
+  text-decoration: underline;
+}
+
+.collapse {
+  width: fit-content;
+  display: inline-block;
+}
+
 </style>
 </head>
 
@@ -176,6 +192,29 @@ h3 {
 <!-- TOP LEFT AREA -->
 <div style="overflow: hidden; display: inline-block">
   <div style="display: block">
+    <form>
+      <input type="radio" id="selectMissionMSL" name="selectMission" value="msl">
+      <label for="selectMissionMSL">MSL</label>
+      <input type="radio" id="selectMissionM2020" name="selectMission" value="mars2020" checked>
+      <label for="selectMissionM2020">Mars 2020</label>&nbsp;&nbsp;
+    </form>
+    <button class="collapse" onclick="getLatest('msl')">Latest 25</button> 
+  </div>
+  <div style="display: block">
+    Sol:&nbsp;
+    <button class="collapse" onclick="getLatest('msl')">Prev</button>
+    <button class="collapse" onclick="getLatest('msl')">Current</button>
+    <input  type="text" id="textMslSol" name="textMslSol" style="width: 6ex" value="SOL">
+    <button class="collapse" onclick="getLatest('msl')">Go</button>
+    <button class="collapse" onclick="getLatest('msl')">Next</button>
+
+  </div>
+  <div style="display: inline-block">
+    <strong>Mars 2020</strong>
+  </div>
+
+
+  <div style="display: block">
     <div style="display: inline-block">
       <div style="display: block; padding: 5px">
         <button onclick="getLatest('msl')" >MSL Latest</button> 
@@ -196,6 +235,7 @@ h3 {
     <h3 id="summary">Empty</h3> 
   </div>
 </div>
+
 
 <!-- TOP RIGHT AREA -->
 <div style="float:right">
@@ -714,6 +754,34 @@ function sortTable(n){
   setBusyIndicator(true);
   setTimeout(function(){ doSort(n) }, 200);
 }
+
+
+function currentMarsTime(mission){
+  if(mission=="msl"){
+    var msd_landing = 49268;
+    var lat_degW = 222.6;  
+  } else if(mission=="mars2020") {
+    var msd_landing = 52303;
+    var lat_degW = 282.5;
+  } else return {};
+  
+  var now_msec_since_1970 = new Date().getTime();
+  var jd_ut = 2440587.5 + now_msec_since_1970/1e3/86400;
+  var jd_tt = jd_ut + (35+32.184)/86400;
+  var j2000 = jd_tt - 2451545;
+  var msd   = (j2000-4.5)/1.027491252 + 44796 -0.00096;
+
+  var lmst = {};
+  var solf  = msd - msd_landing - lat_degW/360;
+  lmst.sol   = Math.floor(solf);
+  var hourf = (solf % 1) * 24;
+  lmst.hour  = Math.floor(hourf);
+  var minf  = (hourf % 1)*60;
+  lmst.min   = Math.floor(minf);
+  console.log(lmst);
+  return lmst;
+}
+
 
 
 function doSort(n) {
