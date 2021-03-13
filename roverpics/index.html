@@ -376,6 +376,9 @@ function pageSetup(){
   var modal = document.getElementById("info_modal");
   modal.innerHTML = modal.innerHTML.replaceAll("##PAGE_ADDR##",page_address);
 
+  lmst = currentMarsTime();
+  document.getElementById("textSol").value = lmst.sol;
+
   parseUrl();
   setMissionClock();
 }
