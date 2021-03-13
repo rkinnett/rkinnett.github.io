@@ -905,7 +905,7 @@ function exportImageURLs(){
     return;
   }
   var urls_text = '';
-  for(var r=1; r<=num_rows; r++){
+  for(var r=0; r<num_rows; r++){
     var checked = table.tBodies[0].rows[r].cells[0].querySelector('input[type="checkbox"]').checked;
     if(checked){
       urls_text += table.tBodies[0].rows[r].cells[3].querySelector('a').href + '\n';
