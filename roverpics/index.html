@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Rover Pics</title>
-
+ 
 <style>
 
 body {
@@ -12,9 +12,9 @@ body {
 }
 
 div {
-  border-style: solid;
-  border-color: yellow;
-  margin: 1px;
+  //border-style: solid;
+  //border-color: yellow;
+  //margin: 1px;
 }
 
 button {
@@ -116,13 +116,15 @@ strong {
 .collapse {
   width: fit-content;
   display: inline-block;
+  padding-left: 2px;
+  padding-right: 2px;
 }
 
 </style>
 </head>
 
 
-<body onload="parseUrl()">
+<body onload="pageSetup()">
 
 <!-- INFO -->
 <div id="info_modal" class="modal">
@@ -189,67 +191,65 @@ strong {
 
 
 
-<!-- TOP LEFT AREA -->
-<div style="overflow: hidden; display: inline-block">
-  <div style="display: block">
-    <form>
-      <input type="radio" id="selectMissionMSL" name="selectMission" value="msl">
-      <label for="selectMissionMSL">MSL</label>
-      <input type="radio" id="selectMissionM2020" name="selectMission" value="mars2020" checked>
-      <label for="selectMissionM2020">Mars 2020</label>&nbsp;&nbsp;
-    </form>
-    <button class="collapse" onclick="getLatest('msl')">Latest 25</button> 
-  </div>
-  <div style="display: block">
-    Sol:&nbsp;
-    <button class="collapse" onclick="getLatest('msl')">Prev</button>
-    <button class="collapse" onclick="getLatest('msl')">Current</button>
-    <input  type="text" id="textMslSol" name="textMslSol" style="width: 6ex" value="SOL">
-    <button class="collapse" onclick="getLatest('msl')">Go</button>
-    <button class="collapse" onclick="getLatest('msl')">Next</button>
+<!-- TOP ROW -->
+<div style="display:block">
 
-  </div>
-  <div style="display: inline-block">
-    <strong>Mars 2020</strong>
-  </div>
-
-
-  <div style="display: block">
+  <!-- TOP LEFT AREA -->
+  <div style="overflow: hidden; display: inline-block">
     <div style="display: inline-block">
-      <div style="display: block; padding: 5px">
-        <button onclick="getLatest('msl')" >MSL Latest</button> 
-        <button onclick="askSol('msl')" >MSL Sol</button>
+      <div style="display: block; margin: 6px 0px"">
+        Mission:&nbsp;&nbsp;
+        <select name="selectMission" id="selectMission" onchange='setMission(selectMission.value)'>
+          <option value="mars2020" selected>Mars 2020</option>
+          <option value="msl">MSL</option>
+        </select>
       </div>
-      <div style="display: block; padding: 5px">
-        <button onclick="getLatest('mars2020')" >Mars 2020 Latest</button>
-        <button onclick="askSol('mars2020')" >Mars 2020 Sol</button>
+      
+      <div style="display:block; margin: 8px 0px">
+        Mission time:&nbsp;&nbsp;<span id="mission_clock"></span>
+      </div>
+      
+      
+      <div style="display: block; margin: 6px 0px"">
+        <button class="collapse" onclick="getLatest()">Latest 25 images</button> 
+        <button class="collapse" onclick="getCurrentSol()">Current Sol</button>
+      </div>
+      <div style="display: block; margin: 6px 0px"">
+        <div style="display: inline-block">
+          <label for="textSol">Sol:</label>
+          <input  type="text" id="textSol" name="textSol" style="width: 6ex; margin-right: 0px" value="SOL">
+          <button class="collapse" onclick="getSol(textSol.value);" style="margin-left: -6px">Go</button>
+        </div>
+        <div style="display: inline-block; margin: 0px 10px">
+          <button class="collapse" onclick="prevSol()">Prev</button>
+          <button class="collapse" onclick="nextSol()">Next</button>
+        </div>
       </div>
     </div>
-    
-    <div style="display: inline-block">
+    <div style="display:inline-block; float: right">
       <div id="loading" style="display: none"></div>
     </div>
   </div>
-  
-  <div style="display:inline-block"> 
-    <h3 id="summary">Empty</h3> 
+
+
+  <!-- TOP RIGHT AREA -->
+  <div style="float:right">
+    <div style="display: block; padding: 5px">
+      <button id="modal_open_button">INFO</button>
+    </div>
+    <div style="display: block; padding: 5px">
+      <button onclick="exportJson()">Export Metadata</button> 
+    </div>
+    <div style="display: block; padding: 5px">
+      <button onclick="exportImageURLs()">Export selected image URLs</button> 
+    </div>
   </div>
+
 </div>
 
-
-<!-- TOP RIGHT AREA -->
-<div style="float:right">
-  <div style="display: block; padding: 5px">
-    <button id="modal_open_button">INFO</button>
-  </div>
-  <div style="display: block; padding: 5px">
-    <button onclick="exportJson()">Export Metadata</button> 
-  </div>
-  <div style="display: block; padding: 5px">
-    <button onclick="exportImageURLs()">Export selected image URLs</button> 
-  </div>
+<div style="display:block; margin: 8px 0px">
+  <span id="summary">Empty</span>
 </div>
-
 
 <table id="images_table">
 <thead>
@@ -310,12 +310,17 @@ var num_images = 0;
 var image_list_json, image_list;
 var checked_checkbox_names = [];
 var imageNameFilter = "";
+var mission = "mars2020";
 var urlParams = {
   mission:  "",
   sol:      "",
   camera:   "",
   filter:   "",
   frame:    "",
+};
+var missionFullName = {
+  msl: "MSL",
+  mars2020: "Mars 2020",
 };
 
 
@@ -325,16 +330,16 @@ var modal = document.getElementById("info_modal");
 // Get the button that opens the modal
 var btn = document.getElementById("modal_open_button");
 
-// Get the <span> element that closes the modal
-var span = document.getElementsByClassName("modal_close_button")[0];
-
 // When the user clicks the button, open the modal 
 btn.onclick = function() {
   modal.style.display = "block";
 }
 
+// Get the <span> element that closes the modal
+var modalCloseButton = document.getElementsByClassName("modal_close_button")[0];
+
 // When the user clicks on <span> (x), close the modal
-span.onclick = function() {
+modalCloseButton.onclick = function() {
   modal.style.display = "none";
 }
 
@@ -353,16 +358,33 @@ document.getElementById("imageIdFilterPattern").addEventListener("keyup", event 
   }
 });
 
+// Handle enter key inside Sol text box:
+document.getElementById("textSol").addEventListener("keyup", event => {
+  if(event.key == "Enter") {
+    sol = document.getElementById("textSol").value;
+    urlParams.sol = sol;
+    getSol(sol);
+    event.preventDefault();
+  }
+});
+
 ////////// FUNCTION DEFINITIONS ///////////////
+
+function pageSetup(){
+  // Replace page address placeholder in Info modal:
+  let page_address = window.location.origin + window.location.pathname;
+  var modal = document.getElementById("info_modal");
+  modal.innerHTML = modal.innerHTML.replaceAll("##PAGE_ADDR##",page_address);
+
+  parseUrl();
+  setMissionClock();
+}
+
 
 function parseUrl(){
   console.log("parsing URL arguments...");
   let paramString = window.location.search.toLowerCase().split('?')[1]; 
   let queryString = new URLSearchParams(paramString); 
-
-  let page_address = window.location.origin + window.location.pathname;
-  var modal = document.getElementById("info_modal");
-  modal.innerHTML = modal.innerHTML.replaceAll("##PAGE_ADDR##",page_address);
 
   for (let pair of queryString.entries()) { 
     key = pair[0];
@@ -372,16 +394,20 @@ function parseUrl(){
       console.log("MISSION");
       if(val=="msl" || val=="curiosity"){
         urlParams.mission = "msl";
+        setMission("msl");
       } else if(val=="mars2020" || val=="m2020" || val=="perseverance"){
         urlParams.mission = "mars2020"
+        setMission("mars2020");
       } else {
         console.log("unrecognized mission name:  " + val);
         return;
       }
     } else if(key=="msl" || key=="curiosity"){
       urlParams.mission = "msl";
+      setMission("msl");
     } else if(key=="mars2020" || key=="m2020" || key=="perseverance"){
       urlParams.mission = "mars2020";
+      setMission("mars2020");
     } else if(key=="latest"){
       console.log("LATEST");
       urlParams.sol = "latest";
@@ -426,17 +452,31 @@ function parseUrl(){
   }
 
   if(urlParams.mission=="msl" || urlParams.mission=="mars2020"){
-    if(urlParams.sol=="latest" || urlParams.sol==""){
-      getLatest(urlParams.mission);
+    if(urlParams.sol=="latest" /*|| urlParams.sol==""*/){
+      getLatest();
     } else if( (/^[0-9]+$/).test(urlParams.sol)){
-      getSol(urlParams.mission, urlParams.sol);
+      document.getElementById("textSol").value = urlParams.sol;
+      getSol(urlParams.sol);
     } else {
       console.log("URL params specified mission but not sol");
     }
   }
-  
 }
 
+
+function setMission(missionName){
+  mission = missionName;
+  urlParams.mission = mission;
+  setThisPageUrlParams();
+  setMissionClock();
+  document.getElementById("selectMission").value = mission;
+  
+  var textSolTextBox = document.getElementById("textSol");
+  //if(textSolTextBox.value=="SOL"){
+    var lmst = currentMarsTime();
+    textSolTextBox.value = lmst.sol;
+  //}
+}
 
 
 function setImageIdFilter(toString){
@@ -487,7 +527,7 @@ function selectImages(allOrNone){
 }
 
 
-function getLatest(mission){
+function getLatest(){
   setThisPageUrlParams(mission);
   fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission);
   urlParams.sol = "";
@@ -495,20 +535,37 @@ function getLatest(mission){
   setThisPageUrlParams();
 }
 
-function askSol(mission){
-  var sol = parseInt(window.prompt("Specify sol", 0), 0);
-  if ( /^[0-9]+$/.test(sol)) {
-    getSol(mission, sol);
-  } else {
-    console.log("not a number, or canceled.");
+function getCurrentSol(){
+  lmst = currentMarsTime();
+  document.getElementById("textSol").value = lmst.sol;
+  getSol(lmst.sol);
+}
+
+function nextSol(){
+  sol = document.getElementById("textSol").value*1;
+  lmst = currentMarsTime();
+  if((/^[0-9]+$/).test(sol) && sol<lmst.sol){
+    sol+=1
+    document.getElementById("textSol").value = sol;
+    getSol(sol);
   }
 }
 
-function getSol(mission, sol){
+function prevSol(){
+  sol = document.getElementById("textSol").value*1;
+  if((/^[0-9]+$/).test(sol) && sol>0){
+    sol-=1;
+    document.getElementById("textSol").value = sol;
+    getSol(sol);
+  }
+}
+
+
+function getSol(sol){
   if ( /^[0-9]+$/.test(sol)) {
+    document.getElementById("textSol").value = sol;
     fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission + '&sol=' + sol);
     urlParams.sol = sol;
-    urlParams.mission = mission;
     setThisPageUrlParams();
   } else {
     console.log("not a number: " + sol);
@@ -637,7 +694,7 @@ function tabulateImages(){
   }
 
   // Update summary:
-  document.getElementById("summary").innerText = '' + image_list.length + ' images from ' + image_list_json.mission.toUpperCase() + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'');
+  document.getElementById("summary").innerText = 'Query returned ' + image_list.length + ' images from ' + missionFullName[image_list_json.mission] + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'');
 
   console.log([start_sol, end_sol]);
 
@@ -756,7 +813,14 @@ function sortTable(n){
 }
 
 
-function currentMarsTime(mission){
+
+function setMissionClock(){
+  var lmst = currentMarsTime();
+  document.getElementById("mission_clock").innerText = "Sol " + lmst.sol + ", " + lmst.hour + ":" + lmst.min.toString().padStart(2,"0");
+}
+
+
+function currentMarsTime(){
   if(mission=="msl"){
     var msd_landing = 49268;
     var lat_degW = 222.6;  

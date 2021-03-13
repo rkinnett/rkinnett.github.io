@@ -444,7 +444,7 @@
 
 
 				window.addEventListener( 'resize', onWindowResize );
-        window.addEventListener( 'pointerdown', onPointerDown, false );
+        window.addEventListener( 'pointerdown', onPointerDown );
 			}
 
 
@@ -621,6 +621,7 @@
       }
 
       function onPointerDown( event ) {
+        return;
         console.log("clicked:");
         //event.preventDefault();        
         mouse.x = ( event.clientX / renderer.domElement.clientWidth ) * 2 - 1;
@@ -630,6 +631,7 @@
         console.log(intersects[0].object.name);
         console.log(intersects[0].object);
         window.selected = intersects[0].object;
+        return;
         console.log("ancestors:");
         intersects[0].object.traverseAncestors( function ( ancestor ) {
           console.log(ancestor.name);
