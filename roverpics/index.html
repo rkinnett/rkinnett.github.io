@@ -134,14 +134,17 @@ strong {
       <p> R. Kinnett, 2021. </p>
     </div>
     <div style="float: right">
-      <span class="modal_close_button">&times;</span>
+      <span id="modal_close_button" class="modal_close_button" onclick='closeModal()'>&times;</span>
     </div>
     <hr/>
     <p>   
-      Also see NASA's raw images pages for <a href="https://mars.nasa.gov/msl/multimedia/raw-images/">MSL (Curiosity)</a> and <a href="https://mars.nasa.gov/mars2020/multimedia/raw-images/">Mars 2020 (Perseverance)</a> which are much better for casual perusal.
+      Also see NASA's raw images pages for <a href="https://mars.nasa.gov/msl/multimedia/raw-images/">MSL (Curiosity)</a> and <a href="https://mars.nasa.gov/mars2020/multimedia/raw-images/">Mars 2020 (Perseverance)</a>.
       <br/><br/>
     
-      This interface retrieves image information lists via <a href="https://mars.nasa.gov/rss/">JPL's RSS API</a> and builds a table showing thumbnails and basic metadata for each image, along with links to the maximum available resolution images.  Note: full image credits are provided in the JSON file which can be exported via the Export Metadata button
+      This interface retrieves image information lists via <a href="https://mars.nasa.gov/rss/">JPL's RSS API</a> and builds a table showing thumbnails and basic metadata for each image, along with links to the maximum available resolution images.  Note: full image credits are provided in the JSON file which can be exported via the Export Metadata button.
+      <br/><br/>
+
+      <span style="color: orange">Note:</span> JPL's RSS API (and this page, consequentially) returns incomplete results from MSL.
       <br/>
 
       <ol>
@@ -235,7 +238,7 @@ strong {
   <!-- TOP RIGHT AREA -->
   <div style="float:right">
     <div style="display: block; padding: 5px">
-      <button id="modal_open_button">INFO</button>
+      <button onclick='openModal()'>INFO</button>
     </div>
     <div style="display: block; padding: 5px">
       <button onclick="exportJson()">Export Metadata</button> 
@@ -327,19 +330,11 @@ var missionFullName = {
 // Get the modal
 var modal = document.getElementById("info_modal");
 
-// Get the button that opens the modal
-var btn = document.getElementById("modal_open_button");
-
-// When the user clicks the button, open the modal 
-btn.onclick = function() {
+function openModal(){
   modal.style.display = "block";
 }
 
-// Get the <span> element that closes the modal
-var modalCloseButton = document.getElementsByClassName("modal_close_button")[0];
-
-// When the user clicks on <span> (x), close the modal
-modalCloseButton.onclick = function() {
+function closeModal(){
   modal.style.display = "none";
 }
 
