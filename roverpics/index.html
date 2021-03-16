@@ -695,6 +695,11 @@ function tabulateImages(){
   // Update summary:
   document.getElementById("summary").innerText = 'Query returned ' + image_list.length + ' images from ' + missionFullName[image_list_json.mission] + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'');
 
+  if( image_list.length==25 && start_sol*1<document.getElementById("textSol").value*1 ){
+    console.log("Query returned latest 25");
+    document.getElementById("summary").innerText += " (images may not be available for requested sol)";
+  }
+
   console.log([start_sol, end_sol]);
 
   console.log(camera_type_img_counts);
