@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>DeBayerer</title>
+ 
+<style>
+
+body {
+  background-color: #333333;
+  color: #dddddd;
+}
+
+div {
+  //border-style: solid;
+  //border-color: white;
+}
+
+.bayerPatternIndicator {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 1.2em;
+  height: 1.2em;
+}
+.bayerPatternIndicator td {
+  border: 1px solid black;
+}
+
+
+</style>
+
+
+</head>
+
+<body onload='pageSetup()'>
+
+<!-- IMAGE URL INPUT -->
+<div style="display: block">
+  <div style="float:left; width:6em">
+    Image URL:&nbsp;
+  </div>
+  <button id="buttonShowURL" style="float:right; width:5em" onclick='openImageUrl()'>Fetch</button>
+  <span style="display: block; overflow: hidden">
+    <input type="text" id="textboxImageUrl" style="width: 100%"/>
+  </span>
+</div>
+
+<div style="display:block; font-size:75%; padding:2px">
+&nbsp;&nbsp;&nbsp;-or-
+</div>
+
+<!-- FILE SELECT INPUT -->
+<div style="display: block">
+  <div style="float: left; width:6em">
+    PNG file:
+  </div>
+  <input type="file" id="fileSelector" name="fileSelector" accept="image/png" style="display: none;" onchange='selectFile()'>
+  <button onclick="document.getElementById('fileSelector').click();" style="float:right; width:5em">Select</button>
+  <span style="display: block; overflow: hidden">
+    <input type="text" id="textboxSelectedFile" style="width: 100%"/>
+  </span>
+</div>
+
+
+<!-- BAYER SELECTOR -->
+<div style="display: block; overflow: hidden; margin: 8px 0px">
+  <div style="float:left">
+    <label for="selectBayerPattern">Bayer pattern:&nbsp;</label>
+    <select name="selectBayerPattern" id="selectBayerPattern" onchange='changeBayer(this.value)'>
+      <option value="RGGB" selected>RGGB</option>
+      <option value="RGBG"         >RGBG</option>
+      <option value="GRBG"         >GRBG</option>
+      <option value="BGGR"         >BGGR</option>
+    </select>
+  </div>
+  <div style="display: inline-block">
+    <table class="bayerPatternIndicator">
+      <tr> 
+        <td id="bayerIndicatorTL" style="background-color: red">
+        <td id="bayerIndicatorTR" style="background-color: green">
+      </tr>
+      <tr> 
+        <td id="bayerIndicatorBL" style="background-color: green">
+        <td id="bayerIndicatorBR" style="background-color: blue">
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- IMAGE CANVAS -->
+<div style="width: 100%">
+  <canvas id="imageCanvas">
+</div>
+
+
+
+
+<script>
+
+let colorFullName = {
+  r: "red",
+  g: "green",
+  b: "blue",
+};
+
+let bayerIndicatorCell = [
+  document.getElementById("bayerIndicatorTL"),
+  document.getElementById("bayerIndicatorTR"),
+  document.getElementById("bayerIndicatorBL"),
+  document.getElementById("bayerIndicatorBR"),
+];
+
+let urlParams = {
+  imageurl: "",
+  bayerPattern: "",
+};
+
+let imageUrlTextbox = document.getElementById("textboxImageUrl");
+let fileSelector = document.getElementById("fileSelector");
+let imageCanvas = document.getElementById("imageCanvas");
+let imageContext = imageCanvas.getContext('2d');
+
+// Handle enter key inside url text box:
+document.getElementById("textboxImageUrl").addEventListener("keyup", event => {
+  if(event.key == "Enter") {
+    console.log("user pressed enter in image URL textbox");
+    openImageUrl();
+    event.preventDefault();
+  }
+});
+
+
+function changeBayer(toBayer){
+  for(var i=0; i<4; i++){
+    bayerIndicatorCell[i].style.backgroundColor = colorFullName[toBayer[i].toLowerCase()];
+  }
+  console.log(toBayer);
+}
+
+
+function openImageUrl(){
+  const proxy = 'https://cors.bridged.cc/';
+  var url = proxy + imageUrlTextbox.value;
+  console.log("opening image URL: " + url);
+  showImage(url, function(){
+    console.log("done");
+  });
+}
+
+function selectFile(){
+  console.log('select file');
+  var filepath = fileSelector.value.replace(/C:\\fakepath\\/i,'');
+  if((/\.png$/).test(filepath.toLowerCase())){
+    textboxSelectedFile.value = filepath;
+    openImageFile();
+  }
+}
+
+
+function openImageFile(){
+  var file = fileSelector.files[0];
+  var reader = new FileReader();
+  reader.onload = function(){
+    var dataURL = reader.result;
+    showImage(dataURL);
+  };
+  reader.readAsDataURL(file);
+}
+
+
+function showImage(url, callback) {
+  var image = new Image();
+  image.crossOrigin = "";
+  image.onload = function () {
+    imageCanvas.width = this.naturalWidth; // or 'width' if you want a special/scaled size
+    imageCanvas.height = this.naturalHeight; // or 'height' if you want a special/scaled size
+    imageCanvas.getContext('2d').drawImage(this, 0, 0);
+  };
+  image.src = url;  
+}
+
+function pageSetup(){
+  parseUrl();
+}
+
+
+function parseUrl(){
+  console.log("parsing URL arguments...");
+  let paramString = window.location.search.split('?')[1]; 
+  let queryString = new URLSearchParams(paramString); 
+
+  for (let pair of queryString.entries()) { 
+    key = pair[0].toLowerCase();
+    val = pair[1];
+    console.log(key + (val.length>0? (": " + val) : "") );
+    if(key=="url"){
+      urlParams.imageUrl = val;
+    } else if(key=="bayer"){
+      urlParams.bayerPattern = val.toLowerCase();
+    } else if(key=="rggb" || key=="rgbg" || key=="bggr" || key=="grbg"){
+      urlParams.bayerPattern = key;
+    } 
+  }
+  
+  if(urlParams.imageUrl){
+    textboxImageUrl.value = urlParams.imageUrl;
+  }
+  if(urlParams.bayerPattern){
+    changeBayer(urlParams.bayerPattern)
+  }
+}
+
+
+
+function splitImage(){
+  var bayerPattern = document.getElementById("selectBayerPattern").value;
+  var imageData = imageContext.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+  var raw = {
+    length: imageData.data.length,
+    height: imageData.height,
+    width:  imageData.width,
+    npix:   imageData.data.length/4,
+    data:   imageData.data,
+    pixel:  new Uint8ClampedArray(imageData.data.length/4),
+  };
+  var db = {
+    height: raw.height/2,
+    width:  raw.width/2,
+    npix:   raw.npix/4,
+    data:   new Uint8ClampedArray(raw.npix),
+  };
+
+  // When Canvas loaded our 8-bit grayscale image, it duplicated each original
+  // grayscale value into separate R, G, and B channels, assigning the same value to each.
+  // Canvas also populates an alpha channel with value 255 at each RGBA quartet.
+  // The raw data series is one long array of RGBA quartets where the R, G, and B values
+  // all reflect the original singular grayscale value.
+  // To recover the original grayscale data series, just keep every 4th value.
+  for(var i=0; i<raw.npix; i++){
+    raw.pixel[i] = raw.data[i*4];
+  }
+  console.log(raw);
+
+  // Scan through each Bayer quartet
+  var bayerCellAvg = [0, 0, 0, 0];
+  var counter = 0;
+  for(var dbrow=0; dbrow<db.height; dbrow++){
+    for(var dbcol=0; dbcol<db.width; dbcol++){ 
+/*  for(var dbrow=0; dbrow<4; dbrow++){
+    for(var dbcol=0; dbcol<4; dbcol++){*/
+      var pixIdx = [];
+      pixIdx[0] = dbrow*2*raw.width + dbcol*2;
+      pixIdx[1] = pixIdx[0] + 1;
+      pixIdx[2] = (dbrow*2+1)*raw.width + dbcol*2;
+      pixIdx[3] = pixIdx[2] + 1;
+      var val = [];
+      for(var b=0; b<4; b++){
+        val[b] = raw.pixel[pixIdx[b]];
+        bayerCellAvg[b] = (bayerCellAvg[b]*counter + val[b])/(counter+1);
+      }
+      counter++;
+      var dbi = dbrow*db.width + dbcol;
+      
+      db.data[dbi*4+1] = 0;
+      for(var b=0; b<4; b++){
+        switch(bayerPattern[b]){
+          case "R":
+            db.data[dbi*4+0] = val[b];
+            break;
+          case "G":
+            db.data[dbi*4+1] += val[b]/2;
+            break;
+          case "B":
+            db.data[dbi*4+2] = val[b];
+            break;
+        }
+      }
+      db.data[dbi*4+3] = 255;                 // alpha
+      
+      //console.log([dbrow, dbcol, dbi, pixIdx, val]);
+    }
+  }
+  console.log(bayerCellAvg);
+  console.log(db);
+  imageContext.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+  //imageContext.putImageData(imageData,0,0);
+  var newImageData = imageContext.createImageData(db.width, db.height);
+  newImageData.data.set(db.data);
+  imageCanvas.width = db.width; 
+  imageCanvas.height = db.height; 
+  imageContext.putImageData(newImageData,0,0);
+
+
+
+}
+
+
+
+
+</script>
+
+
+
+
+</body>
+
+
+
+
+
+
+
+
+</html>

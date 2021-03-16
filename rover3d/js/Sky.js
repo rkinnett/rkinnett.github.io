@@ -123,7 +123,7 @@ Sky.SkyShader = {
 
 		'	vSunE = sunIntensity( dot( vSunDirection, up ) );',
 
-		'	vSunfade = 1.0 - clamp( 1.0 - exp( ( -1.0*sunPosition.z / 100.0 ) ), 0.0, 1.0 );',
+		'	vSunfade = 1.0 - clamp( 1.0 - exp( ( -1.0*vSunDirection.z ) ), 0.0, 1.0 );',
 		//'	vSunfade = (1.0 - clamp( 1.0 - exp( ( 1*sunPosition.z / 100.0 ) ), 0.0, 1.0 )) *0.999 + 0.01;',
 
 		'	float rayleighCoefficient = rayleigh - ( 1.0 * ( 1.0 - vSunfade ) );',

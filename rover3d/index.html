@@ -5,12 +5,42 @@
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 		<link type="text/css" rel="stylesheet" href="main.css">
+    
+    <style>
+    #annotation {
+      position: absolute;
+      padding: 5px;
+      color: #ddd;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: .5em;
+      font-size: 12px;
+      line-height: 1.2;
+      transition: opacity .5s;
+    }
+
+    #status_container {
+      text-shadow: 0px 0px 8px rgba(255, 255, 255, 0.1);
+      color: orange;
+      margin: 5px;
+      position: absolute;
+      right: 0px;
+      z-index: 98;
+      bottom: 0px;
+      //opacity: 0.5;
+      font-size: 12px;
+    }
+    </style>
+    
+    
 	</head>
 
 	<body>
 		<div id="info">
 			Perseverance model courtesy <a href="https://mars.nasa.gov/resources/25042/mars-perseverance-rover-3d-model/" target="_blank" rel="noopener">NASA/JPL</a><br />
 		</div>
+
+    <div class="annotation" id="status_container">Initializing</div>  
+
 
 
     <!-- USEFUL REFERENCES:
@@ -29,6 +59,7 @@
 			import { Sky } from './js/Sky.js';
       import { Lensflare, LensflareElement } from './js/LensFlare.js';
       import { Reflector } from './js/Reflector.js';
+			import { GLTFExporter } from './js/GLTFExporter.js';
       const { decode } = window.decodeTiff;
       window.THREE = THREE;
 
@@ -138,7 +169,7 @@
 
       let options = {
         scene: {
-          surfaceColor:  0xa28f7e,
+          surfaceColor:  0xa09086,
           showHaze:   false,
         },
         pose: {
@@ -160,13 +191,13 @@
 					mieCoefficient: 0.001,
 					mieDirectionalG: 0.8,
           diffuseLightColor:     0xffd0a8,
-          initialDiffuseLightIntensity: 0.4,
+          initialDiffuseLightIntensity: 0.6,
           minDiffuseLightIntensity: 0.05,
         },
         sun: {
           az: -30, 
           el: 30, 
-          dist: 50, 
+          dist: 4000, 
           x:0, 
           y:0, 
           z:0, 
@@ -179,7 +210,7 @@
       var raycaster = new THREE.Raycaster(); // create once
       var mouse = new THREE.Vector2(); // create once
       
-
+      startLoadingManager();
 			init();
 			render();
 
@@ -199,7 +230,7 @@
 				renderer.outputEncoding = THREE.sRGBEncoding;
 				renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.physicallyCorrectLights = true;
-        renderer.toneMappingExposure = 0.55; 
+        renderer.toneMappingExposure = 0.65; 
         window.renderer = renderer;
 				container.appendChild( renderer.domElement );
 
@@ -251,14 +282,17 @@
         //diffuselight = new THREE.HemisphereLight( options["sky"].diffuseLightColor, options.surfaceColor, options["sky"].initialDiffuseLightIntensity );
         scene.add( diffuselight );
         
-        sun.directionalLight = new THREE.DirectionalLight( options["sun"].lightColor, options["sun"].initialLightIntensity);
-        sun.directionalLight.castShadow = true;
-        sun.directionalLight.shadow.camera.near = 0.01;
-        sun.directionalLight.shadow.camera.far = 4000;
-        sun.directionalLight.position.set(10,10,4);
-        sun.directionalLight.shadow.mapSize.width = 2048;
-        sun.directionalLight.shadow.mapSize.height = 2048;
-        scene.add( sun.directionalLight );
+        //sun.light = new THREE.PointLight( options["sun"].lightColor, options["sun"].initialLightIntensity, 0, 0.001);
+        sun.light = new THREE.DirectionalLight( options["sun"].lightColor, options["sun"].initialLightIntensity);
+        sun.light.castShadow = true;
+        sun.light.shadow.camera.near = 100;
+        sun.light.shadow.camera.far = 12000;
+        sun.light.shadow.mapSize.width = 2048;
+        sun.light.shadow.mapSize.height = 2048;
+        scene.add( sun.light );
+        //Create a helper for the shadow camera
+        //const helper = new THREE.CameraHelper( sun.light.shadow.camera );
+        //scene.add( helper );
         placeSun();
         
         // Make lens flares:
@@ -272,7 +306,7 @@
         lensflare.addElement( new LensflareElement( textureFlare2, 80,  0 ) );
         lensflare.addElement( new LensflareElement( textureFlare2, 200, 0.1 ) );
         lensflare.addElement( new LensflareElement( textureFlare2, 120, 0.15 ) );
-        //sun.directionalLight.add( lensflare );
+        //sun.light.add( lensflare );
         
         // Make Ground plane:
         const geometry = new THREE.PlaneGeometry( 300, 300, 32 );
@@ -285,19 +319,20 @@
                 
         const vscale = 0.02;
         makeTerrain({
-          urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h4m.tif',  // must be 16-bit grayscale tif
+          urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h8m.tif',  // must be 16-bit grayscale tif
           //urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop8192m_rescale_2m_CRISM_color.jpg',
           urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale1m_color.jpg',
-          hscale: 4,    // m/px
+          hscale: 8,    // m/px
           vscale: vscale,  // m/px
           color:  options["scene"].surfaceColor,
           onload: function(){
             console.log("loaded terrain");
             terrain.rotation.x = -1*Math.PI;
             terrain.rotation.z = -1*Math.PI/2;
-            terrain.position.set(850,-1200,240.65);
+            terrain.position.set(875, -1165, 240.14);
             scene.add(terrain);
             render();
+            controls.update();
           }
         });
         
@@ -314,10 +349,10 @@
         let folder = {};
         
         folder["scene"] = gui.addFolder('Scene');
-        folder["scene"].add(options["sun"], 'az', -180, 180).listen().name("Sun azimuth").onChange(function(val){placeSun()});
+        folder["scene"].add(options["sun"], 'az', -179.9, 180.1).listen().name("Sun azimuth").onChange(function(val){placeSun()});
         folder["scene"].add(options["sun"], 'el', -0.5, 180.5).listen().name("Sun elevation").onChange(function(val){placeSun()});
-        folder["scene"].add(sun.directionalLight, 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){render()});
-        folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){sun.directionalLight.color.set(val); render()});
+        folder["scene"].add(sun.light, 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){render()});
+        folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){sun.light.color.set(val); render()});
         folder["scene"].add(diffuselight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(function(val){render()});
         folder["scene"].addColor(options["sky"],'diffuseLightColor').name("Diffuse light color").onChange(function(val){diffuselight.color.set(val); render()});
         //folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
@@ -437,17 +472,29 @@
         controls.enableKeys = true;
         //controls.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
 				controls.minDistance = 0.1;
-				controls.maxDistance = 1000;
+				controls.maxDistance = 8000;
 				controls.target.set( 0, 0, -1 );
+        controls.addEventListener('change', render);
 				controls.update();
         window.controls = controls;
 
 
-				window.addEventListener( 'resize', onWindowResize );
-        window.addEventListener( 'pointerdown', onPointerDown );
+				window.addEventListener('resize', onWindowResize );
+        window.addEventListener('click', checkWhatWasClicked, false );
+        window.addEventListener('keypress', checkKeypress, false );
+        window.addEventListener('dblclick', doubleClicked, false);
+        
+        /* The following prevents browsers from interpreting pinch gestures as global zoom */
+        document.addEventListener('gesturestart',  function(e) { dontZoomWindow(e) });
+        document.addEventListener('gesturechange', function(e) { dontZoomWindow(e) });
+        document.addEventListener('gestureend',    function(e) { dontZoomWindow(e) });
 			}
 
 
+      function dontZoomWindow(event){
+        e.preventDefault();
+        document.body.style.zoom = 0.99;
+      }
 
 
 			function onWindowResize() {
@@ -513,7 +560,7 @@
           console.log("done loading terrain");
 
           renderer.shadowMap.needsUpdate = true;
-
+          render();
           if(params.onload!==undefined) params.onload();
 
         });
@@ -565,14 +612,14 @@
         var sunY = options["sun"].dist * Math.cos(options["sun"].el * deg2rad) * Math.sin(options["sun"].az * deg2rad);
         var sunZ = -1 * options["sun"].dist * Math.sin(Math.max(-0.5,options["sun"].el) * deg2rad);
         sun.pos.set(sunX, sunY, sunZ);
-        sun.directionalLight.position.set(sunX, sunY, sunZ);
+        sun.light.position.set(sunX, sunY, sunZ);
 				sky.material.uniforms[ "sunPosition" ].value.copy( sun.pos );
         if(options["sun"].el<160){
           diffuselight.intensity =  options["sky"].initialDiffuseLightIntensity * Math.max(options["sky"].minDiffuseLightIntensity, Math.min(1, options["sun"].el/20));
-          sun.directionalLight.intensity =  options["sun"].initialLightIntensity * Math.max(0, Math.min(1, options["sun"].el/20));
+          sun.light.intensity =  options["sun"].initialLightIntensity * Math.max(0, Math.min(1, options["sun"].el/20));
         } else {
           diffuselight.intensity =  options["sky"].initialDiffuseLightIntensity * Math.max(options["sky"].minDiffuseLightIntensity, Math.min(0.5, (180-options["sun"].el)/20));
-          sun.directionalLight.intensity =  options["sun"].initialLightIntensity * Math.max(0, Math.min(1, (180-options["sun"].el)/20));
+          sun.light.intensity =  options["sun"].initialLightIntensity * Math.max(0, Math.min(1, (180-options["sun"].el)/20));
         }
         render();
       }
@@ -620,18 +667,56 @@
         return coord_axes;
       }
 
-      function onPointerDown( event ) {
-        return;
+      function doubleClicked(event){
+        console.log("double clicked");
+        var intersects = checkWhatWasClicked(event);
+        console.log(intersects[0].point);
+        //camera.position.set(intersects[0].point);
+        //camera.translate(0,0, -1*camera.position.distanceTo(intersects[0].point));
+        moveCameraToViewTarget(intersects[0].point);
+      }
+
+      function moveCameraToViewTarget(newTargetPosition){
+        var oldCamPos = camera.position.clone();
+        var oldTargetPosition = controls.target.clone();
+        var vecOldTargetToNewTarget = newTargetPosition.clone().sub(oldTargetPosition);
+        /*
+        // Animate camera transition (doesn't work)
+        var nTransitionFrames = 10;
+        for(var i=1; i<=nTransitionFrames; i++){
+          camera.position.copy(oldCamPos.clone().add(vecOldTargetToNewTarget.clone().multiplyScalar(i/nTransitionFrames)));
+          console.log(camera.position);
+          //camera.lookAt(oldTargetPosition.clone().add(vecOldTargetToNewTarget.clone().multiplyScalar(i/nTransitionFrames)));
+          controls.target.copy(oldTargetPosition.clone().add(vecOldTargetToNewTarget.clone().multiplyScalar(i/nTransitionFrames)));
+          controls.update();
+          requestAnimationFrame(render);
+          render();
+        }
+        */
+        camera.position.copy(oldCamPos.clone().add(vecOldTargetToNewTarget));
+        controls.target.copy(newTargetPosition);
+        controls.update();
+        render();
+      }
+
+
+      function checkKeypress(event){
+        console.log("key pressed");
+      }
+
+      function checkWhatWasClicked( event ) {
         console.log("clicked:");
         //event.preventDefault();        
         mouse.x = ( event.clientX / renderer.domElement.clientWidth ) * 2 - 1;
         mouse.y = - ( event.clientY / renderer.domElement.clientHeight ) * 2 + 1;
-        raycaster.setFromCamera( mouse, camera );
-        var intersects = raycaster.intersectObjects( scene.children, true );
+        raycaster.setFromCamera(mouse, camera );
+        var intersects = raycaster.intersectObjects(scene.children, true );
         console.log(intersects[0].object.name);
         console.log(intersects[0].object);
         window.selected = intersects[0].object;
-        return;
+        return intersects;
+        /*
+        // The following are useful when trying to identify specific rover part
         console.log("ancestors:");
         intersects[0].object.traverseAncestors( function ( ancestor ) {
           console.log(ancestor.name);
@@ -640,10 +725,10 @@
         intersects[0].object.traverse(function(child){
           console.log(child.name);
         });
-        
+        */
       }
 
-      function show( object, includeDescendents, doShow){
+      function show(object, includeDescendents, doShow){
         object.visible = doShow;
         if(includeDescendents){
           object.traverse(function(child){
@@ -684,6 +769,24 @@
         xhr.send();
       }
   
+  
+      function startLoadingManager(){
+        const status = document.getElementById('status_container');
+        THREE.DefaultLoadingManager.onStart = function ( url, itemsLoaded, itemsTotal ) {
+          console.log( 'Started loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+          status.style.color = "orange";
+          status.innerText = "Loading";
+        };
+        THREE.DefaultLoadingManager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
+          console.log( 'Loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+        };
+        THREE.DefaultLoadingManager.onLoad = function ( ) {
+          console.log( 'Loading Complete!');
+          status.style.color = "green";
+          status.innerText = "Ready";
+          render();
+        };
+      }
 
 		</script>
 
