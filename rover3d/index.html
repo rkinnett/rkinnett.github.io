@@ -278,7 +278,7 @@
 
       let options = {
         scene: {
-          surfaceColor:  0xa09086,
+          surfaceColor:  0xc3a17f,
           showHaze:   false,
         },
         pose: {
@@ -295,11 +295,11 @@
           showRnavCoordFrame: false,
         },
         sky: {
-					turbidity: 6,
-					rayleigh: 0.02,
-					mieCoefficient: 0.002,
-					mieDirectionalG: 0.5,
-          diffuseLightColor:     0xffd0a8,
+					turbidity: 4,
+					rayleigh: 0.025,
+					mieCoefficient: 0.001,
+					mieDirectionalG: 0.7,
+          diffuseLightColor:     0xf5b97c,
           initialDiffuseLightIntensity: 0.6,
           minDiffuseLightIntensity: 0.05,
         },
@@ -310,8 +310,10 @@
           x:0, 
           y:0, 
           z:0, 
-          lightColor:      0xedbc86,
+          lightColor:      0xffffff,
           initialLightIntensity:  0.81,
+          minLightFraction: 0.01,  //light intensity with sun at zero el
+          maxElQuadraticLight: 20, //deg below which light falls off quadratically
         }
       };
       window.options = options;
@@ -347,7 +349,8 @@
         camera.up.set( 0, 0, -1 );
         camera.lookAt(0,0,-1);
 				//camera.position.set( 3.6, -0.1, -0.65 );
-        camera.position.set( 3.6, 0, -0.65 );
+        //camera.position.set( 3.6, 0, -0.65 );
+        camera.position.set( 5, 0, -1.4 );
         window.camera = camera;
         
         
@@ -402,6 +405,12 @@
         //Create a helper for the shadow camera
         //const helper = new THREE.CameraHelper( sun.light.shadow.camera );
         //scene.add( helper );
+        sun.light.extinctionCoeffs = [
+          (options["sun"].minLightFraction-1)/(options["sun"].maxElQuadraticLight*options["sun"].maxElQuadraticLight),
+          -2*(options["sun"].minLightFraction-1)/options["sun"].maxElQuadraticLight,
+          options["sun"].minLightFraction
+        ];
+        
         placeSun();
         
         // Make lens flares:
@@ -734,13 +743,14 @@
         sun.pos.set(sunX, sunY, sunZ);
         sun.light.position.set(sunX, sunY, sunZ);
 				sky.material.uniforms[ "sunPosition" ].value.copy( sun.pos );
-        if(options["sun"].el<160){
-          diffuselight.intensity =  options["sky"].initialDiffuseLightIntensity * Math.max(options["sky"].minDiffuseLightIntensity, Math.min(1, options["sun"].el/20));
-          sun.light.intensity =  options["sun"].initialLightIntensity * Math.max(0, Math.min(1, options["sun"].el/20));
-        } else {
-          diffuselight.intensity =  options["sky"].initialDiffuseLightIntensity * Math.max(options["sky"].minDiffuseLightIntensity, Math.min(0.5, (180-options["sun"].el)/20));
-          sun.light.intensity =  options["sun"].initialLightIntensity * Math.max(0, Math.min(1, (180-options["sun"].el)/20));
+        var intensityMultiplier = 1;
+        var sunEl = Math.max(0, options["sun"].el<90? options["sun"].el : 180-options["sun"].el);
+        if(sunEl<20){
+          // Quadratic extinction
+          var intensityMultiplier = sun.light.extinctionCoeffs[0]*sunEl*sunEl + sun.light.extinctionCoeffs[1]*sunEl + sun.light.extinctionCoeffs[2];
         }
+        diffuselight.intensity =  options["sky"].initialDiffuseLightIntensity * intensityMultiplier;
+        sun.light.intensity =  options["sun"].initialLightIntensity * intensityMultiplier;
         render();
       }
 
