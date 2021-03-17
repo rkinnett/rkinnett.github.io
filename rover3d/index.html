@@ -7,9 +7,19 @@
 		<link type="text/css" rel="stylesheet" href="main.css">
     
     <style>
+    a:link {
+      color: #adf;
+    }
+    a:visited {
+      color: #adf;
+    }
+    a:hover {
+      color: #4ff;
+    }
+    
     #annotation {
       position: absolute;
-      padding: 5px;
+      padding: 5px 10px;
       color: #ddd;
       background: rgba(0, 0, 0, 0.6);
       border-radius: .5em;
@@ -29,24 +39,122 @@
       //opacity: 0.5;
       font-size: 12px;
     }
+    
+    #webgl {
+      position: fixed;
+      width: 100%; /* Full width (cover the whole page) */
+      height: 100%; /* Full height (cover the whole page) */
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: -1;
+    }
+    
+    #overlay {
+      position: fixed; /* Sit on top of the page content */
+      display: none; /* Hidden by default */
+      width: 100%; /* Full width (cover the whole page) */
+      height: 100%; /* Full height (cover the whole page) */
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.8); /* Black background with opacity */
+      z-index: 2; /* Specify a stack order in case you're using a different order for other elements */
+      cursor: pointer; /* Add a pointer on hover */
+    }
+    .astext {
+      background:none;
+      border:none;
+      margin: 5px;
+      padding:0;
+      cursor: pointer;
+      outline:none;
+      user-select: none;
+      -webkit-user-select: none; /* Safari */        
+      -moz-user-select: none; /* Firefox */
+    }
+    
+    #ack_button {
+      z-index: 99;
+      font-family: Monospace;
+      text-shadow: 0px 0px 8px #3DF;
+      color: #3DF;
+      position: absolute;
+      left: 0px;
+      bottom: 0px;
+    }
+    
+    #info {
+      text-align: left;
+      position: absolute;
+      width: 75%;
+      height: 75%;
+      top: 50%;
+      left: 50%;
+      font-size: 14px;
+      color: #ccc;
+      transform: translate(-50%,-50%);
+      -ms-transform: translate(-50%,-50%);
+    }
+    
+    emph {
+      font-weight: bold;
+      color: white;
+    }
+    
     </style>
     
     
 	</head>
 
 	<body>
-		<div id="info">
-			Perseverance model courtesy <a href="https://mars.nasa.gov/resources/25042/mars-perseverance-rover-3d-model/" target="_blank" rel="noopener">NASA/JPL</a><br />
-		</div>
 
+    <!-- Status Indicator -->
     <div class="annotation" id="status_container">Initializing</div>  
 
+    <!-- Make Acknowledgments Panel -->
+    <button class="astext" id="ack_button" onclick="overlayOn()">About</button>
+    <div id="overlay" onclick="overlayOff()">
+      <div id="info">
+        <h1>Rover 3D</h1>
+        R. Kinnett, 2021
+        <br/>
+        <hr/>
+        <h3>Controls:</h3>
+        <li>Left button: rotate, center wheel: zoom, right button: pan</li>
+        <li>Double-click:  center view over selected position</li>
+        <li>Key "d":  <emph>d</emph>rop rover at cursor</li>
+        <li>Key "r":  center view over <emph>r</emph>over</li>
+        <br/>
+        <hr/>
+        <h3>Acknowledgments:</h3>
+        <li>
+          Base terrain map derived from USGS <a href="https://astrogeology.usgs.gov/search/map/Mars/Mars2020/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40">"Mars 2020 Terrain Relative Navigation HiRISE DTM Mosaic"</a> via Mars Reconnaissance Orbiter MOLA (NASA/JPL/GSFC/USGS) and HiRISE (NASA/JPL/University of Arizona)
+        </li>
+        <li>
+          Colorized via <a href="https://www.flickr.com/photos/132160802@N06/50905666446/">Jezero Crater</a> mosaic by Justin Cowart with source images from MRO CTX (NASA/JPL/MSSS) and CRISM (NASA/JPL/JHUAPL), and Mars Express HRSC (ESA/DLR/FU Berlin)
+        </li>
+        <li>
+          Perseverance model courtesy <a href="https://mars.nasa.gov/resources/25042/mars-perseverance-rover-3d-model/" target="_blank" rel="noopener">NASA/JPL</a> (heavily modified by R. Kinnett)
+        </li>
+        <br />
+      </div>
+    </div>
 
+    <!-- Make webgl canvas for Mars scene -->
+    <div id="webgl"></div>
 
     <!-- USEFUL REFERENCES:
       https://www-robotics.jpl.nasa.gov/publications/Mark_Maimone/fulltext.pdf
       https://pds-imaging.jpl.nasa.gov/documentation/MSL_COORDINATE_FRAMES.PDF 
     -->
+
+    <script>
+      function overlayOn() {  document.getElementById("overlay").style.display = "block"; }
+      function overlayOff() { document.getElementById("overlay").style.display = "none";  }
+    </script>
 
     <script src="js/dat.gui.min.js"></script>
     <script src="js/decode-tiff.min.js"></script>
@@ -59,6 +167,7 @@
 			import { Sky } from './js/Sky.js';
       import { Lensflare, LensflareElement } from './js/LensFlare.js';
       import { Reflector } from './js/Reflector.js';
+			import { VertexNormalsHelper } from './js/VertexNormalsHelper.js';
       const { decode } = window.decodeTiff;
       window.THREE = THREE;
 
@@ -67,6 +176,7 @@
       let rover, diffuselight, selected, roverNavCoordFrameAxes, terrain;
       let mirrorCamera, rmiMirror, insetWidth, insetHeight, mirrorMaterial, mirror, mirrorRendertTarget;
 			let sky, uniforms;
+      let vecs = {};
       let deg2rad = Math.PI/180;
       let rad2deg = 180/Math.PI;
 
@@ -185,10 +295,10 @@
           showRnavCoordFrame: false,
         },
         sky: {
-					turbidity: 4,
+					turbidity: 6,
 					rayleigh: 0.02,
-					mieCoefficient: 0.001,
-					mieDirectionalG: 0.8,
+					mieCoefficient: 0.002,
+					mieDirectionalG: 0.5,
           diffuseLightColor:     0xffd0a8,
           initialDiffuseLightIntensity: 0.6,
           minDiffuseLightIntensity: 0.05,
@@ -200,14 +310,15 @@
           x:0, 
           y:0, 
           z:0, 
-          lightColor:      0xf0dacb,
+          lightColor:      0xedbc86,
           initialLightIntensity:  0.81,
         }
       };
       window.options = options;
 
-      var raycaster = new THREE.Raycaster(); // create once
-      var mouse = new THREE.Vector2(); // create once
+      var raycaster = new THREE.Raycaster();
+      var mouse = new THREE.Vector2();
+      var clicked = new THREE.Vector2();
       
       startLoadingManager();
 			init();
@@ -215,8 +326,7 @@
 
 			function init() {
 
-				const container = document.createElement( 'div' );
-				document.body.appendChild( container );
+        const container = document.getElementById('webgl');
 
 				renderer = new THREE.WebGLRenderer( { antialias: true } )
         renderer.setPixelRatio( window.devicePixelRatio );
@@ -320,7 +430,7 @@
         makeTerrain({
           urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h8m.tif',  // must be 16-bit grayscale tif
           //urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop8192m_rescale_2m_CRISM_color.jpg',
-          urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale1m_color.jpg',
+          urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale1m_color_routemap.jpg',
           hscale: 8,    // m/px
           vscale: vscale,  // m/px
           color:  options["scene"].surfaceColor,
@@ -329,7 +439,11 @@
             terrain.rotation.x = -1*Math.PI;
             terrain.rotation.z = -1*Math.PI/2;
             terrain.position.set(875, -1165, 240.14);
-            scene.add(terrain);
+            terrain.geometry.computeFaceNormals();
+            terrain.geometry.computeVertexNormals();
+            scene.add(terrain);            
+            //var vnh = new VertexNormalsHelper( terrain, 1 );
+            //scene.add( vnh );
             render();
             controls.update();
           }
@@ -363,9 +477,9 @@
         //gui.add(armUnstowFcnWrapper,'add').name("Unstow Arm");
 
         folder["attitude"] = gui.addFolder('Attitude');
-        folder["attitude"].add(options["attitude"], 'roll', -30, 30).listen().name("Roll").onChange(function(){tiltRover()});
-        folder["attitude"].add(options["attitude"], 'pitch', -30, 30).listen().name("Pitch").onChange(function(){tiltRover()});
-        folder["attitude"].add(options["attitude"], 'yaw', -10, 370).listen().name("Heading").onChange(function(){tiltRover()});
+        folder["attitude"].add(options["attitude"], 'roll', -40, 40).listen().name("Roll").onChange(function(){tiltRover()});
+        folder["attitude"].add(options["attitude"], 'pitch', -40, 40).listen().name("Pitch").onChange(function(){tiltRover()});
+        folder["attitude"].add(options["attitude"], 'yaw', -370, 370).listen().name("Heading").onChange(function(){tiltRover()});
         folder["attitude"].add(options["attitude"], 'height', -3.0, 3.0).listen().name("Height").onChange(function(){liftRover()});
         folder["attitude"].add(options["attitude"], 'showRnavCoordFrame').listen().name("Show RNAV").onChange(function(val){
           roverNavCoordFrameAxes.visible = val; 
@@ -456,6 +570,8 @@
 
           tiltRover();
 
+          sun.light.target = rover;
+
           rover.attach(roverNavCoordFrameAxes);
       
           scene.add(rover);
@@ -472,6 +588,8 @@
         //controls.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
 				controls.minDistance = 0.1;
 				controls.maxDistance = 8000;
+        controls.screenSpacePanning = true;
+        controls.enableDamping = false;
 				controls.target.set( 0, 0, -1 );
         controls.addEventListener('change', render);
 				controls.update();
@@ -482,11 +600,14 @@
         window.addEventListener('click', checkWhatWasClicked, false );
         window.addEventListener('keypress', checkKeypress, false );
         window.addEventListener('dblclick', doubleClicked, false);
+
+        document.addEventListener('mousemove', function(e){mouse.x = e.clientX; mouse.y = e.clientY;}, false); // cache mouse pos
+        window.mouse = mouse;
         
         /* The following prevents browsers from interpreting pinch gestures as global zoom */
-        document.addEventListener('gesturestart',  function(e) { dontZoomWindow(e) });
-        document.addEventListener('gesturechange', function(e) { dontZoomWindow(e) });
-        document.addEventListener('gestureend',    function(e) { dontZoomWindow(e) });
+        //document.addEventListener('gesturestart',  function(e) { dontZoomWindow(e) });
+        //document.addEventListener('gesturechange', function(e) { dontZoomWindow(e) });
+        //document.addEventListener('gestureend',    function(e) { dontZoomWindow(e) });
 			}
 
 
@@ -665,6 +786,7 @@
         parent.add(coord_axes);
         return coord_axes;
       }
+      window.createCoordAxes = createCoordAxes;
 
       function doubleClicked(event){
         console.log("double clicked");
@@ -700,19 +822,86 @@
 
 
       function checkKeypress(event){
-        console.log("key pressed");
+        var keyAscii = String.fromCharCode(event.keyCode);
+        console.log('key pressed: "' + keyAscii + '" [' + event.keyCode + ']');
+        console.log(event);
+        var mouseNow = new THREE.Vector2().copy(mouse);
+        console.log(mouseNow);
+        if(event.key == "Enter") {
+          
+        } else if(keyAscii) {
+          switch (keyAscii) {
+            case "d":  console.log("DROP");   dropRover(mouseNow);  break;
+            case "r":  console.log("ROVER");  moveCameraToViewTarget(rover.position); break;
+            case "t":  console.log("TOP");    break;
+            default:   console.log("unhandled key"); 
+          }
+        } else {
+          console.log("unhandled key"); 
+        }
       }
+
+
+      function dropRover( mousecoords ) {
+        //var intersects = checkWhatWasClicked(event);
+        //console.log(intersects[0].point);
+        var mouseCameraCoords = new THREE.Vector2();
+        mouseCameraCoords.x = ( mousecoords.x / renderer.domElement.clientWidth ) * 2 - 1;
+        mouseCameraCoords.y = - ( mousecoords.y / renderer.domElement.clientHeight ) * 2 + 1;
+        raycaster.setFromCamera(mouseCameraCoords, camera);
+				var intersects = raycaster.intersectObjects([terrain]);
+				if(intersects.length==0) return;
+        console.log(intersects[0]);        
+
+        rover.position.copy(intersects[0].point);
+
+        var hdg = options["attitude"].yaw*deg2rad;
+        
+        const normalMatrix = new THREE.Matrix3().getNormalMatrix( intersects[0].object.matrixWorld );        
+        
+        // Rotate rover to match local normal vector, preserving heading.
+        // Start by calculating local-level heading vector via basic trig in local-level xy plane.
+        // There exists a unique vertical plane which contains both our heading vector and the nadir vector,
+        // and also the new x vector which we're solving for.  Describe this plane via its normal vector 
+        // which we solve for as the cross-product between local-level heading vector and nadir vector.
+        // The new X vector must simultaneously exist in the plane orthogonal to the terrain normal vector.
+        // Therefore the cross product between the normal vectors defining these two planes describes the
+        // intersection of the two planes which includes the new x vector.
+        
+        vecs.pos = intersects[0].point;
+        vecs.n = intersects[0].face.normal.clone().applyMatrix3( normalMatrix ).normalize();  // normal vector to local terrain
+        vecs.h = new THREE.Vector3(Math.cos(hdg), Math.sin(hdg), 0);  // heading vector in global xy plane
+        vecs.nadir = new THREE.Vector3(0, 0, 1);                     // nadir direction (down)
+        vecs.nhz  = new THREE.Vector3().crossVectors(vecs.nadir, vecs.h).normalize();  // normal to heading vec and nadir
+        vecs.newx = new THREE.Vector3().crossVectors(vecs.n, vecs.nhz).normalize(); 
+        vecs.newz = vecs.n;
+        vecs.newy = new THREE.Vector3().crossVectors(vecs.newx, vecs.newz).normalize();
+        vecs.zzr  = new THREE.Vector3().crossVectors(vecs.nhz, vecs.newx).normalize(); // where newz would be if zero roll
+        var roll = Math.acos(vecs.zzr.clone().dot(vecs.n));
+        console.log("roll: " + roll);
+        console.log(vecs);
+        
+        var pitch = Math.asin(vecs.newx.z*-1);
+        console.log("pitch: " + pitch);
+        options["attitude"].roll = roll*rad2deg;
+        options["attitude"].pitch = pitch*rad2deg;
+        tiltRover();
+        
+        
+        
+      }
+
 
       function checkWhatWasClicked( event ) {
         console.log("clicked:");
         //event.preventDefault();        
-        mouse.x = ( event.clientX / renderer.domElement.clientWidth ) * 2 - 1;
-        mouse.y = - ( event.clientY / renderer.domElement.clientHeight ) * 2 + 1;
-        raycaster.setFromCamera(mouse, camera );
+        clicked.x = ( event.clientX / renderer.domElement.clientWidth ) * 2 - 1;
+        clicked.y = - ( event.clientY / renderer.domElement.clientHeight ) * 2 + 1;
+        raycaster.setFromCamera(clicked, camera );
         var intersects = raycaster.intersectObjects(scene.children, true );
         console.log(intersects[0].object.name);
         console.log(intersects[0].object);
-        window.selected = intersects[0].object;
+        window.selected = intersects[0];
         return intersects;
         /*
         // The following are useful when trying to identify specific rover part
