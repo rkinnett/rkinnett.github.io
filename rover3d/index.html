@@ -176,9 +176,12 @@
       let rover, diffuselight, selected, roverNavCoordFrameAxes, terrain;
       let mirrorCamera, rmiMirror, insetWidth, insetHeight, mirrorMaterial, mirror, mirrorRendertTarget;
 			let sky, uniforms;
-      let vecs = {};
       let deg2rad = Math.PI/180;
       let rad2deg = 180/Math.PI;
+
+      let vecs = {};
+      window.vecs = vecs;
+
 
       let parts = {};
       window.parts = parts;
@@ -673,7 +676,7 @@
           if(params.urlNormalsMap!==undefined){
             terrain.material.normalMap = new THREE.TextureLoader().load(params.urlNormalsMap);
           }
-          //terrain.material.color.setHex(color);
+          terrain.material.color.setHex(color);
           
           //set height of vertices:
           const vertices = terrain.geometry.attributes.position;
@@ -882,12 +885,13 @@
         vecs.n = intersects[0].face.normal.clone().applyMatrix3( normalMatrix ).normalize();  // normal vector to local terrain
         vecs.h = new THREE.Vector3(Math.cos(hdg), Math.sin(hdg), 0);  // heading vector in global xy plane
         vecs.nadir = new THREE.Vector3(0, 0, 1);                     // nadir direction (down)
-        vecs.nhz  = new THREE.Vector3().crossVectors(vecs.nadir, vecs.h).normalize();  // normal to heading vec and nadir
-        vecs.newx = new THREE.Vector3().crossVectors(vecs.n, vecs.nhz).normalize(); 
-        vecs.newz = vecs.n;
-        vecs.newy = new THREE.Vector3().crossVectors(vecs.newx, vecs.newz).normalize();
+        vecs.nhz  = new THREE.Vector3().crossVectors(vecs.h, vecs.nadir).normalize();  // normal to heading vec and nadir
+        vecs.newz = vecs.n.clone().multiplyScalar(-1);
+        vecs.newx = new THREE.Vector3().crossVectors(vecs.newz, vecs.nhz).normalize(); 
+        vecs.newy = new THREE.Vector3().crossVectors(vecs.newz, vecs.newx).normalize();
         vecs.zzr  = new THREE.Vector3().crossVectors(vecs.nhz, vecs.newx).normalize(); // where newz would be if zero roll
-        var roll = Math.acos(vecs.zzr.clone().dot(vecs.n));
+        var rollsign = vecs.nhz.dot(vecs.newz)>0? 1 : -1;
+        var roll = Math.acos(vecs.zzr.clone().dot(vecs.newz))*rollsign;
         console.log("roll: " + roll);
         console.log(vecs);
         
@@ -896,9 +900,6 @@
         options["attitude"].roll = roll*rad2deg;
         options["attitude"].pitch = pitch*rad2deg;
         tiltRover();
-        
-        
-        
       }
 
 
