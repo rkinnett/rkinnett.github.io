@@ -463,8 +463,9 @@
         
 
         // Make coordinate frame axes:
-        roverNavCoordFrameAxes = createCoordAxes(scene, 0.5);
+        roverNavCoordFrameAxes = createCoordAxes(scene, 0.5, "rnav");
         roverNavCoordFrameAxes.visible = options["attitude"].showRnavCoordFrame;
+        
 
         //var armUnstowFcnWrapper = { add:function(){ armGoToPose("READY_OUT") }};
         //var armStowFcnWrapper = { add:function(){ armGoToPose("STOW") }};
@@ -491,7 +492,7 @@
         folder["attitude"] = gui.addFolder('Attitude');
         folder["attitude"].add(options["attitude"], 'roll', -40, 40).listen().name("Roll").onChange(function(){tiltRover()});
         folder["attitude"].add(options["attitude"], 'pitch', -40, 40).listen().name("Pitch").onChange(function(){tiltRover()});
-        folder["attitude"].add(options["attitude"], 'yaw', -370, 370).listen().name("Heading").onChange(function(){tiltRover()});
+        folder["attitude"].add(options["attitude"], 'yaw', -370, 370).listen().name("Heading").onChange(function(){changeHeading()});
         folder["attitude"].add(options["attitude"], 'height', -3.0, 3.0).listen().name("Height").onChange(function(){liftRover()});
         folder["attitude"].add(options["attitude"], 'showRnavCoordFrame').listen().name("Show RNAV").onChange(function(val){
           roverNavCoordFrameAxes.visible = val; 
@@ -768,14 +769,19 @@
         render();
       }
       
+      function changeHeading(){
+        var matrix = new THREE.Matrix4();
+        matrix.extractRotation( rover.matrix );
+        var roverZ = new THREE.Vector3(0,0,1).transformDirection(matrix);
+        settleRover(roverZ.multiplyScalar(-1));
+      }
+      
       function liftRover(){
         rover.position.z = -1*options["attitude"].height;
         render();
       }
 
-      function noOp(){
-        return;
-      }
+
 
       function createCoordAxes(parent, vector_length, frame_name = "coord_frame"){ 
         const coord_axes = new THREE.Group();
@@ -797,6 +803,7 @@
         coord_axes.add(coord_axis);
 
         parent.add(coord_axes);
+        console.log(coord_axes);
         return coord_axes;
       }
       window.createCoordAxes = createCoordAxes;
@@ -865,13 +872,15 @@
 				var intersects = raycaster.intersectObjects([terrain]);
 				if(intersects.length==0) return;
         console.log(intersects[0]);        
-
+        vecs.pos = intersects[0].point;
         rover.position.copy(intersects[0].point);
-
-        var hdg = options["attitude"].yaw*deg2rad;
         
         const normalMatrix = new THREE.Matrix3().getNormalMatrix( intersects[0].object.matrixWorld );        
-        
+        vecs.n = intersects[0].face.normal.clone().applyMatrix3( normalMatrix ).normalize();  // normal vector to local terrain
+        settleRover(vecs.n);
+      }
+
+      function settleRover(roverUpVec){
         // Rotate rover to match local normal vector, preserving heading.
         // Start by calculating local-level heading vector via basic trig in local-level xy plane.
         // There exists a unique vertical plane which contains both our heading vector and the nadir vector,
@@ -881,12 +890,11 @@
         // Therefore the cross product between the normal vectors defining these two planes describes the
         // intersection of the two planes which includes the new x vector.
         
-        vecs.pos = intersects[0].point;
-        vecs.n = intersects[0].face.normal.clone().applyMatrix3( normalMatrix ).normalize();  // normal vector to local terrain
+        var hdg = options["attitude"].yaw*deg2rad;
         vecs.h = new THREE.Vector3(Math.cos(hdg), Math.sin(hdg), 0);  // heading vector in global xy plane
         vecs.nadir = new THREE.Vector3(0, 0, 1);                     // nadir direction (down)
         vecs.nhz  = new THREE.Vector3().crossVectors(vecs.h, vecs.nadir).normalize();  // normal to heading vec and nadir
-        vecs.newz = vecs.n.clone().multiplyScalar(-1);
+        vecs.newz = roverUpVec.clone().multiplyScalar(-1);
         vecs.newx = new THREE.Vector3().crossVectors(vecs.newz, vecs.nhz).normalize(); 
         vecs.newy = new THREE.Vector3().crossVectors(vecs.newz, vecs.newx).normalize();
         vecs.zzr  = new THREE.Vector3().crossVectors(vecs.nhz, vecs.newx).normalize(); // where newz would be if zero roll
@@ -901,6 +909,7 @@
         options["attitude"].pitch = pitch*rad2deg;
         tiltRover();
       }
+
 
 
       function checkWhatWasClicked( event ) {
