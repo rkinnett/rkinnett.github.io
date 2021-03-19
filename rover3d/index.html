@@ -76,14 +76,14 @@
       -moz-user-select: none; /* Firefox */
     }
     
-    #ack_button {
+    #info_button {
       z-index: 99;
       font-family: Monospace;
       text-shadow: 0px 0px 8px #3DF;
       color: #3DF;
       position: absolute;
       left: 0px;
-      bottom: 0px;
+      top: 0px;
     }
     
     #info {
@@ -104,6 +104,19 @@
       color: white;
     }
     
+    #compassInset {
+      width: 80px;
+      height: 80px;
+      background-color: transparent; /* or transparent; will show through only if renderer alpha: true */
+      border: none; /* or none; */
+      margin: 0;
+      padding: 0px;
+      position: absolute;
+      left: 0px;
+      bottom: 0px;
+      z-index: 100;
+    }
+    
     </style>
     
     
@@ -115,7 +128,7 @@
     <div class="annotation" id="status_container">Initializing</div>  
 
     <!-- Make Acknowledgments Panel -->
-    <button class="astext" id="ack_button" onclick="overlayOn()">About</button>
+    <button class="astext" id="info_button" onclick="overlayOn()">About</button>
     <div id="overlay" onclick="overlayOff()">
       <div id="info">
         <h1>Rover 3D</h1>
@@ -143,8 +156,12 @@
       </div>
     </div>
 
-    <!-- Make webgl canvas for Mars scene -->
+    <!-- Webgl container for Mars scene -->
     <div id="webgl"></div>
+
+    <!-- Compass inset -->
+		<div id="compassInset"></div>
+
 
     <!-- USEFUL REFERENCES:
       https://www-robotics.jpl.nasa.gov/publications/Mark_Maimone/fulltext.pdf
@@ -173,8 +190,9 @@
 
     
 			let camera, scene, renderer, controls;
-      let rover, diffuselight, selected, roverNavCoordFrameAxes, terrain;
+      let rover, diffuselight, selected, roverNavCoordFrameAxes, terrain, terrainWireframe;
       let mirrorCamera, rmiMirror, insetWidth, insetHeight, mirrorMaterial, mirror, mirrorRendertTarget;
+      let compassInsetContainer, compassInsetScene, compassInsetRenderer, compassInsetCamera, compass;
 			let sky, uniforms;
       let deg2rad = Math.PI/180;
       let rad2deg = 180/Math.PI;
@@ -283,6 +301,9 @@
         scene: {
           surfaceColor:  0xc3a17f,
           showHaze:   false,
+          showWireframe:  false,
+          wireframeColor: 0x090909,
+          showCompass:  true,
         },
         pose: {
           arm: "STOW",
@@ -307,7 +328,7 @@
           minDiffuseLightIntensity: 0.05,
         },
         sun: {
-          az: -30, 
+          az: -90, 
           el: 30, 
           dist: 4000, 
           x:0, 
@@ -355,8 +376,29 @@
         //camera.position.set( 3.6, 0, -0.65 );
         camera.position.set( 5, 0, -1.4 );
         window.camera = camera;
-        
-        
+                
+                
+        // Make Controls:
+				controls = new MapControls( camera, renderer.domElement );
+				//const controls = new OrbitControls( camera, renderer.domElement );
+				controls.addEventListener( 'change', render ); // use if there is no animation loop
+        //controls.mouseButtons = { ORBIT: THREE.MOUSE.LEFT, ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
+        //controls.mouseButtons = { ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
+        controls.mouseButtons = {LEFT: 0, MIDDLE: 1, RIGHT: 2};
+        controls.enableKeys = true;
+        //controls.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
+				controls.minDistance = 0.1;
+				controls.maxDistance = 8000;
+        controls.screenSpacePanning = true;
+        controls.enableDamping = false;
+				controls.target.set( 0, 0, -1 );
+        controls.addEventListener('change', render);
+        window.controls = controls;
+
+        // make compass inset:
+        makeCompass();
+        compass.visible = options["scene"].showCompass;
+                
 				scene = new THREE.Scene();
         window.scene = scene;
         scene.fog = new THREE.Fog(0x332211, 0.1, options["scene"].showHaze?20:0 );
@@ -456,11 +498,13 @@
             scene.add(terrain);            
             //var vnh = new VertexNormalsHelper( terrain, 1 );
             //scene.add( vnh );
+
+            terrainWireframe.visible = options["scene"].showWireframe;
+                        
             render();
             controls.update();
           }
         });
-        
 
         // Make coordinate frame axes:
         roverNavCoordFrameAxes = createCoordAxes(scene, 0.5, "rnav");
@@ -483,7 +527,9 @@
         folder["scene"].addColor(options["sky"],'diffuseLightColor').name("Diffuse light color").onChange(function(val){diffuselight.color.set(val); render()});
         //folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
         folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){terrain.material.color.set(val); render()});
-        folder["scene"].add(options["scene"], 'showHaze').listen().name("Foreground haze").onChange(function(val){scene.fog.far = val?20:0; render()});
+        //folder["scene"].add(options["scene"], 'showHaze').listen().name("Foreground haze").onChange(function(val){scene.fog.far = val?20:0; render()});
+        folder["scene"].add(options["scene"], 'showWireframe').listen().name("Wireframe").onChange(function(val){terrainWireframe.visible = val; render()});
+        folder["scene"].add(options["scene"], 'showCompass').listen().name("Compass").onChange(function(val){compass.visible = val; render()});
         //gui.add(options, 'showSun').listen().name("Show sun").onChange(function(val){ noOp() });
         //gui.add(options, 'showFloor').listen().name("Show floor").onChange(function(val){ noOp() });
         //gui.add(armStowFcnWrapper,'add').name("Stow Arm");
@@ -564,7 +610,6 @@
             
           } );
             
-
           // Replace RMI mirror with mirror object
           rover.getObjectByName("rmi_lens").add( mirrorCamera );
           rmiMirror = rover.getObjectByName("rmi_mirror");
@@ -591,23 +636,8 @@
           render();
         } );
 
-				controls = new MapControls( camera, renderer.domElement );
-				//const controls = new OrbitControls( camera, renderer.domElement );
-				controls.addEventListener( 'change', render ); // use if there is no animation loop
-        //controls.mouseButtons = { ORBIT: THREE.MOUSE.LEFT, ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
-        //controls.mouseButtons = { ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
-        controls.mouseButtons = {LEFT: 0, MIDDLE: 1, RIGHT: 2};
-        controls.enableKeys = true;
-        //controls.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
-				controls.minDistance = 0.1;
-				controls.maxDistance = 8000;
-        controls.screenSpacePanning = true;
-        controls.enableDamping = false;
-				controls.target.set( 0, 0, -1 );
-        controls.addEventListener('change', render);
-				controls.update();
-        window.controls = controls;
 
+				controls.update();
 
 				window.addEventListener('resize', onWindowResize );
         window.addEventListener('click', checkWhatWasClicked, false );
@@ -642,10 +672,66 @@
 				render();
 			}
 
-			function render() {        
+			function render() {
+				//copy position of the camera into inset
+				compassInsetCamera.position.copy(camera.position);
+				compassInsetCamera.position.sub(controls.target);
+				compassInsetCamera.position.setLength(2);
+				compassInsetCamera.lookAt(compassInsetScene.position);
+				compassInsetRenderer.render(compassInsetScene, compassInsetCamera);
+        
         renderer.render( scene, camera );
 			}
 
+
+			function makeCompass() {
+        const radius = 0.5;
+      
+        // based on: https://threejs.org/examples/#webgl_loader_nrrd
+				const compassInsetWidth = 80, compassInsetHeight = 80;
+				compassInsetContainer = document.getElementById('compassInset');
+				compassInsetContainer.width = compassInsetWidth;
+				compassInsetContainer.height = compassInsetHeight;
+				compassInsetRenderer = new THREE.WebGLRenderer( { alpha: true } );
+				compassInsetRenderer.setClearColor( 0x000000, 0 );
+				compassInsetRenderer.setSize( compassInsetWidth, compassInsetHeight );
+				compassInsetContainer.appendChild( compassInsetRenderer.domElement );
+				compassInsetScene = new THREE.Scene();
+				compassInsetCamera = new THREE.PerspectiveCamera( 50, compassInsetWidth / compassInsetHeight, 1, 1000 );
+				compassInsetCamera.up = camera.up; // important!
+        compass = new THREE.Group();
+        const northArrow = new THREE.ArrowHelper(
+          new THREE.Vector3(1, 0, 0), //direction
+          new THREE.Vector3(-radius, 0, 0), //origin
+          2*radius, //length
+          0xff0000, //color
+          0.15, //head length
+          0.15, //head width
+        );
+        compass.add(northArrow);
+
+        // Make Circle:
+        var points = [];
+        for(let i=0; i<=360; i+=15){
+          points.push(new THREE.Vector3(Math.sin(i*(Math.PI/180))*radius, Math.cos(i*(Math.PI/180))*radius, 0));
+        }
+        var circleGeometry = new THREE.BufferGeometry().setFromPoints(points);
+        const circleMaterial = new THREE.MeshBasicMaterial({color: 0x004444, linewidth:1, opacity:0.02});
+        const circle = new THREE.Line(circleGeometry, circleMaterial);
+        compass.add( circle );
+        
+        const circleV = circle.clone();
+        circleV.rotation.x = Math.PI/2;
+        compass.add( circleV );
+        
+        const eastWestLinePoints = [new THREE.Vector3(0,-radius,0), new THREE.Vector3(0,radius,0)];
+        const eastWestLineGeometry = new THREE.BufferGeometry().setFromPoints(eastWestLinePoints);
+        const eastWestLineMaterial = new THREE.MeshBasicMaterial({color: 0x004444, linewidth:1, opacity:0.02});
+        const eastWestLine = new THREE.Line(eastWestLineGeometry, eastWestLineMaterial);
+        compass.add( eastWestLine );
+        
+				compassInsetScene.add( compass );
+			}
 
 
       function makeTerrain(params){
@@ -660,8 +746,20 @@
 
         console.log("loading terrain");
         terrain = new THREE.Mesh();
-        terrain.material = new THREE.MeshPhongMaterial();
+        terrain.material = new THREE.MeshPhongMaterial({
+          color: color,
+          shininess: 3,
+        });
         window.terrain = terrain;
+
+        terrainWireframe = new THREE.Mesh();
+        terrainWireframe.material = new THREE.MeshBasicMaterial({
+          color: 0x222222,
+          //polygonOffset: true,
+          //polygonOffsetFactor: 0.2,
+          //polygonOffsetUnits: 1,
+          wireframe: true,
+        });
         
         console.log("loading height map");
         readTiff(params.urlHeightMap, function(heightMap){
@@ -673,11 +771,10 @@
             terrain.material.map = new THREE.TextureLoader().load(params.urlTextureMap, function(){console.log("done loading terrain texture")});
             render();
           }
-          terrain.material.shininess = 3;
+
           if(params.urlNormalsMap!==undefined){
             terrain.material.normalMap = new THREE.TextureLoader().load(params.urlNormalsMap);
           }
-          terrain.material.color.setHex(color);
           
           //set height of vertices:
           const vertices = terrain.geometry.attributes.position;
@@ -694,6 +791,10 @@
 
           renderer.shadowMap.needsUpdate = true;
           render();
+          
+          terrainWireframe.geometry = terrain.geometry;
+          terrain.attach(terrainWireframe);
+
           if(params.onload!==undefined) params.onload();
 
         });
