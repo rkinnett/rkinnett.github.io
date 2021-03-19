@@ -700,6 +700,7 @@
 				compassInsetCamera = new THREE.PerspectiveCamera( 50, compassInsetWidth / compassInsetHeight, 1, 1000 );
 				compassInsetCamera.up = camera.up; // important!
         compass = new THREE.Group();
+        
         const northArrow = new THREE.ArrowHelper(
           new THREE.Vector3(1, 0, 0), //direction
           new THREE.Vector3(-radius, 0, 0), //origin
@@ -709,27 +710,42 @@
           0.15, //head width
         );
         compass.add(northArrow);
+        
+        const eastArrow = new THREE.ArrowHelper(
+          new THREE.Vector3(0, 1, 0), //direction
+          new THREE.Vector3(0, -radius, 0), //origin
+          2*radius, //length
+          0x00aaff, //color
+          0.15, //head length
+          0.15, //head width
+        );
+        compass.add(eastArrow);
 
-        // Make Circle:
+        // Make Circles:
         var points = [];
         for(let i=0; i<=360; i+=15){
           points.push(new THREE.Vector3(Math.sin(i*(Math.PI/180))*radius, Math.cos(i*(Math.PI/180))*radius, 0));
         }
         var circleGeometry = new THREE.BufferGeometry().setFromPoints(points);
         const circleMaterial = new THREE.MeshBasicMaterial({color: 0x004444, linewidth:1, opacity:0.02});
-        const circle = new THREE.Line(circleGeometry, circleMaterial);
-        compass.add( circle );
+        const circleXY = new THREE.Line(circleGeometry, circleMaterial);
+        compass.add( circleXY );
         
-        const circleV = circle.clone();
-        circleV.rotation.x = Math.PI/2;
-        compass.add( circleV );
+        const circleXZ = circleXY.clone();
+        circleXZ.rotation.x = Math.PI/2;
+        compass.add( circleXZ );
         
+        const circleYZ = circleXY.clone();
+        circleYZ.rotation.y = Math.PI/2;
+        compass.add( circleYZ );
+        
+        /*
         const eastWestLinePoints = [new THREE.Vector3(0,-radius,0), new THREE.Vector3(0,radius,0)];
         const eastWestLineGeometry = new THREE.BufferGeometry().setFromPoints(eastWestLinePoints);
         const eastWestLineMaterial = new THREE.MeshBasicMaterial({color: 0x004444, linewidth:1, opacity:0.02});
         const eastWestLine = new THREE.Line(eastWestLineGeometry, eastWestLineMaterial);
         compass.add( eastWestLine );
-        
+        */
 				compassInsetScene.add( compass );
 			}
 
