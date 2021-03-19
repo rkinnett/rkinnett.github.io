@@ -1,6 +1,3 @@
-// ...
-// Based on 
-// Created by Bjorn Sandvik - thematicmapping.org
 
 //import * as THREE from './three.module.js';
 //import { OrbitControls } from './OrbitControls.js';

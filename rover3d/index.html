@@ -105,8 +105,8 @@
     }
     
     #compassInset {
-      width: 80px;
-      height: 80px;
+      width: 60px;
+      height: 60px;
       background-color: transparent; /* or transparent; will show through only if renderer alpha: true */
       border: none; /* or none; */
       margin: 0;
@@ -194,6 +194,7 @@
       let mirrorCamera, rmiMirror, insetWidth, insetHeight, mirrorMaterial, mirror, mirrorRendertTarget;
       let compassInsetContainer, compassInsetScene, compassInsetRenderer, compassInsetCamera, compass;
 			let sky, uniforms;
+      let ruler;
       let deg2rad = Math.PI/180;
       let rad2deg = 180/Math.PI;
 
@@ -298,6 +299,9 @@
       });
 
       let options = {
+        tools: {
+          ruler: false,
+        },
         scene: {
           surfaceColor:  0xc3a17f,
           showHaze:   false,
@@ -341,7 +345,7 @@
         }
       };
       window.options = options;
-
+        
       var raycaster = new THREE.Raycaster();
       var mouse = new THREE.Vector2();
       var clicked = new THREE.Vector2();
@@ -480,12 +484,13 @@
         groundPlane.receiveShadow = true;
         //scene.add( groundPlane );
                 
-        const vscale = 0.02;
+        const vscale = 0.02;  //m/dn, vertical scale of terrain height map
+        const hscale = 8;    //m/px, horizontal grid spacing of terrain height map
         makeTerrain({
           urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h8m.tif',  // must be 16-bit grayscale tif
           //urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop8192m_rescale_2m_CRISM_color.jpg',
           urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale1m_color_routemap.jpg',
-          hscale: 8,    // m/px
+          hscale: hscale,    // m/px
           vscale: vscale,  // m/px
           color:  options["scene"].surfaceColor,
           onload: function(){
@@ -510,6 +515,25 @@
         roverNavCoordFrameAxes = createCoordAxes(scene, 0.5, "rnav");
         roverNavCoordFrameAxes.visible = options["attitude"].showRnavCoordFrame;
         
+        // Make ruler:
+        let rulerGroup = new THREE.Group();
+        ruler = {
+          pos0: new THREE.Vector3(0,0,0),
+          pos1: new THREE.Vector3(0,0,0),
+          pin0: makePin(new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1), 0.25, 0.01, 0x00ffff, function(pin){rulerGroup.add(pin)}),
+          pin1: makePin(new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1), 0.25, 0.01, 0x00ffff, function(pin){rulerGroup.add(pin)}),
+          line: new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)]), 
+            new THREE.LineBasicMaterial({color: 0x66ddff, depthTest: false}),
+          ),
+        }        
+        ruler.pin0.visible = false;
+        ruler.pin1.visible = false;
+        ruler.line.visible = false;
+        ruler.line.frustumCulled = false;
+        rulerGroup.add(ruler.line);
+        scene.add(rulerGroup);
+        window.ruler = ruler;
 
         //var armUnstowFcnWrapper = { add:function(){ armGoToPose("READY_OUT") }};
         //var armStowFcnWrapper = { add:function(){ armGoToPose("STOW") }};
@@ -517,18 +541,21 @@
         var gui = new dat.GUI();
         window.gui = gui;
         let folder = {};
+  
+        folder["tools"] = gui.addFolder('Tools');
+        folder["tools"].add(options["tools"], 'ruler').name('Ruler').onChange(toggleRuler);
         
         folder["scene"] = gui.addFolder('Scene');
-        folder["scene"].add(options["sun"], 'az', -179.9, 180.1).listen().name("Sun azimuth").onChange(function(val){placeSun()});
-        folder["scene"].add(options["sun"], 'el', -0.5, 180.5).listen().name("Sun elevation").onChange(function(val){placeSun()});
-        folder["scene"].add(sun.light, 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){render()});
+        folder["scene"].add(options["sun"], 'az', -179.9, 180.1).listen().name("Sun azimuth").onChange(placeSun);
+        folder["scene"].add(options["sun"], 'el', -0.5, 180.5).listen().name("Sun elevation").onChange(placeSun);
+        folder["scene"].add(sun.light, 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(render);
         folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){sun.light.color.set(val); render()});
-        folder["scene"].add(diffuselight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(function(val){render()});
+        folder["scene"].add(diffuselight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(render);
         folder["scene"].addColor(options["sky"],'diffuseLightColor').name("Diffuse light color").onChange(function(val){diffuselight.color.set(val); render()});
         //folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
         folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){terrain.material.color.set(val); render()});
         //folder["scene"].add(options["scene"], 'showHaze').listen().name("Foreground haze").onChange(function(val){scene.fog.far = val?20:0; render()});
-        folder["scene"].add(options["scene"], 'showWireframe').listen().name("Wireframe").onChange(function(val){terrainWireframe.visible = val; render()});
+        folder["scene"].add(options["scene"], 'showWireframe').listen().name("Grid (" + hscale + "m)").onChange(function(val){terrainWireframe.visible = val; render()});
         folder["scene"].add(options["scene"], 'showCompass').listen().name("Compass").onChange(function(val){compass.visible = val; render()});
         //gui.add(options, 'showSun').listen().name("Show sun").onChange(function(val){ noOp() });
         //gui.add(options, 'showFloor').listen().name("Show floor").onChange(function(val){ noOp() });
@@ -536,10 +563,10 @@
         //gui.add(armUnstowFcnWrapper,'add').name("Unstow Arm");
 
         folder["attitude"] = gui.addFolder('Attitude');
-        folder["attitude"].add(options["attitude"], 'roll', -40, 40).listen().name("Roll").onChange(function(){tiltRover()});
-        folder["attitude"].add(options["attitude"], 'pitch', -40, 40).listen().name("Pitch").onChange(function(){tiltRover()});
-        folder["attitude"].add(options["attitude"], 'yaw', -370, 370).listen().name("Heading").onChange(function(){changeHeading()});
-        folder["attitude"].add(options["attitude"], 'height', -3.0, 3.0).listen().name("Height").onChange(function(){liftRover()});
+        folder["attitude"].add(options["attitude"], 'roll', -40, 40).listen().name("Roll").onChange(tiltRover);
+        folder["attitude"].add(options["attitude"], 'pitch', -40, 40).listen().name("Pitch").onChange(tiltRover);
+        folder["attitude"].add(options["attitude"], 'yaw', -370, 370).listen().name("Heading").onChange(changeHeading);
+        folder["attitude"].add(options["attitude"], 'height', -3.0, 3.0).listen().name("Height").onChange(liftRover);
         folder["attitude"].add(options["attitude"], 'showRnavCoordFrame').listen().name("Show RNAV").onChange(function(val){
           roverNavCoordFrameAxes.visible = val; 
           render(); 
@@ -576,7 +603,6 @@
         
         // modify differential onchange callback:
         joints["mob"]["diff"].gui.onChange(function(val){ mobSetRockers(val); });
-        
 
         const loader = new GLTFLoader().setPath( 'model/' );        
         loader.load( 'Perseverance.glb', function ( gltf ) {
@@ -587,7 +613,6 @@
           rover.traverse( function ( child ) {
             child.castShadow = true;
             child.receiveShadow = true;
-
             parts[child.name] = child;
          
             // Check if this is a named joint:
@@ -602,12 +627,10 @@
               }
             }
              
-             
             // Make single-sided to avoid rendering artifacts:
             if ( child.isMesh ) {
               child.material.side = THREE.FrontSide;              
             }
-            
           } );
             
           // Replace RMI mirror with mirror object
@@ -640,9 +663,11 @@
 				controls.update();
 
 				window.addEventListener('resize', onWindowResize );
-        window.addEventListener('click', checkWhatWasClicked, false );
+        renderer.domElement.addEventListener('mousedown', handleMouseDown, false );
+        renderer.domElement.addEventListener('mouseup', handleMouseUp, false );
+        renderer.domElement.addEventListener('click', function(e){checkWhatWasClicked(e, scene.children)}, false );
         window.addEventListener('keypress', checkKeypress, false );
-        window.addEventListener('dblclick', doubleClicked, false);
+        renderer.domElement.addEventListener('dblclick', doubleClicked, false);
 
         document.addEventListener('mousemove', function(e){mouse.x = e.clientX; mouse.y = e.clientY;}, false); // cache mouse pos
         window.mouse = mouse;
@@ -659,6 +684,51 @@
         document.body.style.zoom = 0.99;
       }
 
+      function handleMouseDown(){
+				controls.update();
+        if(options["tools"].ruler){
+          console.log("mouse down at");
+          var intersects = checkWhatWasClicked(event, [terrain, rover]);
+          //console.log(intersects);
+          //console.log(intersects[0].object.type);
+          //if(intersects[0].object.type=="Mesh"){
+            ruler.line.visible = false;
+            ruler.pin1.visible = false;
+            ruler.pos0 = intersects[0].point.clone();
+            ruler.pin0.position.copy(ruler.pos0);
+            ruler.pin0.visible = true;
+            render();
+          //}
+        }
+      }
+      
+      function handleMouseUp(){
+        if(options["tools"].ruler){
+          console.log("mouse up at");
+          var intersects = checkWhatWasClicked(event, [terrain, rover]);
+          //console.log(intersects);
+          //console.log(intersects[0].object.type);
+          //if(intersects[0].object.type=="Mesh"){
+            ruler.pos1 = intersects[0].point.clone();
+            ruler.pin1.position.copy(ruler.pos1);
+            ruler.pin1.visible = true;
+            //ruler.line.geometry.setFromPoints([ruler.pin0.children[1].position, ruler.pin1.children[1].position]);
+            ruler.line.geometry.setFromPoints([ruler.pos0, ruler.pos1]);
+            //ruler.line.geometry.verticesNeedUpdate = true;
+            ruler.line.geometry.attributes.position.needsUpdate = true;
+            //ruler.line.geometry.computeBoundingSphere();
+            ruler.line.frustumCulled = false;
+            ruler.line.visible = true;
+            render();
+            controls.update();
+            
+            var from1to2 = ruler.pos1.clone().sub(ruler.pos0);
+            console.log("Stright-line distance: " + from1to2.length().toPrecision(4) + "m");
+            console.log(from1to2);
+          //}
+        }
+      }
+      
 
 			function onWindowResize() {
 				camera.aspect = window.innerWidth / window.innerHeight;
@@ -674,8 +744,7 @@
 
 			function render() {
 				//copy position of the camera into inset
-				compassInsetCamera.position.copy(camera.position);
-				compassInsetCamera.position.sub(controls.target);
+				compassInsetCamera.position.copy(controls.target.clone().sub(camera.position));
 				compassInsetCamera.position.setLength(2);
 				compassInsetCamera.lookAt(compassInsetScene.position);
 				compassInsetRenderer.render(compassInsetScene, compassInsetCamera);
@@ -683,12 +752,22 @@
         renderer.render( scene, camera );
 			}
 
+      function toggleRuler(){
+        console.log( (options["tools"].ruler? "enabling" : "disabling") + " ruler");
+        if(options["tools"].ruler){
+          controls.enabled = false;
+        
+        } else {
+          controls.enabled = true;
+        }
+      }
+
 
 			function makeCompass() {
-        const radius = 0.5;
+        const radius = 0.75;
       
         // based on: https://threejs.org/examples/#webgl_loader_nrrd
-				const compassInsetWidth = 80, compassInsetHeight = 80;
+				const compassInsetWidth = 60, compassInsetHeight = 60;
 				compassInsetContainer = document.getElementById('compassInset');
 				compassInsetContainer.width = compassInsetWidth;
 				compassInsetContainer.height = compassInsetHeight;
@@ -697,7 +776,7 @@
 				compassInsetRenderer.setSize( compassInsetWidth, compassInsetHeight );
 				compassInsetContainer.appendChild( compassInsetRenderer.domElement );
 				compassInsetScene = new THREE.Scene();
-				compassInsetCamera = new THREE.PerspectiveCamera( 50, compassInsetWidth / compassInsetHeight, 1, 1000 );
+        compassInsetCamera = new THREE.OrthographicCamera( 1, -1, 1, -1, 0, 4 );
 				compassInsetCamera.up = camera.up; // important!
         compass = new THREE.Group();
         
@@ -706,9 +785,10 @@
           new THREE.Vector3(-radius, 0, 0), //origin
           2*radius, //length
           0xff0000, //color
-          0.15, //head length
-          0.15, //head width
+          0.2, //head length
+          0.2, //head width
         );
+        northArrow.line.material.linewidth = 10;
         compass.add(northArrow);
         
         const eastArrow = new THREE.ArrowHelper(
@@ -716,9 +796,10 @@
           new THREE.Vector3(0, -radius, 0), //origin
           2*radius, //length
           0x00aaff, //color
-          0.15, //head length
-          0.15, //head width
+          0.2, //head length
+          0.2, //head width
         );
+        eastArrow.line.material.linewidth = 10;
         compass.add(eastArrow);
 
         // Make Circles:
@@ -727,7 +808,7 @@
           points.push(new THREE.Vector3(Math.sin(i*(Math.PI/180))*radius, Math.cos(i*(Math.PI/180))*radius, 0));
         }
         var circleGeometry = new THREE.BufferGeometry().setFromPoints(points);
-        const circleMaterial = new THREE.MeshBasicMaterial({color: 0x004444, linewidth:1, opacity:0.02});
+        const circleMaterial = new THREE.MeshBasicMaterial({color: 0x44aaaa, wireframeLinewidth:1, opacity:0.3, transparent: true});
         const circleXY = new THREE.Line(circleGeometry, circleMaterial);
         compass.add( circleXY );
         
@@ -747,6 +828,7 @@
         compass.add( eastWestLine );
         */
 				compassInsetScene.add( compass );
+        window.compass = compass;
 			}
 
 
@@ -804,6 +886,9 @@
           terrain.receiveShadow = true;
           //terrain.matrixAutoUpdate = false;;
           console.log("done loading terrain");
+          
+          terrain.hscale = hscale; // not used by 3js; just note for general use elsewhere
+          terrain.vscale = vscale; // not used by 3js; just note for general use elsewhere 
 
           renderer.shadowMap.needsUpdate = true;
           render();
@@ -927,7 +1012,7 @@
 
       function doubleClicked(event){
         console.log("double clicked");
-        var intersects = checkWhatWasClicked(event);
+        var intersects = checkWhatWasClicked(event, [terrain, rover]);
         console.log(intersects[0].point);
         //camera.position.set(intersects[0].point);
         //camera.translate(0,0, -1*camera.position.distanceTo(intersects[0].point));
@@ -1029,15 +1114,18 @@
 
 
 
-      function checkWhatWasClicked( event ) {
+      function checkWhatWasClicked( event, parent ) {
         console.log("clicked:");
         //event.preventDefault();        
         clicked.x = ( event.clientX / renderer.domElement.clientWidth ) * 2 - 1;
         clicked.y = - ( event.clientY / renderer.domElement.clientHeight ) * 2 + 1;
         raycaster.setFromCamera(clicked, camera );
-        var intersects = raycaster.intersectObjects(scene.children, true );
-        console.log(intersects[0].object.name);
-        console.log(intersects[0].object);
+        var intersects = raycaster.intersectObjects(parent, true );
+        if(intersects[0].object && intersects[0].object.name) {
+          console.log(intersects[0].object.name);
+          console.log(intersects[0].object);
+        }
+        console.log(intersects[0].point);
         window.selected = intersects[0];
         return intersects;
         /*
@@ -1093,6 +1181,33 @@
         };
         xhr.send();
       }
+  
+  
+      function makePin(origin, direction, pinLength, pinHeadWidth, pinColor, onload){
+        const pin = new THREE.Group();
+
+        // make needle:
+        const pinheadPos = direction.normalize().multiplyScalar(pinLength)
+        const needleGeometry = new THREE.BufferGeometry().setFromPoints( [origin, pinheadPos] );
+        const needleMaterial = new THREE.LineBasicMaterial({color: pinColor});
+        const needle = new THREE.Line( needleGeometry, needleMaterial );
+        pin.add(needle);
+        
+        // make pinhead: 
+        var pinheadMaterial = new THREE.SpriteMaterial( { 
+          map: new THREE.TextureLoader().load('images/poi.png'),
+          sizeAttenuation: false, 
+          opacity: 0.6,
+        });
+        var pinheadSprite = new THREE.Sprite(pinheadMaterial);
+        pinheadSprite.scale.set(pinHeadWidth, pinHeadWidth, pinHeadWidth);
+        pinheadSprite.position.copy(pinheadPos);
+        pin.add(pinheadSprite);
+
+        if(onload) onload(pin);
+        return pin;
+      }
+      window.makePin = makePin;
   
   
       function startLoadingManager(){
