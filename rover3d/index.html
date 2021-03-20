@@ -304,7 +304,8 @@
         },
         scene: {
           surfaceColor:  0xc3a17f,
-          showHaze:   false,
+          showHaze:   true,
+          fogDist:    5000,
           showWireframe:  false,
           wireframeColor: 0x090909,
           showCompass:  true,
@@ -362,7 +363,8 @@
         renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( window.innerWidth, window.innerHeight );
         renderer.shadowMap.enabled = true; 
-        renderer.shadowMapSoft = true; 
+        //renderer.shadowMapSoft = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 				//renderer.autoClear = false;
         renderer.alpha = false;
         //renderer.preserveDrawingBuffer = true;
@@ -405,7 +407,7 @@
                 
 				scene = new THREE.Scene();
         window.scene = scene;
-        scene.fog = new THREE.Fog(0x332211, 0.1, options["scene"].showHaze?20:0 );
+        scene.fog = new THREE.Fog(0xc3a17f, 0.1, options["scene"].showHaze ? options["scene"].fogDist : 0 );
         //scene.background = new THREE.Color( options.skyColor );
 
         // Make RMI mirror:
@@ -554,7 +556,10 @@
         folder["scene"].addColor(options["sky"],'diffuseLightColor').name("Diffuse light color").onChange(function(val){diffuselight.color.set(val); render()});
         //folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
         folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){terrain.material.color.set(val); render()});
-        //folder["scene"].add(options["scene"], 'showHaze').listen().name("Foreground haze").onChange(function(val){scene.fog.far = val?20:0; render()});
+        folder["scene"].add(options["scene"], 'showHaze').listen().name("Haze").onChange(function(val){
+          scene.fog.far = val ? options["scene"].fogDist : 0; 
+          render();
+        });
         folder["scene"].add(options["scene"], 'showWireframe').listen().name("Grid (" + hscale + "m)").onChange(function(val){terrainWireframe.visible = val; render()});
         folder["scene"].add(options["scene"], 'showCompass').listen().name("Compass").onChange(function(val){compass.visible = val; render()});
         //gui.add(options, 'showSun').listen().name("Show sun").onChange(function(val){ noOp() });
@@ -788,7 +793,7 @@
           0.2, //head length
           0.2, //head width
         );
-        northArrow.line.material.linewidth = 10;
+        northArrow.line.material.linewidth = 2;
         compass.add(northArrow);
         
         const eastArrow = new THREE.ArrowHelper(
@@ -799,7 +804,7 @@
           0.2, //head length
           0.2, //head width
         );
-        eastArrow.line.material.linewidth = 10;
+        eastArrow.line.material.linewidth = 2;
         compass.add(eastArrow);
 
         // Make Circles:
@@ -905,7 +910,7 @@
 
       function goToPose(jointGroup, poseName){
         //console.log("Go to " + jointGroup + " pose: " + poseName);
-        var joints = poses[jointGroup][poseName].map(function(angle) { return angle*rad2deg; });
+        var joints = poses[jointGroup][poseName].map(function(angle){return angle*rad2deg});
         //console.log("joints: " + joints);
         setJoints(jointGroup, joints);
         if(jointGroup == "mob") mobSetRockers(0);
@@ -957,6 +962,7 @@
         }
         diffuselight.intensity =  options["sky"].initialDiffuseLightIntensity * intensityMultiplier;
         sun.light.intensity =  options["sun"].initialLightIntensity * intensityMultiplier;
+        scene.fog.color = new THREE.Color(options["scene"].surfaceColor).multiplyScalar(intensityMultiplier*0.8);
         render();
       }
 
