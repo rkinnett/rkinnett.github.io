@@ -175,6 +175,8 @@
 
     <script src="js/dat.gui.min.js"></script>
     <script src="js/decode-tiff.min.js"></script>
+    <script src="js/routes.js"></script>
+
 
 
 		<script type="module">
@@ -185,15 +187,16 @@
       import { Lensflare, LensflareElement } from './js/LensFlare.js';
       import { Reflector } from './js/Reflector.js';
 			import { VertexNormalsHelper } from './js/VertexNormalsHelper.js';
-      const { decode } = window.decodeTiff;
       window.THREE = THREE;
-
+      
+      const { decode } = window.decodeTiff;
     
 			let camera, scene, renderer, controls;
       let rover, diffuselight, selected, roverNavCoordFrameAxes, terrain, terrainWireframe;
       let mirrorCamera, rmiMirror, insetWidth, insetHeight, mirrorMaterial, mirror, mirrorRendertTarget;
       let compassInsetContainer, compassInsetScene, compassInsetRenderer, compassInsetCamera, compass;
 			let sky, uniforms;
+      let routes;
       let ruler;
       let deg2rad = Math.PI/180;
       let rad2deg = 180/Math.PI;
@@ -301,14 +304,16 @@
       let options = {
         tools: {
           ruler: false,
+          showCompass:  true,
+          showWireframe:  false,
+          wireframeColor: 0x090909,
+          showRnavCoordFrame: false,
+          showStrategicRoute: true,
         },
         scene: {
           surfaceColor:  0xc3a17f,
           showHaze:   true,
-          fogDist:    5000,
-          showWireframe:  false,
-          wireframeColor: 0x090909,
-          showCompass:  true,
+          fogDist:    6000,
         },
         pose: {
           arm: "STOW",
@@ -321,33 +326,32 @@
           pitch: 0,
           yaw: 0,
           height: -0.01,
-          showRnavCoordFrame: false,
         },
         sky: {
 					turbidity: 4,
 					rayleigh: 0.025,
 					mieCoefficient: 0.001,
 					mieDirectionalG: 0.7,
-          diffuseLightColor:     0xf5b97c,
-          initialDiffuseLightIntensity: 0.6,
-          minDiffuseLightIntensity: 0.05,
+          diffuseLightColor:     0xf7d9a4,
+          initialDiffuseLightIntensity: 0.4,
         },
         sun: {
           az: -90, 
           el: 30, 
-          dist: 4000, 
+          dist: 40000, 
           x:0, 
           y:0, 
           z:0, 
-          lightColor:      0xffffff,
-          initialLightIntensity:  0.81,
+          intensity:     0.6,
+          lightColor:    0xffffff,
+          maxIntensity:  0.6,
           minLightFraction: 0.01,  //light intensity with sun at zero el
-          maxElQuadraticLight: 20, //deg below which light falls off quadratically
+          maxElQuadraticLight: 15, //deg below which light falls off quadratically
         }
       };
       window.options = options;
         
-      var raycaster = new THREE.Raycaster();
+      var raycaster = new THREE.Raycaster(new THREE.Vector3(0,0,0), new THREE.Vector3(1,0,0), 0.1, 4000);
       var mouse = new THREE.Vector2();
       var clicked = new THREE.Vector2();
       
@@ -403,7 +407,7 @@
 
         // make compass inset:
         makeCompass();
-        compass.visible = options["scene"].showCompass;
+        compass.visible = options["tools"].showCompass;
                 
 				scene = new THREE.Scene();
         window.scene = scene;
@@ -445,18 +449,36 @@
         //diffuselight = new THREE.HemisphereLight( options["sky"].diffuseLightColor, options.surfaceColor, options["sky"].initialDiffuseLightIntensity );
         scene.add( diffuselight );
         
-        //sun.light = new THREE.PointLight( options["sun"].lightColor, options["sun"].initialLightIntensity, 0, 0.001);
-        sun.light = new THREE.DirectionalLight( options["sun"].lightColor, options["sun"].initialLightIntensity);
-        sun.light.castShadow = true;
-        sun.light.shadow.camera.near = 100;
-        sun.light.shadow.camera.far = 12000;
-        sun.light.shadow.mapSize.width = 2048;
-        sun.light.shadow.mapSize.height = 2048;
-        scene.add( sun.light );
+        // Define 2 directional lights with different shadow map scales
+        // Light1 with narrow shadow map:
+        
+        sun.lights = new THREE.Group();
+        scene.add(sun.lights);
+        
+        sun.light1 = new THREE.DirectionalLight( options["sun"].lightColor, options["sun"].intensity);
+        sun.light1.castShadow = true;
+        sun.light1.shadow.camera.near = 1000;
+        sun.light1.shadow.camera.far = (options["sun"].dist + 8192)*1.2; //
+        sun.light1.shadow.mapSize.width = 1024;
+        sun.light1.shadow.mapSize.height = 1024;
+        sun.lights.add( sun.light1 );
+
+        // Light2 with broad shadow map:
+        sun.light2 = sun.light1.clone();
+        sun.light2.shadow.mapSize.width = 1024;
+        sun.light2.shadow.mapSize.height = 1024;
+        sun.light2.shadow.camera.top = 4000;
+        sun.light2.shadow.camera.bottom = -4000;
+        sun.light2.shadow.camera.left = -4000;
+        sun.light2.shadow.camera.right = 4000;
+        sun.lights.add( sun.light2 );
+        
         //Create a helper for the shadow camera
-        //const helper = new THREE.CameraHelper( sun.light.shadow.camera );
+        //const helper = new THREE.CameraHelper( sun.light1.shadow.camera );
         //scene.add( helper );
-        sun.light.extinctionCoeffs = [
+        
+        // Define coefficients for sunset darkening
+        sun.extinctionCoeffs = [
           (options["sun"].minLightFraction-1)/(options["sun"].maxElQuadraticLight*options["sun"].maxElQuadraticLight),
           -2*(options["sun"].minLightFraction-1)/options["sun"].maxElQuadraticLight,
           options["sun"].minLightFraction
@@ -475,7 +497,7 @@
         lensflare.addElement( new LensflareElement( textureFlare2, 80,  0 ) );
         lensflare.addElement( new LensflareElement( textureFlare2, 200, 0.1 ) );
         lensflare.addElement( new LensflareElement( textureFlare2, 120, 0.15 ) );
-        //sun.light.add( lensflare );
+        //sun.lights.add( lensflare );
         
         // Make Ground plane:
         const geometry = new THREE.PlaneGeometry( 300, 300, 32 );
@@ -491,7 +513,7 @@
         makeTerrain({
           urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h8m.tif',  // must be 16-bit grayscale tif
           //urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop8192m_rescale_2m_CRISM_color.jpg',
-          urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale1m_color_routemap.jpg',
+          urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale50cm_color.jpg',
           hscale: hscale,    // m/px
           vscale: vscale,  // m/px
           color:  options["scene"].surfaceColor,
@@ -506,7 +528,7 @@
             //var vnh = new VertexNormalsHelper( terrain, 1 );
             //scene.add( vnh );
 
-            terrainWireframe.visible = options["scene"].showWireframe;
+            terrainWireframe.visible = options["tools"].showWireframe;
                         
             render();
             controls.update();
@@ -515,7 +537,7 @@
 
         // Make coordinate frame axes:
         roverNavCoordFrameAxes = createCoordAxes(scene, 0.5, "rnav");
-        roverNavCoordFrameAxes.visible = options["attitude"].showRnavCoordFrame;
+        roverNavCoordFrameAxes.visible = options["tools"].showRnavCoordFrame;
         
         // Make ruler:
         let rulerGroup = new THREE.Group();
@@ -525,17 +547,26 @@
           pin0: makePin(new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1), 0.25, 0.01, 0x00ffff, function(pin){rulerGroup.add(pin)}),
           pin1: makePin(new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1), 0.25, 0.01, 0x00ffff, function(pin){rulerGroup.add(pin)}),
           line: new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)]), 
-            new THREE.LineBasicMaterial({color: 0x66ddff, depthTest: false}),
+            new THREE.BufferGeometry(), 
+            new THREE.LineBasicMaterial({color: 0x66ddff}),
           ),
         }        
         ruler.pin0.visible = false;
         ruler.pin1.visible = false;
         ruler.line.visible = false;
         ruler.line.frustumCulled = false;
+        ruler.line.material.depthTest = false;
         rulerGroup.add(ruler.line);
         scene.add(rulerGroup);
         window.ruler = ruler;
+
+        routes = new THREE.Group();
+        makeRoute(route[0], 0x66ddff);
+        makeRoute(route[1], 0x0000ff);
+        makeRoute(route[2], 0xffff00);
+        routes.position.set(0,0,-1);
+        routes.visible = options["tools"].showStrategicRoute;
+        scene.add(routes);
 
         //var armUnstowFcnWrapper = { add:function(){ armGoToPose("READY_OUT") }};
         //var armStowFcnWrapper = { add:function(){ armGoToPose("STOW") }};
@@ -546,12 +577,34 @@
   
         folder["tools"] = gui.addFolder('Tools');
         folder["tools"].add(options["tools"], 'ruler').name('Ruler').onChange(toggleRuler);
+        folder["tools"].add(options["tools"], 'showCompass').listen().name("Compass").onChange(function(val){compass.visible = val; render()});
+        folder["tools"].add(options["tools"], 'showWireframe').listen().name("Grid (" + hscale + "m)").onChange(function(val){
+          terrainWireframe.visible = val;
+          render();
+        });
+        folder["tools"].add(options["tools"], 'showRnavCoordFrame').listen().name("Show RNAV").onChange(function(val){
+          roverNavCoordFrameAxes.visible = val; 
+          render(); 
+        });
+        folder["tools"].add(options["tools"], 'showStrategicRoute').listen().name("Strategic Route").onChange(function(val){
+          routes.visible = val;
+          render(); 
+        });
+        
         
         folder["scene"] = gui.addFolder('Scene');
         folder["scene"].add(options["sun"], 'az', -179.9, 180.1).listen().name("Sun azimuth").onChange(placeSun);
         folder["scene"].add(options["sun"], 'el', -0.5, 180.5).listen().name("Sun elevation").onChange(placeSun);
-        folder["scene"].add(sun.light, 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(render);
-        folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){sun.light.color.set(val); render()});
+        folder["scene"].add(options["sun"], 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){
+          sun.light1.intensity = val;
+          sun.light2.intensity = val;
+          render();
+        });
+        folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){
+          sun.light1.color.set(val);
+          sun.light2.color.set(val); 
+          render();
+        });
         folder["scene"].add(diffuselight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(render);
         folder["scene"].addColor(options["sky"],'diffuseLightColor').name("Diffuse light color").onChange(function(val){diffuselight.color.set(val); render()});
         //folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
@@ -560,8 +613,6 @@
           scene.fog.far = val ? options["scene"].fogDist : 0; 
           render();
         });
-        folder["scene"].add(options["scene"], 'showWireframe').listen().name("Grid (" + hscale + "m)").onChange(function(val){terrainWireframe.visible = val; render()});
-        folder["scene"].add(options["scene"], 'showCompass').listen().name("Compass").onChange(function(val){compass.visible = val; render()});
         //gui.add(options, 'showSun').listen().name("Show sun").onChange(function(val){ noOp() });
         //gui.add(options, 'showFloor').listen().name("Show floor").onChange(function(val){ noOp() });
         //gui.add(armStowFcnWrapper,'add').name("Stow Arm");
@@ -572,10 +623,6 @@
         folder["attitude"].add(options["attitude"], 'pitch', -40, 40).listen().name("Pitch").onChange(tiltRover);
         folder["attitude"].add(options["attitude"], 'yaw', -370, 370).listen().name("Heading").onChange(changeHeading);
         folder["attitude"].add(options["attitude"], 'height', -3.0, 3.0).listen().name("Height").onChange(liftRover);
-        folder["attitude"].add(options["attitude"], 'showRnavCoordFrame').listen().name("Show RNAV").onChange(function(val){
-          roverNavCoordFrameAxes.visible = val; 
-          render(); 
-        });
 
 
 
@@ -603,9 +650,7 @@
               });
           });
         });
-        
-        //folder["scene"].open();
-        
+                
         // modify differential onchange callback:
         joints["mob"]["diff"].gui.onChange(function(val){ mobSetRockers(val); });
 
@@ -656,7 +701,8 @@
 
           tiltRover();
 
-          sun.light.target = rover;
+          sun.light1.target = rover;
+          sun.light2.target = rover;
 
           rover.attach(roverNavCoordFrameAxes);
       
@@ -767,6 +813,95 @@
         }
       }
 
+      function makeRoute(thisRoute, routeColor){
+        const pathGeometry = new THREE.BufferGeometry().setFromPoints(thisRoute.points);
+        const pathMaterial = new THREE.MeshBasicMaterial({color: routeColor, wireframeLinewidth:2, opacity:0.5, transparent: true});
+        //pathMaterial.depthTest = false;
+        var line = new THREE.Line(pathGeometry, pathMaterial);
+        line.frustumCulled = false;
+        routes.add(line);
+      }
+      window.makeRoute = makeRoute;
+
+      // Use this function to import image x/y coords from a json file,
+      // convert to world x/y/z coords, then print a route data structure
+      // to console for manual incorporation into the ruotes.js file.
+      // pathscale is m/px scale of the source image
+      function makeRouteFromImageCoords(routeFile, pathscale, onload){
+        loadJson(routeFile, function(pathImageCoords){
+          terrain.geometry.computeBoundingBox();
+          var terrainwidth = terrain.geometry.boundingBox.max.x - terrain.geometry.boundingBox.min.x; //m
+          
+          console.log("path data:");
+          console.log(pathImageCoords);
+
+          if(!pathImageCoords || !pathImageCoords[0]){
+            console.log("error, invalid path data");
+            return;
+          }
+          
+          var arrow = new THREE.ArrowHelper();
+          scene.add(arrow);
+          
+          var pathData = [];
+          
+          // If json file contains coordinate pairs then raycast to get z:
+          if(pathImageCoords[0].length==2){
+            terrain.updateMatrixWorld(); 
+            var intersects;
+            var nadir = new THREE.Vector3(0,0,1);
+            var terraincenter = terrainwidth/2;  //m
+            var terrainoffset = terrain.position.clone();
+            pathImageCoords.forEach(function(point){
+              console.log(point);
+              // image space is:  origin top left, x: right, y: down;
+              // therefore image-X maps to world-Y and vise-versa, with scaling and offsets:
+              var flatmapPoint = new THREE.Vector3(
+                terrainoffset.x - point[1]*pathscale + terraincenter, 
+                terrainoffset.y + point[0]*pathscale - terraincenter, 
+                -2000
+              );
+              console.log(flatmapPoint);
+              raycaster.set(flatmapPoint, nadir);
+              var intersects = raycaster.intersectObjects([terrain]);
+              console.log(intersects);
+              if(intersects){
+                pathData.push(intersects[0].point);
+              }
+            });
+          }
+          
+          var route = {name: "NAME", points: pathData};
+          console.log(JSON.stringify(route,null,'\t'));
+          
+          if(onload) onload(pathData);
+          return pathData;
+        });
+      }
+      window.makeRoute = makeRoute;
+
+
+      function loadJson(jsonFile, onload){
+        var request = new XMLHttpRequest();
+        request.open('GET', jsonFile, true);
+        request.onload = function() {
+          if (request.status >= 200 && request.status < 400) {
+            // Success!
+            var data = JSON.parse(request.responseText);
+            if(onload) onload(data);
+            return data;
+          } else {
+            console.log("Error, return status: " + this.status);
+            console.log(e);
+          }
+        };
+        request.onerror = function(e) {
+          alert("Error Status: " + e.target.status);
+        };
+        request.send();
+        return null;
+      }
+
 
 			function makeCompass() {
         const radius = 0.75;
@@ -776,7 +911,7 @@
 				compassInsetContainer = document.getElementById('compassInset');
 				compassInsetContainer.width = compassInsetWidth;
 				compassInsetContainer.height = compassInsetHeight;
-				compassInsetRenderer = new THREE.WebGLRenderer( { alpha: true } );
+				compassInsetRenderer = new THREE.WebGLRenderer({alpha: true, antialias: true});
 				compassInsetRenderer.setClearColor( 0x000000, 0 );
 				compassInsetRenderer.setSize( compassInsetWidth, compassInsetHeight );
 				compassInsetContainer.appendChild( compassInsetRenderer.domElement );
@@ -952,16 +1087,18 @@
         var sunY = options["sun"].dist * Math.cos(options["sun"].el * deg2rad) * Math.sin(options["sun"].az * deg2rad);
         var sunZ = -1 * options["sun"].dist * Math.sin(Math.max(-0.5,options["sun"].el) * deg2rad);
         sun.pos.set(sunX, sunY, sunZ);
-        sun.light.position.set(sunX, sunY, sunZ);
+        sun.lights.position.set(sunX, sunY, sunZ);
 				sky.material.uniforms[ "sunPosition" ].value.copy( sun.pos );
         var intensityMultiplier = 1;
         var sunEl = Math.max(0, options["sun"].el<90? options["sun"].el : 180-options["sun"].el);
         if(sunEl<20){
           // Quadratic extinction
-          var intensityMultiplier = sun.light.extinctionCoeffs[0]*sunEl*sunEl + sun.light.extinctionCoeffs[1]*sunEl + sun.light.extinctionCoeffs[2];
+          var intensityMultiplier = sun.extinctionCoeffs[0]*sunEl*sunEl + sun.extinctionCoeffs[1]*sunEl + sun.extinctionCoeffs[2];
         }
-        diffuselight.intensity =  options["sky"].initialDiffuseLightIntensity * intensityMultiplier;
-        sun.light.intensity =  options["sun"].initialLightIntensity * intensityMultiplier;
+        diffuselight.intensity = options["sky"].initialDiffuseLightIntensity * intensityMultiplier * intensityMultiplier;
+        options["sun"].intensity = options["sun"].maxIntensity * intensityMultiplier;
+        sun.light1.intensity = options["sun"].intensity;
+        sun.light2.intensity = options["sun"].intensity;
         scene.fog.color = new THREE.Color(options["scene"].surfaceColor).multiplyScalar(intensityMultiplier*0.8);
         render();
       }
@@ -1121,18 +1258,19 @@
 
 
       function checkWhatWasClicked( event, parent ) {
-        console.log("clicked:");
+        window.selected = null;
         //event.preventDefault();        
         clicked.x = ( event.clientX / renderer.domElement.clientWidth ) * 2 - 1;
         clicked.y = - ( event.clientY / renderer.domElement.clientHeight ) * 2 + 1;
         raycaster.setFromCamera(clicked, camera );
         var intersects = raycaster.intersectObjects(parent, true );
-        if(intersects[0].object && intersects[0].object.name) {
-          console.log(intersects[0].object.name);
+        if(intersects && intersects[0]) {
+          console.log("clicked:");
+          if(intersects[0].object.name) console.log(intersects[0].object.name);
           console.log(intersects[0].object);
+          window.selected = intersects[0];
+          console.log(intersects[0].point);
         }
-        console.log(intersects[0].point);
-        window.selected = intersects[0];
         return intersects;
         /*
         // The following are useful when trying to identify specific rover part
