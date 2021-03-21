@@ -546,10 +546,12 @@
           pos1: new THREE.Vector3(0,0,0),
           pin0: makePin(new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1), 0.25, 0.01, 0x00ffff, function(pin){rulerGroup.add(pin)}),
           pin1: makePin(new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1), 0.25, 0.01, 0x00ffff, function(pin){rulerGroup.add(pin)}),
-          line: new THREE.Line(
-            new THREE.BufferGeometry(), 
-            new THREE.LineBasicMaterial({color: 0x66ddff}),
-          ),
+          line: new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color: 0x66ddff}) ),
+          measurement: {
+            length: "m",
+            vertical: "m",
+            horizontal:  "m",
+          }
         }        
         ruler.pin0.visible = false;
         ruler.pin1.visible = false;
@@ -570,13 +572,23 @@
 
         //var armUnstowFcnWrapper = { add:function(){ armGoToPose("READY_OUT") }};
         //var armStowFcnWrapper = { add:function(){ armGoToPose("STOW") }};
+        var drawMeasurementLineFcnWrapper = { add:function(){ drawMeasurementLine() }};
+        var clearRulerFcnWrapper = { add:function(){ clearRuler() }};
 
         var gui = new dat.GUI();
         window.gui = gui;
         let folder = {};
   
         folder["tools"] = gui.addFolder('Tools');
-        folder["tools"].add(options["tools"], 'ruler').name('Ruler').onChange(toggleRuler);
+        
+        folder["ruler"] = folder["tools"].addFolder("Ruler");
+        folder["ruler"].add(drawMeasurementLineFcnWrapper,'add').name("Measure Distance");
+        folder["ruler"].add(ruler.measurement, "length").listen();
+        folder["ruler"].add(ruler.measurement, "horizontal").listen();
+        folder["ruler"].add(ruler.measurement, "vertical").listen();
+        folder["ruler"].add(clearRulerFcnWrapper,'add').name("Clear");
+        folder["ruler"].open();
+        
         folder["tools"].add(options["tools"], 'showCompass').listen().name("Compass").onChange(function(val){compass.visible = val; render()});
         folder["tools"].add(options["tools"], 'showWireframe').listen().name("Grid (" + hscale + "m)").onChange(function(val){
           terrainWireframe.visible = val;
@@ -714,8 +726,8 @@
 				controls.update();
 
 				window.addEventListener('resize', onWindowResize );
-        renderer.domElement.addEventListener('mousedown', handleMouseDown, false );
-        renderer.domElement.addEventListener('mouseup', handleMouseUp, false );
+        //renderer.domElement.addEventListener('mousedown', handleMouseDown, false );
+        //renderer.domElement.addEventListener('mouseup', handleMouseUp, false );
         renderer.domElement.addEventListener('click', function(e){checkWhatWasClicked(e, scene.children)}, false );
         window.addEventListener('keypress', checkKeypress, false );
         renderer.domElement.addEventListener('dblclick', doubleClicked, false);
@@ -735,51 +747,7 @@
         document.body.style.zoom = 0.99;
       }
 
-      function handleMouseDown(){
-				controls.update();
-        if(options["tools"].ruler){
-          console.log("mouse down at");
-          var intersects = checkWhatWasClicked(event, [terrain, rover]);
-          //console.log(intersects);
-          //console.log(intersects[0].object.type);
-          //if(intersects[0].object.type=="Mesh"){
-            ruler.line.visible = false;
-            ruler.pin1.visible = false;
-            ruler.pos0 = intersects[0].point.clone();
-            ruler.pin0.position.copy(ruler.pos0);
-            ruler.pin0.visible = true;
-            render();
-          //}
-        }
-      }
-      
-      function handleMouseUp(){
-        if(options["tools"].ruler){
-          console.log("mouse up at");
-          var intersects = checkWhatWasClicked(event, [terrain, rover]);
-          //console.log(intersects);
-          //console.log(intersects[0].object.type);
-          //if(intersects[0].object.type=="Mesh"){
-            ruler.pos1 = intersects[0].point.clone();
-            ruler.pin1.position.copy(ruler.pos1);
-            ruler.pin1.visible = true;
-            //ruler.line.geometry.setFromPoints([ruler.pin0.children[1].position, ruler.pin1.children[1].position]);
-            ruler.line.geometry.setFromPoints([ruler.pos0, ruler.pos1]);
-            //ruler.line.geometry.verticesNeedUpdate = true;
-            ruler.line.geometry.attributes.position.needsUpdate = true;
-            //ruler.line.geometry.computeBoundingSphere();
-            ruler.line.frustumCulled = false;
-            ruler.line.visible = true;
-            render();
-            controls.update();
-            
-            var from1to2 = ruler.pos1.clone().sub(ruler.pos0);
-            console.log("Stright-line distance: " + from1to2.length().toPrecision(4) + "m");
-            console.log(from1to2);
-          //}
-        }
-      }
-      
+
 
 			function onWindowResize() {
 				camera.aspect = window.innerWidth / window.innerHeight;
@@ -803,15 +771,79 @@
         renderer.render( scene, camera );
 			}
 
-      function toggleRuler(){
-        console.log( (options["tools"].ruler? "enabling" : "disabling") + " ruler");
-        if(options["tools"].ruler){
-          controls.enabled = false;
-        
-        } else {
-          controls.enabled = true;
+      
+      function rulerLineFollowCursor(event){
+        var pos = movePinToCursor(event, ruler.pin1);
+        var points = [ruler.pos0, pos];
+        ruler.line.geometry.setFromPoints(points);
+        render();
+      }
+
+      function movePinToCursor(event, pin){
+        mouse.x = ( event.clientX / renderer.domElement.clientWidth ) * 2 - 1;
+        mouse.y = - ( event.clientY / renderer.domElement.clientHeight ) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera );
+        var intersects = raycaster.intersectObjects([terrain]);
+        if(intersects && intersects[0]) {
+          pin.position.copy(intersects[0].point);
+          pin.position.z -= 0.01;
+          return pin.position;
         }
       }
+
+      function clearRuler(){
+        ruler.pos0 = undefined;
+        ruler.pos1 = undefined;
+        ruler.pin0.visible = false;
+        ruler.pin1.visible = false;
+        ruler.line.visible = false;
+        ruler.measurement.length = null;
+        ruler.measurement.horizontal = null;
+        ruler.measurement.vertical = null;
+        render();
+      }
+
+
+      function drawMeasurementLine(){
+        //show instruction hint
+        //stop controls
+        controls.enabled = false;
+        
+        // reset markers and line
+        clearRuler();
+
+        //on click, drop first marker        
+        renderer.domElement.addEventListener('click', function(event1){
+          ruler.pos0 = movePinToCursor(event1, ruler.pin0);
+          ruler.pin0.visible = true;
+          console.log("setting first pin to pos: " + ruler.pos0.x.toPrecision(4) + ", " + ruler.pos0.y.toPrecision(4) + ", " + ruler.pos0.z.toPrecision(4));
+          render();
+          
+          //then continuously draw/update connecting line from first marker to cursor
+          ruler.line.visible = true;
+          renderer.domElement.addEventListener('mousemove', rulerLineFollowCursor, false);
+          
+          //until second click
+          renderer.domElement.addEventListener('click', function(event2){
+            renderer.domElement.removeEventListener('mousemove', rulerLineFollowCursor); //cancel mouse move listener
+            ruler.pos1 = movePinToCursor(event2, ruler.pin1);
+            ruler.pin1.visible = true;
+            console.log("setting second pin to pos: " + ruler.pos1.x.toPrecision(4) + ", " + ruler.pos1.y.toPrecision(4) + ", " + ruler.pos1.z.toPrecision(4));
+            render();
+
+            var from0to1 = ruler.pos1.clone().sub(ruler.pos0);
+            ruler.measurement.length = from0to1.length().toPrecision(4) + " m";
+            ruler.measurement.vertical = from0to1.z.toPrecision(4) + " m";
+            ruler.measurement.horizontal = Math.sqrt(from0to1.x*from0to1.x + from0to1.y*from0to1.y).toPrecision(4) + " m";
+
+            console.log("resuming controls");
+            controls.enabled = true;
+            controls.update();
+            
+          }, {once: true});
+        }, {once: true});
+      }
+
 
       function makeRoute(thisRoute, routeColor){
         const pathGeometry = new THREE.BufferGeometry().setFromPoints(thisRoute.points);
@@ -840,8 +872,8 @@
             return;
           }
           
-          var arrow = new THREE.ArrowHelper();
-          scene.add(arrow);
+          //var arrow = new THREE.ArrowHelper();
+          //scene.add(arrow);
           
           var pathData = [];
           
