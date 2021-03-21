@@ -774,9 +774,11 @@
       
       function rulerLineFollowCursor(event){
         var pos = movePinToCursor(event, ruler.pin1);
-        var points = [ruler.pos0, pos];
-        ruler.line.geometry.setFromPoints(points);
-        render();
+        if(pos){
+          var points = [ruler.pos0, pos];
+          ruler.line.geometry.setFromPoints(points);
+          render();
+        }
       }
 
       function movePinToCursor(event, pin){
