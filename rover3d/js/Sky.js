@@ -8,7 +8,7 @@ import {
 } from './three.module.js';
 
 /**
- * Based on "A Practical Analytic Model for Daylight"
+ * Based originally on "A Practical Analytic Model for Daylight"
  * aka The Preetham Model, the de facto standard analytic skydome model
  * https://www.researchgate.net/publication/220720443_A_Practical_Analytic_Model_for_Daylight
  *
@@ -20,8 +20,9 @@ import {
  *
  * Three.js integration by zz85 http://twitter.com/blurspline
  *
- * Mars adaptation by Ryan Kinnett according to Peter Collienne et al:
- * https://core.ac.uk/download/pdf/18591764.pdf
+ * Mars adaptation by Ryan Kinnett, 2021, based loosely on:
+ * Peter Collienne et al: https://core.ac.uk/download/pdf/18591764.pdf
+ * Steve Albers:  http://stevealbers.net/albers/allsky/mars.html
  * 
 */
 
@@ -83,12 +84,6 @@ Sky.SkyShader = {
     'const vec3 totalRayleigh = vec3( 3.4E-4, 2.0E-4, 0.9E-4 );',  // RK  - SKY COLOR
 
 		// mie stuff
-		// K coefficient for the primaries
-		//'const float v = 4.0;',
-    'const float v = 20.0;',
-		'const vec3 K = vec3( 0.686, 0.678, 0.666 );',
-    //'const vec3 K = vec3( 0.001, 0.1, 0.1 );', //RK unknown effect
-		// MieConst = pi * pow( ( 2.0 * pi ) / lambda, vec3( v - 2.0 ) ) * K
 		'const vec3 MieConst = vec3( 1.6E14, 4.6E14, 6.1E14 );',  // RK: affects horizon color at low elevation (higher is brighter)
     //'const vec3 MieConst = vec3( 4.8399918514433978E14, 2.7798023919660528E14, 3.0790479543861094E14 );',
 
