@@ -320,6 +320,7 @@ var urlParams = {
   camera:   "",
   filter:   "",
   frame:    "",
+  latest:   false,
 };
 var missionFullName = {
   msl: "MSL",
@@ -363,6 +364,8 @@ document.getElementById("textSol").addEventListener("keyup", event => {
   }
 });
 
+
+
 ////////// FUNCTION DEFINITIONS ///////////////
 
 function pageSetup(){
@@ -380,8 +383,10 @@ function pageSetup(){
 
 
 function parseUrl(){
-  console.log("parsing URL arguments...");
   let paramString = window.location.search.toLowerCase().split('?')[1]; 
+  if(!paramString) return;
+
+  console.log("parsing URL arguments...");
   let queryString = new URLSearchParams(paramString); 
 
   for (let pair of queryString.entries()) { 
@@ -457,6 +462,7 @@ function parseUrl(){
       getSol(urlParams.sol);
     } else {
       console.log("URL params specified mission but not sol");
+      getLatest();
     }
   }
 }
@@ -749,6 +755,7 @@ function buildTable(){
     var cam_type  = this_img.camera.instrument;
     var image_id  = this_img.imageid
     var selected  = this_img.selected;
+    var hours_ago;
     
     if( checked_checkbox_names.includes(cam_type) && 
         checked_checkbox_names.includes(img_type) && 
@@ -761,7 +768,8 @@ function buildTable(){
       biggest_url = this_img.image_files["full_res"];
       date_lmst   = this_img.date_taken_mars.replace("M"," ");
       date_utc    = this_img.date_taken_utc.replace("T"," ");    
-      date_local  = new Date(date_utc + " UTC").toString();  
+      date_local  = new Date(date_utc + " UTC").toString();
+      hours_ago   = (new Date() - new Date(date_utc + " UTC"))/1000/60/60;
 
       var row = table.tBodies[0].insertRow(num_rows++);
       var cell0 = row.insertCell(0);
@@ -778,7 +786,7 @@ function buildTable(){
       cell2.innerHTML = cam_type;
       cell3.innerHTML = '<a href=' + biggest_url + ' download>' + img_type + '</a>';
       cell4.innerHTML = image_id;
-      cell5.innerHTML = date_lmst + ' <br/> ' + date_utc + ' <br/> ' + date_local;
+      cell5.innerHTML = date_lmst + ' <br/> ' + date_utc + ' <br/> ' + date_local + ' ' + (hours_ago ? "<br/>("+hours_ago.toPrecision(2)+" hours ago)" : "");
 
     } else {
       //console.log("skipping image " + n + " " + cam_type + " " + img_type);
