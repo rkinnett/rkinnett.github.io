@@ -327,6 +327,8 @@ var missionFullName = {
   mars2020: "Mars 2020",
 };
 
+const earthDaysPerMarsDay = 1.02749125;
+
 
 // Get the modal
 var modal = document.getElementById("info_modal");
@@ -731,6 +733,8 @@ function buildTable(){
   console.log("building table");
   clearTable();
 
+  var lmst = currentMarsTime();
+
   // rebuild checked-checkboxes list:
   checked_checkbox_names = [];
   var checked_checkboxes = document.querySelectorAll('input[type=checkbox]:checked');
@@ -766,10 +770,13 @@ function buildTable(){
 
       thumb_url   = this_img.image_files["small"];
       biggest_url = this_img.image_files["full_res"];
-      date_lmst   = this_img.date_taken_mars.replace("M"," ");
+      date_lmst   = this_img.date_taken_mars.replace("M"," ").replace(/-0*/," ").replace(/\.[0-9]+$/,"");
       date_utc    = this_img.date_taken_utc.replace("T"," ");    
       date_local  = new Date(date_utc + " UTC").toString();
       hours_ago   = (new Date() - new Date(date_utc + " UTC"))/1000/60/60;
+
+      hours_ago_lmst = hoursSinceLmst(date_lmst);
+      hours_ago = (hours_ago_lmst && hours_ago_lmst>hours_ago) ? hours_ago_lmst : hours_ago;
 
       var row = table.tBodies[0].insertRow(num_rows++);
       var cell0 = row.insertCell(0);
@@ -786,7 +793,7 @@ function buildTable(){
       cell2.innerHTML = cam_type;
       cell3.innerHTML = '<a href=' + biggest_url + ' download>' + img_type + '</a>';
       cell4.innerHTML = image_id;
-      cell5.innerHTML = date_lmst + ' <br/> ' + date_utc + ' <br/> ' + date_local + ' ' + (hours_ago ? "<br/>("+hours_ago.toPrecision(2)+" hours ago)" : "");
+      cell5.innerHTML = date_lmst.replace(/ /,"&nbsp;") + ' <br/> ' + date_utc + ' <br/> ' + date_local + ' ' + (hours_ago ? "<br/>("+hours_ago.toPrecision(2)+" hours ago)" : "");
 
     } else {
       //console.log("skipping image " + n + " " + cam_type + " " + img_type);
@@ -856,6 +863,31 @@ function currentMarsTime(){
   lmst.min   = Math.floor(minf);
   console.log(lmst);
   return lmst;
+}
+
+
+function hoursSinceLmst(lmstStr){
+  // if lmst is correctly formatted string then split into parts:
+  const lmstRegex = /([Ss][Oo][Ll][ -]?0*)?([0-9]+)[M ]0*([0-9]+):([0-9]+)(:([0-9]+)(\.([0-9]+))?)?$/;
+  if( lmstRegex.test(lmstStr) ){
+    var fromLmst = lmstStr.replace(lmstRegex,"$2 $3 $4 $6 $7").split(" ");
+    console.log(fromLmst);
+    fromLmstSolFrac = fromLmst[0]*1 + fromLmst[1]/24 + fromLmst[2]/24/60;
+    
+    var nowLmst = currentMarsTime();
+    var nowLmstSolFrac = nowLmst.sol + nowLmst.hour/24 + nowLmst.min/24/60;
+    
+    var solDiff = nowLmstSolFrac - fromLmstSolFrac;
+    if(solDiff<(nowLmst.sol+1) && solDiff>0){
+      return solDiff * earthDaysPerMarsDay * 24;
+    } else {
+      console.log("sol diff");
+      console.log([fromLmstSolFrac, nowLmstSolFrac, solDiff]);
+    }
+  } else {
+    console.log('unrecognized lmst string format: "' + lmstStr + '"');
+  }
+  return;
 }
 
 
