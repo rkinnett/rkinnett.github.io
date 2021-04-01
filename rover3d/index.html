@@ -357,7 +357,7 @@
       
       startLoadingManager();
 			init();
-			render();
+      //animate();
 
 			function init() {
 
@@ -396,14 +396,16 @@
         //controls.mouseButtons = { ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
         controls.mouseButtons = {LEFT: 0, MIDDLE: 1, RIGHT: 2};
         controls.enableKeys = true;
-        //controls.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
+        controls.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
 				controls.minDistance = 0.1;
+				controls.listenToKeyEvents( window );
 				controls.maxDistance = 8000;
         controls.screenSpacePanning = true;
         controls.enableDamping = false;
 				controls.target.set( 0, 0, -1 );
         controls.addEventListener('change', render);
         window.controls = controls;
+        
 
         // make compass inset:
         makeCompass();
@@ -516,20 +518,14 @@
           urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale50cm_color.jpg',
           hscale: hscale,    // m/px
           vscale: vscale,  // m/px
+          offset:   new THREE.Vector3(875, -1165, 240.14),
+          rotation: new THREE.Vector3(-1*Math.PI, 0, -1*Math.PI/2),
           color:  options["scene"].surfaceColor,
           onload: function(){
             console.log("loaded terrain");
-            terrain.rotation.x = -1*Math.PI;
-            terrain.rotation.z = -1*Math.PI/2;
-            terrain.position.set(875, -1165, 240.14);
-            terrain.geometry.computeFaceNormals();
-            terrain.geometry.computeVertexNormals();
-            scene.add(terrain);            
+            scene.add(terrain);
             //var vnh = new VertexNormalsHelper( terrain, 1 );
-            //scene.add( vnh );
-
-            terrainWireframe.visible = options["tools"].showWireframe;
-                        
+            //scene.add( vnh );                       
             render();
             controls.update();
           }
@@ -551,6 +547,7 @@
             length: "m",
             vertical: "m",
             horizontal:  "m",
+            bearing:  "deg",
           }
         }        
         ruler.pin0.visible = false;
@@ -586,6 +583,7 @@
         folder["ruler"].add(ruler.measurement, "length").listen();
         folder["ruler"].add(ruler.measurement, "horizontal").listen();
         folder["ruler"].add(ruler.measurement, "vertical").listen();
+        folder["ruler"].add(ruler.measurement, "bearing").listen();
         folder["ruler"].add(clearRulerFcnWrapper,'add').name("Clear");
         folder["ruler"].open();
         
@@ -666,62 +664,7 @@
         // modify differential onchange callback:
         joints["mob"]["diff"].gui.onChange(function(val){ mobSetRockers(val); });
 
-        const loader = new GLTFLoader().setPath( 'model/' );        
-        loader.load( 'Perseverance.glb', function ( gltf ) {
-          rover = gltf.scene;
-          rover.name = "Rover";
-          window.rover = rover;
-          
-          rover.traverse( function ( child ) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-            parts[child.name] = child;
-         
-            // Check if this is a named joint:
-            for(var jointGroupName of jointGroupNames){
-              for(var jointName of jointNames[jointGroupName]){
-                if(child.name == joints[jointGroupName][jointName].model_obj_name){
-                  //console.log("found " + child.name);
-                  //console.log(child);
-                  joints[jointGroupName][jointName].obj = child;
-                  break;
-                }
-              }
-            }
-             
-            // Make single-sided to avoid rendering artifacts:
-            if ( child.isMesh ) {
-              child.material.side = THREE.FrontSide;              
-            }
-          } );
-            
-          // Replace RMI mirror with mirror object
-          rover.getObjectByName("rmi_lens").add( mirrorCamera );
-          rmiMirror = rover.getObjectByName("rmi_mirror");
-          rmiMirror.material.opacity = 0;
-          var mirrorPos = new THREE.Vector3();
-          rmiMirror.getWorldPosition(mirrorPos);
-          mirror.position.copy(mirrorPos);
-          rmiMirror.attach(mirror);
-          
-          console.log(rover);
-          
-          // Go to initial poses:
-          jointGroupNames.forEach(function(jointGroupName){     
-            goToPose(jointGroupName, options["pose"][jointGroupName]);
-          });
-
-          tiltRover();
-
-          sun.light1.target = rover;
-          sun.light2.target = rover;
-
-          rover.attach(roverNavCoordFrameAxes);
-      
-          scene.add(rover);
-          render();
-        } );
-
+        loadRover();
 
 				controls.update();
 
@@ -762,14 +705,26 @@
 			}
 
 			function render() {
+        updateCompass();
+        renderer.render( scene, camera );
+			}
+      
+      
+      function animate() {
+        requestAnimationFrame( animate );
+        render();
+        controls.update();
+      }
+
+
+      function updateCompass(){
 				//copy position of the camera into inset
 				compassInsetCamera.position.copy(controls.target.clone().sub(camera.position));
 				compassInsetCamera.position.setLength(2);
 				compassInsetCamera.lookAt(compassInsetScene.position);
 				compassInsetRenderer.render(compassInsetScene, compassInsetCamera);
-        
-        renderer.render( scene, camera );
-			}
+      }
+
 
       
       function rulerLineFollowCursor(event){
@@ -777,6 +732,11 @@
         if(pos){
           var points = [ruler.pos0, pos];
           ruler.line.geometry.setFromPoints(points);
+          var from0to1 = pos.clone().sub(ruler.pos0);
+          ruler.measurement.length = from0to1.length().toPrecision(4) + " m";
+          ruler.measurement.vertical = from0to1.z.toPrecision(4) + " m";
+          ruler.measurement.horizontal = Math.sqrt(from0to1.x*from0to1.x + from0to1.y*from0to1.y).toPrecision(4) + " m";
+          ruler.measurement.bearing = (Math.atan2(from0to1.x, from0to1.y)*rad2deg).toFixed(1) + " deg";
           render();
         }
       }
@@ -799,9 +759,10 @@
         ruler.pin0.visible = false;
         ruler.pin1.visible = false;
         ruler.line.visible = false;
-        ruler.measurement.length = null;
-        ruler.measurement.horizontal = null;
-        ruler.measurement.vertical = null;
+        ruler.measurement.length = "m";
+        ruler.measurement.horizontal = "m";
+        ruler.measurement.vertical = "m";
+        ruler.measurement.bearing = "deg";
         render();
       }
 
@@ -837,6 +798,7 @@
             ruler.measurement.length = from0to1.length().toPrecision(4) + " m";
             ruler.measurement.vertical = from0to1.z.toPrecision(4) + " m";
             ruler.measurement.horizontal = Math.sqrt(from0to1.x*from0to1.x + from0to1.y*from0to1.y).toPrecision(4) + " m";
+            ruler.measurement.bearing = (Math.atan2(from0to1.x, from0to1.y)*rad2deg).toFixed(1) + " deg";
 
             console.log("resuming controls");
             controls.enabled = true;
@@ -1006,6 +968,65 @@
 			}
 
 
+      function loadRover(){
+        const loader = new GLTFLoader().setPath( 'model/' );        
+        loader.load( 'Perseverance.glb', function ( gltf ) {
+          rover = gltf.scene;
+          rover.name = "Rover";
+          window.rover = rover;
+          
+          rover.traverse( function ( child ) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            parts[child.name] = child;
+         
+            // Check if this is a named joint:
+            for(var jointGroupName of jointGroupNames){
+              for(var jointName of jointNames[jointGroupName]){
+                if(child.name == joints[jointGroupName][jointName].model_obj_name){
+                  //console.log("found " + child.name);
+                  //console.log(child);
+                  joints[jointGroupName][jointName].obj = child;
+                  break;
+                }
+              }
+            }
+             
+            // Make single-sided to avoid rendering artifacts:
+            if ( child.isMesh ) {
+              child.material.side = THREE.FrontSide;              
+            }
+          } );
+            
+          // Replace RMI mirror with mirror object
+          rover.getObjectByName("rmi_lens").add( mirrorCamera );
+          rmiMirror = rover.getObjectByName("rmi_mirror");
+          rmiMirror.material.opacity = 0;
+          var mirrorPos = new THREE.Vector3();
+          rmiMirror.getWorldPosition(mirrorPos);
+          mirror.position.copy(mirrorPos);
+          rmiMirror.attach(mirror);
+          
+          console.log(rover);
+          
+          // Go to initial poses:
+          jointGroupNames.forEach(function(jointGroupName){     
+            goToPose(jointGroupName, options["pose"][jointGroupName]);
+          });
+
+          tiltRover();
+
+          sun.light1.target = rover;
+          sun.light2.target = rover;
+
+          rover.attach(roverNavCoordFrameAxes);
+      
+          scene.add(rover);
+          render();
+        } );
+      }
+
+
       function makeTerrain(params){
         if(params.urlHeightMap==undefined) {
           console.log("makeTerrain error: expected urlHeightMap in parameters array");
@@ -1013,8 +1034,9 @@
         }
         var hscale = (params.hscale==undefined) ? 1 : params.hscale;
         var vscale = (params.vscale==undefined) ? 1 : params.vscale;
+        var offset = (params.offset==undefined) ? new THREE.Vector3(0,0,0) : params.offset;
+        var rotation = (params.rotation==undefined) ? new THREE.Vector3(0,0,0) : params.rotation;
         var color  = (params.color==undefined) ? '0x3c332c' : params.color;
-        var position = (params.position==undefined) ? new THREE.Vector3(0,0,0) : params.position;
 
         console.log("loading terrain");
         terrain = new THREE.Mesh();
@@ -1024,7 +1046,11 @@
         });
         window.terrain = terrain;
 
+        terrain.hscale = hscale; // not used by 3js; just note for general use elsewhere
+        terrain.vscale = vscale; // not used by 3js; just note for general use elsewhere 
+
         terrainWireframe = new THREE.Mesh();
+        terrainWireframe.visible = options["tools"].showWireframe;
         terrainWireframe.material = new THREE.MeshBasicMaterial({
           color: 0x222222,
           //polygonOffset: true,
@@ -1037,16 +1063,6 @@
         readTiff(params.urlHeightMap, function(heightMap){
 
           terrain.geometry = new THREE.PlaneBufferGeometry(heightMap.width*hscale, heightMap.height*hscale, heightMap.width-1, heightMap.height-1);
-
-          if(params.urlTextureMap!==undefined){
-            console.log("loading terrain texture..");
-            terrain.material.map = new THREE.TextureLoader().load(params.urlTextureMap, function(){console.log("done loading terrain texture")});
-            render();
-          }
-
-          if(params.urlNormalsMap!==undefined){
-            terrain.material.normalMap = new THREE.TextureLoader().load(params.urlNormalsMap);
-          }
           
           //set height of vertices:
           const vertices = terrain.geometry.attributes.position;
@@ -1054,23 +1070,38 @@
             vertices.setZ(i, heightMap.data[i]*vscale);
           }
 
-          //terrain.geometry.computeVertexNormals();
+          terrain.position.copy(offset);
+          terrain.rotation.setFromVector3(rotation, 'XYZ');
+          
+          terrain.geometry.computeVertexNormals();
           terrain.geometry.computeFaceNormals();
           terrain.castShadow = true;
           terrain.receiveShadow = true;
+          renderer.shadowMap.needsUpdate = true;
+
           //terrain.matrixAutoUpdate = false;;
+
+          //render();
           console.log("done loading terrain");
           
-          terrain.hscale = hscale; // not used by 3js; just note for general use elsewhere
-          terrain.vscale = vscale; // not used by 3js; just note for general use elsewhere 
+          //render();
 
-          renderer.shadowMap.needsUpdate = true;
-          render();
+          if(params.urlTextureMap!==undefined){
+            console.log("loading terrain texture..");
+            terrain.material.map = new THREE.TextureLoader().load(params.urlTextureMap, function(){
+              console.log("done loading terrain texture");
+              if(params.onload!==undefined) params.onload();
+            });
+          } else {
+            if(params.onload!==undefined) params.onload();
+          }
+          
+          if(params.urlNormalsMap!==undefined){
+            terrain.material.normalMap = new THREE.TextureLoader().load(params.urlNormalsMap);
+          }
           
           terrainWireframe.geometry = terrain.geometry;
           terrain.attach(terrainWireframe);
-
-          if(params.onload!==undefined) params.onload();
 
         });
       }
