@@ -776,7 +776,7 @@ function buildTable(){
       hours_ago   = (new Date() - new Date(date_utc + " UTC"))/1000/60/60;
 
       hours_ago_lmst = hoursSinceLmst(date_lmst);
-      hours_ago = (hours_ago_lmst && hours_ago_lmst>hours_ago) ? hours_ago_lmst : hours_ago;
+      hours_ago = (hours_ago_lmst && (!hours_ago || hours_ago_lmst>hours_ago)) ? hours_ago_lmst : hours_ago;
 
       var row = table.tBodies[0].insertRow(num_rows++);
       var cell0 = row.insertCell(0);
