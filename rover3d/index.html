@@ -1113,7 +1113,7 @@
         terrainWireframe = new THREE.Mesh();
         terrainWireframe.visible = options["tools"].showWireframe;
         terrainWireframe.material = new THREE.MeshBasicMaterial({
-          color: 0x222222,
+          color: 0x111111,
           //polygonOffset: true,
           //polygonOffsetFactor: 0.2,
           //polygonOffsetUnits: 1,
@@ -1162,6 +1162,9 @@
           }
           
           terrainWireframe.geometry = terrain.geometry;
+          terrainWireframe.rotation.copy(terrain.rotation);
+          terrainWireframe.position.copy(terrain.position);
+          terrainWireframe.position.z += -0.02;
           terrain.attach(terrainWireframe);
 
         });
