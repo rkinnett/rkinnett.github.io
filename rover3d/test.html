@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    
+    <style>
+    #webgl {
+      position: fixed;
+      width: 100%; /* Full width (cover the whole page) */
+      height: 100%; /* Full height (cover the whole page) */
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: -1;
+    }
+    </style>
+    
+    
+    
+</head>
+<body>
+    <div id="webgl"></div>
+    
+	<script src="js/dat.gui.min.js"></script>
+
+    
+<script type="module">
+  import * as THREE from './js/three.module.js';
+  import { OrbitControls, MapControls } from './js/OrbitControls.js';
+  import { Sky } from './js/Sky3.js';
+
+			let camera, scene, renderer, controls;
+			let sky, uniforms;
+      //animate();
+
+      let options = {
+        sky: {
+					turbidity: 4,
+					rayleigh: 0.025,
+					mieCoefficient: 0.001,
+					mieDirectionalG: 0.7,
+          diffuseLightColor:     0xf7d9a4,
+          initialDiffuseLightIntensity: 0.4,
+        },
+      };
+
+			init();
+
+      window.sky = sky;
+      window.renderer = renderer;
+      window.camera = camera;
+      window.controls = controls;
+      window.scene = scene;
+      window.render = render;
+
+			function init() {
+        const container = document.getElementById('webgl');
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } )
+        renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+        renderer.alpha = false;
+				renderer.outputEncoding = THREE.sRGBEncoding;
+				renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.physicallyCorrectLights = true;
+        renderer.toneMappingExposure = 0.65; 
+				container.appendChild( renderer.domElement );
+
+				camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 8000 );
+        camera.up.set( 0, 0, -1 );
+        camera.lookAt(0,0,-1);
+        camera.position.set( 5, 0, -1.4 );
+                                
+        // Make Controls:
+				controls = new MapControls( camera, renderer.domElement );
+				//const controls = new OrbitControls( camera, renderer.domElement );
+				controls.minDistance = 0.1;
+        controls.screenSpacePanning = true;
+        controls.enableDamping = false;
+				controls.target.set( 0, 0, -1 );
+        controls.addEventListener('change', render);
+
+				scene = new THREE.Scene();
+
+				// Add Sky
+				sky = new Sky();
+				sky.scale.setScalar( 4500 );
+        uniforms = sky.material.uniforms;
+        uniforms.rotation=     0.5;
+        uniforms.center=         new THREE.Vector2( 0, 0) ;
+        uniforms.uTxtShape=      new THREE.Texture() ;
+        uniforms.uTxtCloudNoise= new THREE.Texture() ;
+        uniforms.uTime=          0.5;
+        uniforms.uFac1=          0.5;
+        uniforms.uFac2=          0.5;
+        uniforms.uTimeFactor1=   0.5;
+        uniforms.uTimeFactor2=   0.5;
+        uniforms.uDisplStrenght1=  0.5;
+        uniforms.uDisplStrenght2=  0.5;
+				scene.add( sky );
+
+        // Make lighting:
+        let diffuselight = new THREE.AmbientLight( 0xaaaaaa );
+        diffuselight.intensity = 0.8;
+        scene.add( diffuselight );
+      
+        var gui = new dat.GUI();
+
+				controls.update();
+
+				window.addEventListener('resize', onWindowResize );
+      
+        // Make Ground plane:
+        const groundPlane = new THREE.Mesh( 
+          new THREE.PlaneGeometry( 300, 300, 32 ), 
+          new THREE.MeshPhongMaterial({ color: 0xffddaa, fog: false  }) 
+        );
+        groundPlane.name = "ground";
+        groundPlane.rotation.x = -1*Math.PI;
+        groundPlane.receiveShadow = true;
+        scene.add( groundPlane );
+      
+        const cube = new THREE.Mesh( 
+          new THREE.BoxGeometry( 1, 1, 1 ), 
+          new THREE.MeshBasicMaterial( {color: 0x00ff00} ) 
+        );
+        scene.add( cube );
+        
+        render();
+      
+      }
+
+			function render() {
+        renderer.render( scene, camera );
+			}
+      
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+        
+				mirror.getRenderTarget().setSize(
+					window.innerWidth * window.devicePixelRatio,
+					window.innerHeight * window.devicePixelRatio
+				);
+				render();
+			}
+
+
+</script>
+    
+    
+    
+</body>
+</html>

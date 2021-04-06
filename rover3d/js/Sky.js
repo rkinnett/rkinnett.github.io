@@ -151,14 +151,12 @@ Sky.SkyShader = {
 
 		'const float n = 1.0003;', // refractive index of air
 		//'const float N = 2.545E25;', // number of molecules per unit volume for air at 288.15K and 1013mb (sea level -45 celsius)
-    'const float N = 2.545E24;', // number of molecules per unit volume for air at 288.15K and 1013mb (sea level -45 celsius)
+    'const float N = 2.545E23;', // number of molecules per unit volume - density ~1% compared to Earth
 
 		// optical length at zenith for molecules
 		'const float rayleighZenithLength = 11.4E3;',
 		'const float mieZenithLength = 6.25E3;',
-		// 66 arc seconds -> degrees, and the cosine of that
-		//'const float sunAngularDiameterCos = 0.999956676946448443553574619906976478926848692873900859324;',
-    'const float sunAngularDiameterCos = 0.99997;',  //RK: slightly smaller sun
+    'const float sunAngularDiameterCos = 0.99997;',  //RK: slightly smaller sun  (was 0.9999566769)
 
 		// 3.0 / ( 16.0 * pi )
 		'const float THREE_OVER_SIXTEENPI = 0.05968310365946075;',
@@ -187,8 +185,7 @@ Sky.SkyShader = {
 		'	float sM = mieZenithLength * inverse;',
 
 		// combined extinction factor
-		//'	vec3 Fex = exp( -( vBetaR * sR + vBetaM * sM ) );',
-    '	vec3 Fex = exp( -( vBetaR * sR + vBetaM * sM ) );', //RK
+		'	vec3 Fex = exp( -( vBetaR * sR + vBetaM * sM ) );',
 
 		// in scattering
 		'	float cosTheta = dot( direction, vSunDirection );',
@@ -202,26 +199,17 @@ Sky.SkyShader = {
 		'	vec3 Lin = pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * ( 1.0 - Fex ), vec3( 1.5 ) );',
 		'	Lin *= mix( vec3( 1.0 ), pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * Fex, vec3( 1.0 / 2.0 ) ), clamp( pow( 1.0 - dot( up, vSunDirection ), 5.0 ), 0.0, 1.0 ) );',
 
-		// nightsky
-		'	float theta = acos( -1.0*direction.z ); // elevation --> z-axis, [-pi/2, pi/2]',
-		'	float phi = atan( direction.y, direction.x ); // azimuth --> z-axis [-pi/2, pi/2]',
-		'	vec2 uv = vec2( phi, theta ) / vec2( 2.0 * pi, pi ) + vec2( 0.5, 0.0 );',
-		//'	vec3 L0 = vec3( 0.1 ) * Fex;',
-    '	vec3 L0 = vec3( 0.1 ) * Fex;', //RK: unknown effect
+		'	vec3 L0 = vec3( 0.1 ) * Fex;',
 
 		// composition + solar disc
-		//'	float sundisk = smoothstep( sunAngularDiameterCos, sunAngularDiameterCos + 0.00002, cosTheta );',
-    '	float sundisk = smoothstep( sunAngularDiameterCos, sunAngularDiameterCos + 0.0001, cosTheta );', // RK: offset affects sun disk visibility
-		//'	L0 += ( vSunE * 19000.0 * Fex ) * sundisk;',
-    '	L0 += ( vSunE * 10000.0 * Fex ) * sundisk;', // RK: unknown effect
+		'	float sundisk = smoothstep( sunAngularDiameterCos, sunAngularDiameterCos + 0.00002, cosTheta );',
+		'	L0 += ( vSunE * 19000.0 * Fex ) * sundisk;',
 
-		//'	vec3 texColor = ( Lin + L0 ) * 0.04 + vec3( 0.0, 0.0003, 0.00075 );',
-    '	vec3 texColor = ( Lin + L0 ) * 0.04 + vec3( 0.00, 0.0003, 0.000003 );',  // RK: unknown effect
+		'	vec3 texColor = ( Lin + L0 ) * 0.04 + vec3( 0.0, 0.0003, 0.00075 );',
 
-		//'	vec3 retColor = pow( texColor, vec3( 1.0 / ( 1.2 + ( 1.2 * vSunfade ) ) ) );',
-    '	vec3 retColor = pow( texColor, 0.1+ vec3( 1.0 / ( 1.2 + ( 1.2 * vSunfade) ) ) );',  //RK: unknown effect
+		'	vec3 retColor = pow( texColor, vec3( 1.0 / ( 1.2 + ( 1.2 * vSunfade ) ) ) );',
 
-		'	gl_FragColor = vec4( retColor, 1.0 );',
+		' gl_FragColor = vec4( retColor, 1.0 );',
 
 		'#include <tonemapping_fragment>',
 		'#include <encodings_fragment>',

@@ -29,11 +29,11 @@
     }
 
     #status_container {
-      text-shadow: 0px 0px 8px rgba(255, 255, 255, 0.1);
-      color: orange;
+      text-shadow: 0px 0px 6px #FFF;
+      color: #F95;
       margin: 5px;
       position: absolute;
-      right: 0px;
+      right: 3px;
       z-index: 98;
       bottom: 0px;
       //opacity: 0.5;
@@ -52,17 +52,17 @@
     }
     
     #overlay {
-      position: fixed; /* Sit on top of the page content */
-      display: none; /* Hidden by default */
-      width: 100%; /* Full width (cover the whole page) */
-      height: 100%; /* Full height (cover the whole page) */
+      position: fixed; 
+      display: none; 
+      width: 100%; 
+      height: 100%; 
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
-      background-color: rgba(0,0,0,0.8); /* Black background with opacity */
-      z-index: 2; /* Specify a stack order in case you're using a different order for other elements */
-      cursor: pointer; /* Add a pointer on hover */
+      background-color: rgba(0,0,0,0.8); 
+      z-index: 100; 
+      cursor: pointer;
     }
     .astext {
       background:none;
@@ -79,8 +79,8 @@
     #info_button {
       z-index: 99;
       font-family: Monospace;
-      text-shadow: 0px 0px 8px #3DF;
-      color: #3DF;
+      text-shadow: 0px 0px 6px #FF6;
+      color: #F86;
       position: absolute;
       left: 0px;
       top: 0px;
@@ -88,15 +88,13 @@
     
     #info {
       text-align: left;
+      vertical-align: middle;
       position: absolute;
-      width: 75%;
-      height: 75%;
-      top: 50%;
-      left: 50%;
+      width: 80%;
+      height: 100%;
+      left: 10%;
       font-size: 14px;
       color: #ccc;
-      transform: translate(-50%,-50%);
-      -ms-transform: translate(-50%,-50%);
     }
     
     emph {
@@ -128,29 +126,27 @@
     <div class="annotation" id="status_container">Initializing</div>  
 
     <!-- Make Acknowledgments Panel -->
-    <button class="astext" id="info_button" onclick="overlayOn()">About</button>
-    <div id="overlay" onclick="overlayOff()">
+    <button class="astext" id="info_button" onclick="infoOverlayOn()">About</button>
+    <div id="overlay" onclick="infoOverlayOff()">
       <div id="info">
         <h1>Rover 3D</h1>
         R. Kinnett, 2021
         <br/>
         <hr/>
         <h3>Controls:</h3>
-        <li>Left button: rotate, center wheel: zoom, right button: pan</li>
-        <li>Double-click:  center view over selected position</li>
+        <li>Mouse:  Left button: rotate, center wheel: zoom, right button: pan</li>
+        <li>Touch:  Single-touch drag: rotate, double-touch drag: pan, double-touch pinch: zoom</li>
+        <li>Double-click or double-tap:  center view over selected position</li>
         <li>Key "d":  <emph>d</emph>rop rover at cursor</li>
         <li>Key "r":  center view over <emph>r</emph>over</li>
         <br/>
         <hr/>
         <h3>Acknowledgments:</h3>
         <li>
-          Base terrain map derived from USGS <a href="https://astrogeology.usgs.gov/search/map/Mars/Mars2020/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40">"Mars 2020 Terrain Relative Navigation HiRISE DTM Mosaic"</a> via Mars Reconnaissance Orbiter MOLA (NASA/JPL/GSFC/USGS) and HiRISE (NASA/JPL/University of Arizona)
+          Base terrain map derived from USGS <a href="https://astrogeology.usgs.gov/search/map/Mars/Mars2020/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40">"Mars 2020 Terrain Relative Navigation HiRISE DTM Mosaic"</a> via Mars Reconnaissance Orbiter MOLA (NASA/JPL/GSFC/USGS) and HiRISE (NASA/JPL/University of Arizona).  Colorized via <a href="https://www.flickr.com/photos/132160802@N06/50905666446/">Jezero Crater color mosaic</a> by J. Cowart with source images from MRO CTX (NASA/JPL/MSSS) and CRISM (NASA/JPL/JHUAPL), and Mars Express HRSC (ESA/DLR/FU Berlin), re-blended by R. Kinnett.
         </li>
         <li>
-          Colorized via <a href="https://www.flickr.com/photos/132160802@N06/50905666446/">Jezero Crater</a> mosaic by Justin Cowart with source images from MRO CTX (NASA/JPL/MSSS) and CRISM (NASA/JPL/JHUAPL), and Mars Express HRSC (ESA/DLR/FU Berlin)
-        </li>
-        <li>
-          Perseverance model courtesy <a href="https://mars.nasa.gov/resources/25042/mars-perseverance-rover-3d-model/" target="_blank" rel="noopener">NASA/JPL</a> (heavily modified by R. Kinnett)
+          <a href="https://mars.nasa.gov/resources/25042/mars-perseverance-rover-3d-model/">Perseverance rover model</a> courtesy NASA/JPL, heavily modified by R. Kinnett
         </li>
         <br />
       </div>
@@ -169,8 +165,8 @@
     -->
 
     <script>
-      function overlayOn() {  document.getElementById("overlay").style.display = "block"; }
-      function overlayOff() { document.getElementById("overlay").style.display = "none";  }
+      function infoOverlayOn() {  document.getElementById("overlay").style.display = "block"; }
+      function infoOverlayOff() { document.getElementById("overlay").style.display = "none";  }
     </script>
 
     <script src="js/dat.gui.min.js"></script>
@@ -198,6 +194,13 @@
 			let sky, uniforms;
       let routes;
       let ruler;
+      
+      let timeout;
+      let lastTap = 0;
+      
+      let ismobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      console.log("is mobile? " + ismobile);
+      
       let deg2rad = Math.PI/180;
       let rad2deg = 180/Math.PI;
 
@@ -313,11 +316,11 @@
         scene: {
           surfaceColor:  0xc3a17f,
           showHaze:   true,
-          fogDist:    6000,
+          fogDist:    8000,
         },
         pose: {
           arm: "STOW",
-          hga: "STOW",
+          hga: "READY",
           rsm: "STRAIGHT",
           mob: "STRAIGHT",
         },
@@ -333,18 +336,18 @@
 					mieCoefficient: 0.001,
 					mieDirectionalG: 0.7,
           diffuseLightColor:     0xf7d9a4,
-          initialDiffuseLightIntensity: 0.4,
+          initialDiffuseLightIntensity: 0.6,
         },
         sun: {
           az: -90, 
-          el: 30, 
-          dist: 40000, 
+          el: 60, 
+          dist: 20000, 
           x:0, 
           y:0, 
           z:0, 
-          intensity:     0.6,
+          intensity:     0.75,
           lightColor:    0xffffff,
-          maxIntensity:  0.6,
+          maxIntensity:  0.9,
           minLightFraction: 0.01,  //light intensity with sun at zero el
           maxElQuadraticLight: 15, //deg below which light falls off quadratically
         }
@@ -354,6 +357,17 @@
       var raycaster = new THREE.Raycaster(new THREE.Vector3(0,0,0), new THREE.Vector3(1,0,0), 0.1, 12000);
       var mouse = new THREE.Vector2();
       var clicked = new THREE.Vector2();
+      
+      let touch = {
+        current: {
+          moved: false,
+          startTime: new Date().getTime(),
+          nFingers: 0,
+          singleFingerTap: false,
+        }
+      };
+      touch.prev = JSON.parse(JSON.stringify(touch.current));
+      
       
       startLoadingManager();
 			init();
@@ -379,12 +393,24 @@
         window.renderer = renderer;
 				container.appendChild( renderer.domElement );
 
+        renderer.domElement.addEventListener('webglcontextlost', (event) => {
+          alert("webgl error");
+        });
+
+
+
+				scene = new THREE.Scene();
+        window.scene = scene;
+        scene.fog = new THREE.Fog(0xc3a17f, 0.1, options["scene"].showHaze ? options["scene"].fogDist : 0 );
+        //scene.background = new THREE.Color( options.skyColor );
+
+
 				camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 8000 );
         camera.up.set( 0, 0, -1 );
-        camera.lookAt(0,0,-1);
+        camera.lookAt(0,0,-1.25);
 				//camera.position.set( 3.6, -0.1, -0.65 );
         //camera.position.set( 3.6, 0, -0.65 );
-        camera.position.set( 5, 0, -1.4 );
+        camera.position.set( 4, 2, -1.4 );
         window.camera = camera;
                 
                 
@@ -397,6 +423,7 @@
         controls.mouseButtons = {LEFT: 0, MIDDLE: 1, RIGHT: 2};
         controls.enableKeys = true;
         controls.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
+        controls.touches = {ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN};
 				controls.minDistance = 0.1;
 				controls.listenToKeyEvents( window );
 				controls.maxDistance = 8000;
@@ -410,11 +437,7 @@
         // make compass inset:
         makeCompass();
         compass.visible = options["tools"].showCompass;
-                
-				scene = new THREE.Scene();
-        window.scene = scene;
-        scene.fog = new THREE.Fog(0xc3a17f, 0.1, options["scene"].showHaze ? options["scene"].fogDist : 0 );
-        //scene.background = new THREE.Color( options.skyColor );
+
 
         // Make RMI mirror:
         // to-do:  vertically invert the reflection
@@ -445,6 +468,7 @@
         uniforms.up.value               = new THREE.Vector3(0, 0, -1);
 				scene.add( sky );
 
+
         // Make lighting:
         diffuselight = new THREE.AmbientLight( options["sky"].diffuseLightColor );
         diffuselight.intensity = options["sky"].initialDiffuseLightIntensity;
@@ -473,7 +497,7 @@
         sun.light2.shadow.camera.bottom = -4000;
         sun.light2.shadow.camera.left = -4000;
         sun.light2.shadow.camera.right = 4000;
-        sun.lights.add( sun.light2 );
+        if(!ismobile) sun.lights.add( sun.light2 );
         
         //Create a helper for the shadow camera
         //const helper = new THREE.CameraHelper( sun.light1.shadow.camera );
@@ -515,7 +539,10 @@
         makeTerrain({
           urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h8m.tif',  // must be 16-bit grayscale tif
           //urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop8192m_rescale_2m_CRISM_color.jpg',
-          urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale50cm_color.jpg',
+          urlTextureMap: (ismobile?
+            'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop8192m_rescale_2m_CRISM_color.jpg' :
+            'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale50cm_color.jpg'
+          ),
           hscale: hscale,    // m/px
           vscale: vscale,  // m/px
           offset:   new THREE.Vector3(875, -1165, 240.14),
@@ -678,6 +705,11 @@
         document.addEventListener('mousemove', function(e){mouse.x = e.clientX; mouse.y = e.clientY;}, false); // cache mouse pos
         window.mouse = mouse;
         
+        renderer.domElement.addEventListener('touchstart', onTouchStart);
+        renderer.domElement.addEventListener('touchend', onTouchEnd);
+        renderer.domElement.addEventListener('touchmove', onTouchMove);
+
+        
         /* The following prevents browsers from interpreting pinch gestures as global zoom */
         //document.addEventListener('gesturestart',  function(e) { dontZoomWindow(e) });
         //document.addEventListener('gesturechange', function(e) { dontZoomWindow(e) });
@@ -690,6 +722,31 @@
         document.body.style.zoom = 0.99;
       }
 
+
+      function onTouchStart(event){
+        touch.current.moved = false;
+        touch.current.startTime = new Date().getTime();
+        touch.current.nFingers = event.touches.length;
+      }
+
+      function onTouchEnd(event){
+        touch.current.endTime = new Date().getTime();
+        touch.current.duration = touch.current.endTime - touch.current.startTime;
+        touch.current.singleFingerTap = (touch.current.duration<200 && touch.current.nFingers==1 && !touch.current.moved);
+        console.log(touch);
+        var timeBetween = touch.current.startTime - touch.prev.endTime;
+        console.log(timeBetween + " ms");
+        if(touch.current.singleFingerTap && touch.prev.singleFingerTap && timeBetween<500){
+          //alert("double tap " + event.touches.length);
+          doubleClicked(event.changedTouches[0]);
+          //event.preventDefault();
+        }        
+        touch.prev = JSON.parse(JSON.stringify(touch.current));
+      }
+
+      function onTouchMove(event){
+        touch.current.moved = true;
+      }
 
 
 			function onWindowResize() {
@@ -994,7 +1051,11 @@
              
             // Make single-sided to avoid rendering artifacts:
             if ( child.isMesh ) {
-              child.material.side = THREE.FrontSide;              
+              child.material.side = THREE.FrontSide;
+              if(child.material.map){
+                child.material.minFilter = THREE.NearestMipmapLinearFilter;
+              }
+              child.material.needsUpdate = true;
             }
           } );
             
@@ -1220,11 +1281,14 @@
 
       function doubleClicked(event){
         console.log("double clicked");
+        console.log(event);
         var intersects = checkWhatWasClicked(event, [terrain, rover]);
-        console.log(intersects[0].point);
-        //camera.position.set(intersects[0].point);
-        //camera.translate(0,0, -1*camera.position.distanceTo(intersects[0].point));
-        moveCameraToViewTarget(intersects[0].point);
+        if(intersects && intersects[0] && intersects[0].point){
+          console.log(intersects[0].point);
+          //camera.position.set(intersects[0].point);
+          //camera.translate(0,0, -1*camera.position.distanceTo(intersects[0].point));
+          moveCameraToViewTarget(intersects[0].point);
+        }
       }
 
       function moveCameraToViewTarget(newTargetPosition){
@@ -1418,21 +1482,21 @@
       }
       window.makePin = makePin;
   
-  
+    
       function startLoadingManager(){
         const status = document.getElementById('status_container');
         THREE.DefaultLoadingManager.onStart = function ( url, itemsLoaded, itemsTotal ) {
           console.log( 'Started loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
-          status.style.color = "orange";
-          status.innerText = "Loading";
+          status.innerHTML = "<b>Loading</b>";
+          status.style.color = "#F95";
         };
         THREE.DefaultLoadingManager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
           console.log( 'Loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
         };
         THREE.DefaultLoadingManager.onLoad = function ( ) {
           console.log( 'Loading Complete!');
-          status.style.color = "green";
-          status.innerText = "Ready";
+          status.style.color = "#6F6";
+          status.innerHTML = "Ready";
           render();
         };
       }
