@@ -53,19 +53,18 @@ Sky.SkyShader = {
 		'rayleigh': { value: 0.1 },
 		'mieCoefficient': { value: 0.005 },
 		'mieDirectionalG': { value: 0.85 },
-		'sunPosition': { value: new Vector3() },
+		'sunDirection': { value: new Vector3() },
 		'up': { value: new Vector3( 0, 0, -1 ) }
 	},
 
 	vertexShader: [
-		'uniform vec3 sunPosition;',
+		'uniform vec3 sunDirection;',
 		'uniform float rayleigh;',
 		'uniform float turbidity;',
 		'uniform float mieCoefficient;',
 		'uniform vec3 up;',
 
 		'varying vec3 vWorldPosition;',
-		'varying vec3 vSunDirection;',
 		'varying float vSunfade;',
 		'varying vec3 vBetaR;',
 		'varying vec3 vBetaM;',
@@ -89,10 +88,9 @@ Sky.SkyShader = {
 		'	vWorldPosition = worldPosition.xyz;',
 		'	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
 		'	gl_Position.z = gl_Position.w;',
-		'	vSunDirection = normalize( sunPosition );',
-		'	float zenithAngleCos = clamp( dot( vSunDirection, up ), -1.0, 1.0);',
+		'	float zenithAngleCos = clamp( dot( sunDirection, up ), -1.0, 1.0);',
     '	vSunE = sunIntensityZenith * max( 0.0, 1.0 - pow( e, -( ( piOver2 - acos( zenithAngleCos ) ) / sunIntensityVsElevation ) ) );',
-		'	vSunfade = 1.0 - clamp( 1.0 - exp( ( -1.0 * vSunDirection.z ) ), 0.0, 1.0 );',
+		'	vSunfade = 1.0 - clamp( 1.0 - exp( ( -1.0 * sunDirection.z ) ), 0.0, 1.0 );',
 
 		'	float rayleighCoefficient = rayleigh - ( 1.0 * ( 1.0 - vSunfade ) );',
 		'	vBetaR = totalRayleigh * rayleighCoefficient;',
@@ -103,15 +101,15 @@ Sky.SkyShader = {
 	].join( '\n' ),
 
 	fragmentShader: [
+		'uniform float mieDirectionalG;',
+		'uniform vec3 up;',
+    'uniform vec3 sunDirection;',
+    
 		'varying vec3 vWorldPosition;',
-		'varying vec3 vSunDirection;',
 		'varying float vSunfade;',
 		'varying vec3 vBetaR;',
 		'varying vec3 vBetaM;',
 		'varying float vSunE;',
-
-		'uniform float mieDirectionalG;',
-		'uniform vec3 up;',
 
 		'const vec3 cameraPos = vec3( 0.0, 0.0, 0.0 );',
 
@@ -152,7 +150,7 @@ Sky.SkyShader = {
 		'	vec3 Fex = exp( -( vBetaR * sR + vBetaM * sM ) );',
 
 		// in-scattering
-		'	float cosTheta = dot( direction, vSunDirection );',
+		'	float cosTheta = dot( direction, sunDirection );',
 
 		'	float rPhase = rayleighPhase( cosTheta * 0.5 + 0.5 );',
 		'	vec3 betaRTheta = vBetaR * rPhase;',
@@ -161,7 +159,7 @@ Sky.SkyShader = {
 		'	vec3 betaMTheta = vBetaM * mPhase;',
 
 		'	vec3 Lin = pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * ( 1.0 - Fex ), vec3( 1.5 ) );',
-		'	Lin *= mix( vec3( 1.0 ), pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * Fex, vec3( 0.5 ) ), clamp( pow( 1.0 - dot( up, vSunDirection ), 5.0 ), 0.0, 1.0 ) );',
+		'	Lin *= mix( vec3( 1.0 ), pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * Fex, vec3( 0.5 ) ), clamp( pow( 1.0 - dot( up, sunDirection ), 5.0 ), 0.0, 1.0 ) );',
 
 		'	vec3 L0 = vec3( 0.1 ) * Fex;',
 

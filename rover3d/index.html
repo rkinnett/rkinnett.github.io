@@ -187,7 +187,7 @@
       
       const { decode } = window.decodeTiff;
     
-			let camera, scene, renderer, controls;
+			let camera, scene, renderer, controls, gui;
       let rover, diffuselight, selected, roverNavCoordFrameAxes, terrain, terrainWireframe;
       let mirrorCamera, rmiMirror, insetWidth, insetHeight, mirrorMaterial, mirror, mirrorRendertTarget;
       let compassInsetContainer, compassInsetScene, compassInsetRenderer, compassInsetCamera, compass;
@@ -317,6 +317,7 @@
           surfaceColor:  0xc3a17f,
           showHaze:   true,
           fogDist:    8000,
+          lowRes:     true,
         },
         pose: {
           arm: "STOW",
@@ -539,7 +540,7 @@
         makeTerrain({
           urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h8m.tif',  // must be 16-bit grayscale tif
           //urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop8192m_rescale_2m_CRISM_color.jpg',
-          urlTextureMap: (ismobile?
+          urlTextureMap: (ismobile || options["scene"].lowRes?
             'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop8192m_rescale_2m_CRISM_color.jpg' :
             'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale50cm_color.jpg'
           ),
@@ -594,102 +595,9 @@
         routes.visible = options["tools"].showStrategicRoute;
         scene.add(routes);
 
-        //var armUnstowFcnWrapper = { add:function(){ armGoToPose("READY_OUT") }};
-        //var armStowFcnWrapper = { add:function(){ armGoToPose("STOW") }};
-        var drawMeasurementLineFcnWrapper = { add:function(){ drawMeasurementLine() }};
-        var clearRulerFcnWrapper = { add:function(){ clearRuler() }};
 
-        var gui = new dat.GUI();
-        window.gui = gui;
-        let folder = {};
-  
-        folder["tools"] = gui.addFolder('Tools');
+        makeGUI();
         
-        folder["ruler"] = folder["tools"].addFolder("Ruler");
-        folder["ruler"].add(drawMeasurementLineFcnWrapper,'add').name("Measure Distance");
-        folder["ruler"].add(ruler.measurement, "length").listen();
-        folder["ruler"].add(ruler.measurement, "horizontal").listen();
-        folder["ruler"].add(ruler.measurement, "vertical").listen();
-        folder["ruler"].add(ruler.measurement, "bearing").listen();
-        folder["ruler"].add(clearRulerFcnWrapper,'add').name("Clear");
-        folder["ruler"].open();
-        
-        folder["tools"].add(options["tools"], 'showCompass').listen().name("Compass").onChange(function(val){compass.visible = val; render()});
-        folder["tools"].add(options["tools"], 'showWireframe').listen().name("Grid (" + hscale + "m)").onChange(function(val){
-          terrainWireframe.visible = val;
-          render();
-        });
-        folder["tools"].add(options["tools"], 'showRnavCoordFrame').listen().name("Show RNAV").onChange(function(val){
-          roverNavCoordFrameAxes.visible = val; 
-          render(); 
-        });
-        folder["tools"].add(options["tools"], 'showStrategicRoute').listen().name("Strategic Route").onChange(function(val){
-          routes.visible = val;
-          render(); 
-        });
-        
-        
-        folder["scene"] = gui.addFolder('Scene');
-        folder["scene"].add(options["sun"], 'az', -179.9, 180.1).listen().name("Sun azimuth").onChange(placeSun);
-        folder["scene"].add(options["sun"], 'el', -0.5, 180.5).listen().name("Sun elevation").onChange(placeSun);
-        folder["scene"].add(options["sun"], 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){
-          sun.light1.intensity = val;
-          sun.light2.intensity = val;
-          render();
-        });
-        folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){
-          sun.light1.color.set(val);
-          sun.light2.color.set(val); 
-          render();
-        });
-        folder["scene"].add(diffuselight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(render);
-        folder["scene"].addColor(options["sky"],'diffuseLightColor').name("Diffuse light color").onChange(function(val){diffuselight.color.set(val); render()});
-        //folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
-        folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){terrain.material.color.set(val); render()});
-        folder["scene"].add(options["scene"], 'showHaze').listen().name("Haze").onChange(function(val){
-          scene.fog.far = val ? options["scene"].fogDist : 0; 
-          render();
-        });
-        //gui.add(options, 'showSun').listen().name("Show sun").onChange(function(val){ noOp() });
-        //gui.add(options, 'showFloor').listen().name("Show floor").onChange(function(val){ noOp() });
-        //gui.add(armStowFcnWrapper,'add').name("Stow Arm");
-        //gui.add(armUnstowFcnWrapper,'add').name("Unstow Arm");
-
-        folder["attitude"] = gui.addFolder('Attitude');
-        folder["attitude"].add(options["attitude"], 'roll', -40, 40).listen().name("Roll").onChange(tiltRover);
-        folder["attitude"].add(options["attitude"], 'pitch', -40, 40).listen().name("Pitch").onChange(tiltRover);
-        folder["attitude"].add(options["attitude"], 'yaw', -370, 370).listen().name("Heading").onChange(changeHeading);
-        folder["attitude"].add(options["attitude"], 'height', -3.0, 3.0).listen().name("Height").onChange(liftRover);
-
-
-
-        // make GUI folder for each joint group:
-        jointGroupNames.forEach(function(jointGroupName){
-          folder[jointGroupName] = gui.addFolder(jointGroupLongNames[jointGroupName]);
-        });
-
-        // make pose selectors:
-        jointGroupNames.forEach(function(jointGroupName){          
-          folder[jointGroupName].add(options["pose"], jointGroupName, poseNames[jointGroupName]).listen().name("Pose").onChange(function(poseName){goToPose(jointGroupName, poseName)});
-        });
-
-        // add joint controls to each joint group folder:
-        jointGroupNames.forEach(function(jointGroupName){          
-          jointNames[jointGroupName].forEach(function(jointName){
-            //console.log(jointName);
-            var joint = joints[jointGroupName][jointName];
-            joints[jointGroupName][jointName].gui = folder[jointGroupName].add(joint, 'angle', joint.min, joint.max)
-              .listen()
-              .name(joint.name)
-              .onChange(function(val){
-                setJoint(jointGroupName, jointName, val); 
-                render();
-              });
-          });
-        });
-                
-        // modify differential onchange callback:
-        joints["mob"]["diff"].gui.onChange(function(val){ mobSetRockers(val); });
 
         loadRover();
 
@@ -1217,7 +1125,7 @@
         var sunZ = -1 * options["sun"].dist * Math.sin(Math.max(-0.5,options["sun"].el) * deg2rad);
         sun.pos.set(sunX, sunY, sunZ);
         sun.lights.position.set(sunX, sunY, sunZ);
-				sky.material.uniforms[ "sunPosition" ].value.copy( sun.pos );
+				sky.material.uniforms[ "sunDirection" ].value.copy( sun.pos.normalize() );
         var intensityMultiplier = 1;
         var sunEl = Math.max(0, options["sun"].el<90? options["sun"].el : 180-options["sun"].el);
         if(sunEl<20){
@@ -1457,6 +1365,103 @@
         };
         xhr.send();
       }
+  
+    
+      function makeGUI(){
+        gui = new dat.GUI();
+        window.gui = gui;
+        var folder = {};
+  
+        var drawMeasurementLineFcnWrapper = { add:function(){ drawMeasurementLine() }};
+        var clearRulerFcnWrapper = { add:function(){ clearRuler() }};
+
+  
+        folder["tools"] = gui.addFolder('Tools');
+        
+        folder["ruler"] = folder["tools"].addFolder("Ruler");
+        folder["ruler"].add(drawMeasurementLineFcnWrapper,'add').name("Measure Distance");
+        folder["ruler"].add(ruler.measurement, "length").listen();
+        folder["ruler"].add(ruler.measurement, "horizontal").listen();
+        folder["ruler"].add(ruler.measurement, "vertical").listen();
+        folder["ruler"].add(ruler.measurement, "bearing").listen();
+        folder["ruler"].add(clearRulerFcnWrapper,'add').name("Clear");
+        folder["ruler"].open();
+        
+        folder["tools"].add(options["tools"], 'showCompass').listen().name("Compass").onChange(function(val){compass.visible = val; render()});
+        folder["tools"].add(options["tools"], 'showWireframe').listen().name("Grid (" + terrain.hscale + "m)").onChange(function(val){
+          terrainWireframe.visible = val;
+          render();
+        });
+        folder["tools"].add(options["tools"], 'showRnavCoordFrame').listen().name("Show RNAV").onChange(function(val){
+          roverNavCoordFrameAxes.visible = val; 
+          render(); 
+        });
+        folder["tools"].add(options["tools"], 'showStrategicRoute').listen().name("Strategic Route").onChange(function(val){
+          routes.visible = val;
+          render(); 
+        });
+        
+        folder["scene"] = gui.addFolder('Scene');
+        folder["scene"].add(options["sun"], 'az', -179.9, 180.1).listen().name("Sun azimuth").onChange(placeSun);
+        folder["scene"].add(options["sun"], 'el', -0.5, 180.5).listen().name("Sun elevation").onChange(placeSun);
+        folder["scene"].add(options["sun"], 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){
+          sun.light1.intensity = val;
+          sun.light2.intensity = val;
+          render();
+        });
+        folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){
+          sun.light1.color.set(val);
+          sun.light2.color.set(val); 
+          render();
+        });
+        folder["scene"].add(diffuselight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(render);
+        folder["scene"].addColor(options["sky"],'diffuseLightColor').name("Diffuse light color").onChange(function(val){diffuselight.color.set(val); render()});
+        //folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
+        folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){terrain.material.color.set(val); render()});
+        folder["scene"].add(options["scene"], 'showHaze').listen().name("Haze").onChange(function(val){
+          scene.fog.far = val ? options["scene"].fogDist : 0; 
+          render();
+        });
+        //gui.add(options, 'showSun').listen().name("Show sun").onChange(function(val){ noOp() });
+        //gui.add(options, 'showFloor').listen().name("Show floor").onChange(function(val){ noOp() });
+        //gui.add(armStowFcnWrapper,'add').name("Stow Arm");
+        //gui.add(armUnstowFcnWrapper,'add').name("Unstow Arm");
+
+        folder["attitude"] = gui.addFolder('Attitude');
+        folder["attitude"].add(options["attitude"], 'roll', -40, 40).listen().name("Roll").onChange(tiltRover);
+        folder["attitude"].add(options["attitude"], 'pitch', -40, 40).listen().name("Pitch").onChange(tiltRover);
+        folder["attitude"].add(options["attitude"], 'yaw', -370, 370).listen().name("Heading").onChange(changeHeading);
+        folder["attitude"].add(options["attitude"], 'height', -3.0, 3.0).listen().name("Height").onChange(liftRover);
+
+        // make GUI folder for each joint group:
+        jointGroupNames.forEach(function(jointGroupName){
+          folder[jointGroupName] = gui.addFolder(jointGroupLongNames[jointGroupName]);
+        });
+
+        // make pose selectors:
+        jointGroupNames.forEach(function(jointGroupName){          
+          folder[jointGroupName].add(options["pose"], jointGroupName, poseNames[jointGroupName]).listen().name("Pose").onChange(function(poseName){goToPose(jointGroupName, poseName)});
+        });
+
+        // add joint controls to each joint group folder:
+        jointGroupNames.forEach(function(jointGroupName){          
+          jointNames[jointGroupName].forEach(function(jointName){
+            //console.log(jointName);
+            var joint = joints[jointGroupName][jointName];
+            joints[jointGroupName][jointName].gui = folder[jointGroupName].add(joint, 'angle', joint.min, joint.max)
+              .listen()
+              .name(joint.name)
+              .onChange(function(val){
+                setJoint(jointGroupName, jointName, val); 
+                render();
+              });
+          });
+        });
+                
+        // modify differential onchange callback:
+        joints["mob"]["diff"].gui.onChange(function(val){ mobSetRockers(val); });
+      }
+  
   
   
       function makePin(origin, direction, pinLength, pinHeadWidth, pinColor, onload){
