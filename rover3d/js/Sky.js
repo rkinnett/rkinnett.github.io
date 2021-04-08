@@ -8,22 +8,23 @@ import {
 } from './three.module.js';
 
 /**
- * Based originally on "A Practical Analytic Model for Daylight"
- * aka The Preetham Model, the de facto standard analytic skydome model
- * https://www.researchgate.net/publication/220720443_A_Practical_Analytic_Model_for_Daylight
+ * Based originally on mrdoob's three.js webgl sky shader demo:
+ * https://github.com/mrdoob/three.js/blob/dev/examples/jsm/objects/Sky.js
  *
- * First implemented by Simon Wallner
- * http://www.simonwallner.at/projects/atmospheric-scattering
+ *   Which is in turn based on:
+ *     Three.js integration by zz85 http://twitter.com/blurspline
  *
- * Improved by Martin Upitis
- * http://blenderartists.org/forum/showthread.php?245954-preethams-sky-impementation-HDR
+ *     "A Practical Analytic Model for Daylight"
+ *       aka The Preetham Model, the de facto standard analytic skydome model
+ *       https://www.researchgate.net/publication/220720443_A_Practical_Analytic_Model_for_Daylight
  *
- * Three.js integration by zz85 http://twitter.com/blurspline
+ *     First implemented by Simon Wallner
+ *       http://www.simonwallner.at/projects/atmospheric-scattering
  *
- * Mars adaptation by Ryan Kinnett, 2021, based loosely on:
- * Peter Collienne et al: https://core.ac.uk/download/pdf/18591764.pdf
- * Steve Albers:  http://stevealbers.net/albers/allsky/mars.html
- * 
+ *     Improved by Martin Upitis
+ *       http://blenderartists.org/forum/showthread.php?245954-preethams-sky-impementation-HDR
+ *
+ * Mars adaptation by Ryan Kinnett, 2021
 */
 
 var Sky = function () {
@@ -117,12 +118,11 @@ Sky.SkyShader = {
 		'const float pi = 3.141592653589793238462643383279502884197169;',
 		'const float THREE_OVER_SIXTEENPI = 0.05968310365946075;',
 		'const float ONE_OVER_FOURPI = 0.07957747154594767;',
-    'const float RAD_TO_DEG = 57.2957795131;',
 
 
 		// optical length at zenith
-		'const float rayleighZenithLength   = 4.0E3;',   //RK: affects horizon appearance (10.0E3)
-		'const float mieZenithLength        = 1.0E3;',   //RK: affects horizon appearance (5.0E3)
+		'const float rayleighZenithLength   = 4.0E3;',   //RK: affects Rayleigh scattering intensity (10.0E3)
+		'const float mieZenithLength        = 1.0E3;',   //RK: affects Mie scattering intensity (5.0E3)
 
     // sun disk
     'const float sunAngularDiameterCos  = 0.99998;',  //RK: higher value = smaller sun disk
@@ -144,7 +144,7 @@ Sky.SkyShader = {
 
 		// optical length
 		'	float zenithAngle = acos( max( 0.0, dot( up, direction ) ) );',
-		'	float inverse = 1.0 / ( cos( zenithAngle ) + 0.15 * pow( 93.885 - zenithAngle * RAD_TO_DEG, -1.253 ) );',
+		'	float inverse = 1.0 / ( cos( zenithAngle ) + 0.000940 * pow( 1.638602368 - zenithAngle, -1.253 ) );',
 		'	float sR = rayleighZenithLength * inverse;',
 		'	float sM = mieZenithLength * inverse;',
 
