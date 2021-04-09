@@ -446,8 +446,8 @@
         window.mirrorCamera = mirrorCamera;
         mirrorCamera.rotation.y = -1*Math.PI/2;
         scene.add( mirrorCamera );
-        const helper = new THREE.CameraHelper( mirrorCamera );  //handy for debugging
-        scene.add( helper );
+        //const helper = new THREE.CameraHelper( mirrorCamera );  //handy for debugging
+        //scene.add( helper );
         var mirrorGeom = new THREE.CircleGeometry( 0.07, 32 );
 				mirror = new Reflector( mirrorGeom, {
 					clipBias: 0.003,
