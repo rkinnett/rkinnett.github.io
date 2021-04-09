@@ -317,7 +317,7 @@
           surfaceColor:  0xc3a17f,
           showHaze:   true,
           fogDist:    8000,
-          lowRes:     true,
+          lowRes:     false,
         },
         pose: {
           arm: "STOW",
@@ -442,12 +442,12 @@
 
         // Make RMI mirror:
         // to-do:  vertically invert the reflection
-        mirrorCamera = new THREE.PerspectiveCamera( 15, window.innerWidth / window.innerHeight, 0.1, 1000 );
+        mirrorCamera = new THREE.PerspectiveCamera( 8, window.innerWidth / window.innerHeight, 0.1, 1000 );
         window.mirrorCamera = mirrorCamera;
         mirrorCamera.rotation.y = -1*Math.PI/2;
         scene.add( mirrorCamera );
-        //const helper = new THREE.CameraHelper( mirrorCamera );  //handy for debugging
-        //scene.add( helper );
+        const helper = new THREE.CameraHelper( mirrorCamera );  //handy for debugging
+        scene.add( helper );
         var mirrorGeom = new THREE.CircleGeometry( 0.07, 32 );
 				mirror = new Reflector( mirrorGeom, {
 					clipBias: 0.003,
