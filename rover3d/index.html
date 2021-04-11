@@ -317,7 +317,7 @@
           surfaceColor:  0xc3a17f,
           showHaze:   true,
           fogDist:    8000,
-          lowRes:     false,
+          terrainTextureResolution: (ismobile?'2m':'1m'),
         },
         pose: {
           arm: "STOW",
@@ -368,6 +368,12 @@
         }
       };
       touch.prev = JSON.parse(JSON.stringify(touch.current));
+      
+      const terrainTextureResolutions = [
+        '50cm',
+        '1m',
+        '2m',
+      ];
       
       
       startLoadingManager();
@@ -539,11 +545,6 @@
         const hscale = 8;    //m/px, horizontal grid spacing of terrain height map
         makeTerrain({
           urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h8m.tif',  // must be 16-bit grayscale tif
-          //urlTextureMap: 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop8192m_rescale_2m_CRISM_color.jpg',
-          urlTextureMap: (ismobile || options["scene"].lowRes?
-            'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop8192m_rescale_2m_CRISM_color.jpg' :
-            'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale50cm_color.jpg'
-          ),
           hscale: hscale,    // m/px
           vscale: vscale,  // m/px
           offset:   new THREE.Vector3(875, -1165, 240.14),
@@ -551,11 +552,12 @@
           color:  options["scene"].surfaceColor,
           onload: function(){
             console.log("loaded terrain");
-            scene.add(terrain);
-            //var vnh = new VertexNormalsHelper( terrain, 1 );
-            //scene.add( vnh );                       
-            render();
-            controls.update();
+            setTerrainTexture(options["scene"].terrainTextureResolution, function(){
+              scene.add(terrain);
+              render();
+              //var vnh = new VertexNormalsHelper( terrain, 1 );
+              //scene.add( vnh );
+            });
           }
         });
 
@@ -1055,15 +1057,8 @@
           
           //render();
 
-          if(params.urlTextureMap!==undefined){
-            console.log("loading terrain texture..");
-            terrain.material.map = new THREE.TextureLoader().load(params.urlTextureMap, function(){
-              console.log("done loading terrain texture");
-              if(params.onload!==undefined) params.onload();
-            });
-          } else {
-            if(params.onload!==undefined) params.onload();
-          }
+          if(params.onload!==undefined) params.onload();
+
           
           if(params.urlNormalsMap!==undefined){
             terrain.material.normalMap = new THREE.TextureLoader().load(params.urlNormalsMap);
@@ -1078,6 +1073,18 @@
         });
       }
       window.makeTerrain = makeTerrain;
+
+
+      function setTerrainTexture(resolution, onload){
+        if( /^[0-9]+c?m$/.test(resolution) ){
+          const urlTextureMap = 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale' + resolution + '_color.jpg';
+          console.log("loading terrain texture: " + urlTextureMap);
+          terrain.material.map = new THREE.TextureLoader().load(urlTextureMap, function(){
+            console.log("done loading terrain texture");
+            if(onload) onload();
+          });
+        }
+      }
 
 
       function goToPose(jointGroup, poseName){
@@ -1418,7 +1425,8 @@
         folder["scene"].addColor(options["sky"],'diffuseLightColor').name("Diffuse light color").onChange(function(val){diffuselight.color.set(val); render()});
         //folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
         folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){terrain.material.color.set(val); render()});
-        folder["scene"].add(options["scene"], 'showHaze').listen().name("Haze").onChange(function(val){
+        folder["scene"].add(options["scene"], 'terrainTextureResolution', terrainTextureResolutions).name('Resolution').onChange(function(val){setTerrainTexture(val)});
+        folder["scene"].add(options["scene"], 'showHaze').name("Haze").onChange(function(val){
           scene.fog.far = val ? options["scene"].fogDist : 0; 
           render();
         });
@@ -1440,7 +1448,7 @@
 
         // make pose selectors:
         jointGroupNames.forEach(function(jointGroupName){          
-          folder[jointGroupName].add(options["pose"], jointGroupName, poseNames[jointGroupName]).listen().name("Pose").onChange(function(poseName){goToPose(jointGroupName, poseName)});
+          folder[jointGroupName].add(options["pose"], jointGroupName, poseNames[jointGroupName]).name("Pose").onChange(function(poseName){goToPose(jointGroupName, poseName)});
         });
 
         // add joint controls to each joint group folder:

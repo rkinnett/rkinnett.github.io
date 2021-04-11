@@ -150,7 +150,7 @@ Sky.SkyShader = {
 		'	vec3 Fex = exp( -( vBetaR * sR + vBetaM * sM ) );',
 
 		// in-scattering
-		'	float cosTheta = dot( direction, sunDirection );',
+		'	float cosTheta = clamp(dot( direction, sunDirection ), 0.0, 1.0);',
 
 		'	float rPhase = rayleighPhase( cosTheta * 0.5 + 0.5 );',
 		'	vec3 betaRTheta = vBetaR * rPhase;',
