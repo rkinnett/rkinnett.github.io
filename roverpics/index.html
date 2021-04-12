@@ -535,7 +535,7 @@ function selectImages(allOrNone){
 
 function getLatest(){
   setThisPageUrlParams(mission);
-  fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission);
+  imageQuery(mission);
   urlParams.sol = "";
   urlParams.mission = mission;
   setThisPageUrlParams();
@@ -570,7 +570,7 @@ function prevSol(){
 function getSol(sol){
   if ( /^[0-9]+$/.test(sol)) {
     document.getElementById("textSol").value = sol;
-    fetchRss('https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission + '&sol=' + sol);
+    imageQuery(mission, sol, true);
     urlParams.sol = sol;
     urlParams.mission = mission;
     setThisPageUrlParams();
@@ -622,33 +622,101 @@ function setThisPageUrlParams(){
 
 
   
-function fetchRss(rss_url){
-  console.log("fetching rss feed:  " + rss_url);
+function imageQuery(mission, sol, video){
+  var rss_url = 'https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission;
+  if(sol) rss_url += '&sol=' + sol;
+  //if(video) rss_url += '&extended=product_id::ecv';
+
+  clearTable();
+
+  // Initial request gets normal image types:
+  fetchJson(rss_url, function(rxJson1){
+    image_list_json = rxJson1;
+    console.log(image_list_json);
+    if(!image_list_json || !image_list_json.images || !image_list_json.images.length) return;    
+    const initial_image_count = image_list_json.images.length;
+    got_images = true;
+    
+    // Extended query to see if there are any video frames from this sol:    
+    const images_per_page = 100; // 100 is API max
+    fetchJson(rss_url + '&condition_2=' + sol + ':sol:gte&condition_3=' + sol + ':sol:lte&num=' + images_per_page + '&page=' + 0 + '&extended=product_id::ecv', function(extd_image_list_json){
+      console.log(extd_image_list_json);
+
+      // If first extended query indicates images are available, then get total count and calculate page count:
+      var num_pages = 0;
+      if(extd_image_list_json && extd_image_list_json.total_results){
+        const num_pages = Math.ceil(extd_image_list_json.total_results / images_per_page);
+      }      
+      console.log("extended query indicates " + extd_image_list_json.total_results + " images available");
+
+      // Append images from the first page, one at a time, to master list
+      if(extd_image_list_json.images && extd_image_list_json.images.length>0 ){
+        var this_page_img_count = 0;
+        extd_image_list_json.images.forEach(function(img){
+          image_list_json.images[initial_image_count + extd_image_list_json.page*images_per_page + this_page_img_count] = img;
+          this_page_img_count++;
+        });
+      }
+      
+      // If there are no frames, or just one page, then proceed to tabulation
+      if(num_pages<=1){
+        tabulateImages();
+        buildTable();
+        return;
+      }
+
+      // If there are more pages then loop through them:        
+      var pages_loaded = 1;
+      for(var page=1; page<num_pages; page++){
+        fetchJson(rss_url + '&condition_2=' + sol + ':sol:gte&condition_3=' + sol + ':sol:lte&num=' + images_per_page + '&page=' + page + '&extended=product_id::ecv', function(extd_image_list_json){
+          console.log(extd_image_list_json);
+
+          // Append images, one at a time, to master list
+          if(extd_image_list_json.images && extd_image_list_json.images.length>0 ){
+            console.log("appending page " + extd_image_list_json.page + " images to image list");
+            var this_page_img_count = 0;
+            extd_image_list_json.images.forEach(function(img){
+              image_list_json.images[initial_image_count + extd_image_list_json.page*images_per_page + this_page_img_count] = img;
+              this_page_img_count++;
+            });
+          }
+          
+          pages_loaded++;
+          if(pages_loaded>=num_pages){
+            console.log("finished query");
+            console.log("extended query returned " + extd_image_list_json.total_results + ' images spanning ' + num_pages + ' pages');
+            tabulateImages();
+            buildTable();
+          }            
+        });
+      }
+    });
+  });
+}
+
+
+function fetchJson(url, callback){
+  console.log("fetching rss feed:  " + url);
   setBusyIndicator(true);
   xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4) {
-      clearTable();
       if (this.status == 200) {
         console.log(this.responseText);
-        image_list_json = JSON.parse(this.responseText);
-        console.log(image_list_json);
-        image_list = image_list_json.images;
-        got_images = true;
-        tabulateImages();
-        buildTable();
+        if(callback) callback(JSON.parse(this.responseText));
       } else {
         console.log("unexpected response:");
-        console.log(this.responseText);
+        console.log(JSON.stringify(this.responseText));
         alert("Error fetching requested feed. The server may be overloaded, or it's possible no images have been posted from the requested sol.");
       }
       setBusyIndicator(false);
     }
   };
   setBusyIndicator(true);
-  xhttp.open("GET", rss_url, true);
-  setTimeout(function(){ xhttp.send(); }, 100);
+  xhttp.open("GET", url, true);
+  setTimeout(function(){ xhttp.send(null); }, 100);
 }
+
 
 
 function clearTable(){
@@ -664,10 +732,10 @@ function tabulateImages(){
   console.log("tabulating images");
   cameras = [];
   image_types = [];
-  
   camera_type_img_counts = [];
   image_type_img_counts = [];
   
+  image_list = image_list_json.images;
   num_images = image_list.length;
   start_sol = image_list[0].sol; // initial value; will check each image
   end_sol = image_list[0].sol; // initial value; will check each image
