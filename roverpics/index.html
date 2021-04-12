@@ -113,6 +113,10 @@ strong {
   text-decoration: underline;
 }
 
+gray {
+  color: #A96;
+}
+
 .collapse {
   width: fit-content;
   display: inline-block;
@@ -147,9 +151,9 @@ strong {
       <ol>
         <li> Start by selecting either MSL or M2020 in the upper left. Then, either:
           <ul>
-            <li>Click "Latest 25 images" to retrieve the latest <i>downlinked</i> images, or</li>
-            <li>Click "Current Sol" to retrieve images (if available) for the current sol, or</li>
-            <li>Enter a specific sol number and click Go, or click Prev/Next to increment/decrement sol number and retrieve images, if available</li>
+            <li>click "Latest 25 images" to retrieve the latest <i>downlinked</i> images,</li>
+            <li>or click "Current Sol" to retrieve images (if available) for the current sol,</li>
+            <li>or enter a specific sol number and click Go, or click Prev/Next to increment/decrement sol number and retrieve images, if available.</li>
           </ul> 
         </li>
         <li> After retrieving image information and thumbnails, the user may:
@@ -176,17 +180,18 @@ strong {
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl">##PAGE_ADDR##?msl</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020">##PAGE_ADDR##?mars2020</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000">##PAGE_ADDR##?msl&sol3000</a>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000&camera=HAZ">##PAGE_ADDR##?msl&sol3000&camera=haz</a>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3052&filter=rhaz00311">##PAGE_ADDR##?msl&sol3052&filter=rhaz00311</a>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol0&filter=EDL">##PAGE_ADDR##?mars2020&sol0&filter=EDL</a>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000&camera=HAZ">##PAGE_ADDR##?msl&sol3000&camera=haz</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches hazcam images)</gray>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3052&filter=rhaz00311">##PAGE_ADDR##?msl&sol3052&filter=rhaz00311</a>&nbsp;&nbsp;&nbsp;<gray>(fetch images from specific sequence)</gray>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol0&filter=EDL">##PAGE_ADDR##?mars2020&sol0&filter=EDL</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches specific image type)</gray>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol0&filter=EDL">##PAGE_ADDR##?mars2020&sol0&filter=ECV</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches movie frames)</gray>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol18&fullframe">##PAGE_ADDR##?mars2020&sol18&fullframe</a>
       
       <hr/>
       Image credits are provided in the JSON file which can be exported via the Export Metadata button.<br/><br/>
       
-      Get the source code on <a href="https://github.com/rkinnett/rkinnett.github.io/tree/master/roverpics">Github</a>.<br/>
+      Get the source code on <a href="https://github.com/rkinnett/rkinnett.github.io/tree/master/roverpics">github</a>.<br/>
       
-      <b>Comments and suggestions: </b> <a href="https://twitter.com/rover_18">twitter</a> or <a href="https://discord.gg/Eky6AhRSnj">Discord</a>
+      <b>Comments and suggestions: </b> <a href="https://twitter.com/rover_18">twitter</a> or <a href="https://discord.gg/Eky6AhRSnj">discord</a>
       
     </p>
   </div>
@@ -570,7 +575,7 @@ function prevSol(){
 function getSol(sol){
   if ( /^[0-9]+$/.test(sol)) {
     document.getElementById("textSol").value = sol;
-    imageQuery(mission, sol, true);
+    imageQuery(mission, sol);
     urlParams.sol = sol;
     urlParams.mission = mission;
     setThisPageUrlParams();
@@ -622,77 +627,118 @@ function setThisPageUrlParams(){
 
 
   
-function imageQuery(mission, sol, video){
-  var rss_url = 'https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission;
-  if(sol) rss_url += '&sol=' + sol;
-  //if(video) rss_url += '&extended=product_id::ecv';
+function imageQuery(mission, sol){
+  const base_url = 'https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission;
+  const images_per_page = 100; // 100 is API max
 
   clearTable();
 
-  // Initial request gets normal image types:
-  fetchJson(rss_url, function(rxJson1){
-    image_list_json = rxJson1;
-    console.log(image_list_json);
-    if(!image_list_json || !image_list_json.images || !image_list_json.images.length) return;    
-    const initial_image_count = image_list_json.images.length;
-    got_images = true;
+  // If sol was not specified, just do basic full-frame latest image query:
+  if(sol === undefined){
+    console.log("sol undefined.. performing standard query only");
+    getFullframeStillframes(base_url, function(){
+      tabulateImages();
+      buildTable();
+    });
+    return;
+  }
+  
+  
+  // Get full-frame still frames:
+  var rss_url = base_url + '&condition_2=' + sol + ':sol:gte&condition_3=' + sol + ':sol:lte&num=' + images_per_page;
+  console.log("Getting full-frame still frames");
+  getFullframeStillframes(rss_url + '&extended=sample_type::full', function(){
+  
+    // Get thumbnail still frames:
+    console.log("Getting thumbnail still frames");
+    getPaginatedFrames(rss_url + '&extended=sample_type::thumbnail', function(){
     
-    // Extended query to see if there are any video frames from this sol:    
-    const images_per_page = 100; // 100 is API max
-    fetchJson(rss_url + '&condition_2=' + sol + ':sol:gte&condition_3=' + sol + ':sol:lte&num=' + images_per_page + '&page=' + 0 + '&extended=product_id::ecv', function(extd_image_list_json){
-      console.log(extd_image_list_json);
+      // Get full-frame movie frames:
+      console.log("Getting full-frame movie frames");
+      getPaginatedFrames(rss_url + '&extended=sample_type::full,product_id::ecv,', function(){
 
-      // If first extended query indicates images are available, then get total count and calculate page count:
-      var num_pages = 0;
-      if(extd_image_list_json && extd_image_list_json.total_results){
-        const num_pages = Math.ceil(extd_image_list_json.total_results / images_per_page);
-      }      
-      console.log("extended query indicates " + extd_image_list_json.total_results + " images available");
+        // Get thumbnail movie frames:
+        console.log("Getting subframe movie frames");
+        getPaginatedFrames(rss_url + '&extended=sample_type::thumbnail,product_id::ecv,', function(){
 
-      // Append images from the first page, one at a time, to master list
-      if(extd_image_list_json.images && extd_image_list_json.images.length>0 ){
-        var this_page_img_count = 0;
-        extd_image_list_json.images.forEach(function(img){
-          image_list_json.images[initial_image_count + extd_image_list_json.page*images_per_page + this_page_img_count] = img;
-          this_page_img_count++;
+          tabulateImages();
+          buildTable();
+          return;
         });
-      }
-      
-      // If there are no frames, or just one page, then proceed to tabulation
-      if(num_pages<=1){
-        tabulateImages();
-        buildTable();
-        return;
-      }
-
-      // If there are more pages then loop through them:        
-      var pages_loaded = 1;
-      for(var page=1; page<num_pages; page++){
-        fetchJson(rss_url + '&condition_2=' + sol + ':sol:gte&condition_3=' + sol + ':sol:lte&num=' + images_per_page + '&page=' + page + '&extended=product_id::ecv', function(extd_image_list_json){
-          console.log(extd_image_list_json);
-
-          // Append images, one at a time, to master list
-          if(extd_image_list_json.images && extd_image_list_json.images.length>0 ){
-            console.log("appending page " + extd_image_list_json.page + " images to image list");
-            var this_page_img_count = 0;
-            extd_image_list_json.images.forEach(function(img){
-              image_list_json.images[initial_image_count + extd_image_list_json.page*images_per_page + this_page_img_count] = img;
-              this_page_img_count++;
-            });
-          }
-          
-          pages_loaded++;
-          if(pages_loaded>=num_pages){
-            console.log("finished query");
-            console.log("extended query returned " + extd_image_list_json.total_results + ' images spanning ' + num_pages + ' pages');
-            tabulateImages();
-            buildTable();
-          }            
-        });
-      }
+      });
     });
   });
 }
+
+
+function getPaginatedFrames(url, callback){
+  const initial_image_count = image_list_json.images.length;
+  
+  // Extended query to see if there are any video frames from this sol:    
+  fetchJson(url + '&page=' + 0, function(extd_image_list_json){
+    console.log(extd_image_list_json);
+
+    // If first extended query indicates images are available, then get total count and calculate page count:
+    var num_pages = 0;
+    if(extd_image_list_json && extd_image_list_json.total_results){
+      const num_pages = Math.ceil(extd_image_list_json.total_results / extd_image_list_json.per_page);
+    }      
+    console.log("extended query indicates " + extd_image_list_json.total_results + " images available");
+
+    // Append images from the first page, one at a time, to master list
+    if(extd_image_list_json.images && extd_image_list_json.images.length>0 ){
+      var this_page_img_count = 0;
+      extd_image_list_json.images.forEach(function(img){
+        image_list_json.images[initial_image_count + extd_image_list_json.page*extd_image_list_json.per_page + this_page_img_count] = img;
+        this_page_img_count++;
+      });
+    }
+    
+    // If there are no frames, or just one page, then proceed to tabulation
+    if(num_pages<=1){
+      callback();
+      return;
+    }
+
+    // If there are more pages then loop through them:        
+    var pages_loaded = 1;
+    for(var page=1; page<num_pages; page++){
+      fetchJson(rss_url + '&condition_2=' + sol + ':sol:gte&condition_3=' + sol + ':sol:lte&num=' + extd_image_list_json.per_page + '&page=' + page + '&extended=product_id::ecv', function(extd_image_list_json){
+        console.log(extd_image_list_json);
+
+        // Append images, one at a time, to master list
+        if(extd_image_list_json.images && extd_image_list_json.images.length>0 ){
+          console.log("appending page " + extd_image_list_json.page + " images to image list");
+          var this_page_img_count = 0;
+          extd_image_list_json.images.forEach(function(img){
+            image_list_json.images[initial_image_count + extd_image_list_json.page*extd_image_list_json.per_page + this_page_img_count] = img;
+            this_page_img_count++;
+          });
+        }
+        
+        pages_loaded++;
+        if(pages_loaded>=num_pages){
+          console.log("finished query");
+          console.log("extended query returned " + extd_image_list_json.total_results + ' images spanning ' + num_pages + ' pages');
+          callback();
+        }            
+      });
+    }
+  });
+}
+
+
+
+function getFullframeStillframes(rss_url, callback){
+  fetchJson(rss_url, function(rxJson){
+    image_list_json = rxJson;
+    console.log(image_list_json);
+    if(!image_list_json || !image_list_json.images || !image_list_json.images.length) return;    
+    got_images = true;
+    if(callback) callback();
+  });
+}
+
 
 
 function fetchJson(url, callback){
@@ -834,7 +880,7 @@ function buildTable(){
         image_id_filter.test(image_id) &&
         ((selected && showSelected) || (!selected && showUnselected))
       ){
-      console.log("showing image " + n + " " + cam_type + " " + img_type);
+      //console.log("showing image " + n + " " + cam_type + " " + img_type);
 
       thumb_url   = this_img.image_files["small"];
       biggest_url = this_img.image_files["full_res"];
@@ -929,7 +975,7 @@ function currentMarsTime(){
   lmst.hour  = Math.floor(hourf);
   var minf  = (hourf % 1)*60;
   lmst.min   = Math.floor(minf);
-  console.log(lmst);
+  //console.log(lmst);
   return lmst;
 }
 
@@ -939,7 +985,7 @@ function hoursSinceLmst(lmstStr){
   const lmstRegex = /([Ss][Oo][Ll][ -]?0*)?([0-9]+)[M ]0*([0-9]+):([0-9]+)(:([0-9]+)(\.([0-9]+))?)?$/;
   if( lmstRegex.test(lmstStr) ){
     var fromLmst = lmstStr.replace(lmstRegex,"$2 $3 $4 $6 $7").split(" ");
-    console.log(fromLmst);
+    //console.log(fromLmst);
     fromLmstSolFrac = fromLmst[0]*1 + fromLmst[1]/24 + fromLmst[2]/24/60;
     
     var nowLmst = currentMarsTime();
