@@ -179,10 +179,10 @@ strong {
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl">##PAGE_ADDR##?msl</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020">##PAGE_ADDR##?mars2020</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000">##PAGE_ADDR##?msl&sol3000</a>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000&camera=HAZ">##PAGE_ADDR##?msl&sol3000&camera=haz</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches hazcam images)</gray>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000&camera=HAZ">##PAGE_ADDR##?msl&sol3000&camera=haz</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches hazcam images)</gray>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3052&filter=rhaz00311">##PAGE_ADDR##?msl&sol3052&filter=rhaz00311</a>&nbsp;&nbsp;&nbsp;<gray>(fetch images from specific sequence)</gray>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol0&filter=EDL">##PAGE_ADDR##?mars2020&sol0&filter=EDL</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches specific image type)</gray>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol0&filter=EDL">##PAGE_ADDR##?mars2020&sol0&filter=ECV</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches movie frames)</gray>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol0&filter=EDL">##PAGE_ADDR##?mars2020&sol0&filter=EDL</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches specific image type)</gray>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol50&filter=ECV">##PAGE_ADDR##?mars2020&sol50&filter=ECV</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches movie frames)</gray>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol18&fullframe">##PAGE_ADDR##?mars2020&sol18&fullframe</a>
       
       <hr/>
@@ -506,6 +506,8 @@ function clearImageIdFilter(){
   keywordFilterTextbox.value="Keyword";
   keywordFilterTextbox.style.color = "lightgray";
   imageNameFilter = "";
+  urlParams.filter = "";
+  setThisPageUrlParams();
   doFilter();
 }
 
@@ -514,6 +516,8 @@ function imageIdFilter(){
   if(keywordFilterTextbox.value!=="Keyword") {
     imageNameFilter = keywordFilterTextbox.value.toUpperCase();
     console.log("Filter: " + imageNameFilter);
+    urlParams.filter = imageNameFilter;
+    setThisPageUrlParams();
     doFilter();
   }
 }
