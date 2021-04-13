@@ -108,13 +108,11 @@ h3 {
   cursor: pointer;
 }
 
+gray { color: #999 }
+
 strong {
   font-weight: bold;
   text-decoration: underline;
-}
-
-gray {
-  color: #A96;
 }
 
 .collapse {
@@ -289,9 +287,15 @@ gray {
   <th> <h3 onclick="sortTable(2)">Frame Type</h3>  <form id="type_filter"></form> </th>
   <th> 
     <h3 onclick="sortTable(3)">Image ID</h3> 
-    <input type="text" id="imageIdFilterPattern" name="imageIdFilterPattern" value="Keyword" onclick='setImageIdFilter("")' style="color:lightgray ">
-    <input type="button" value="Filter" onclick="imageIdFilter()">
-    <input type="button" value="Clear" onclick="clearImageIdFilter()">
+    <div style="block">
+      <input type="text" id="imageIdFilterPattern" name="imageIdFilterPattern" value="Keyword" onclick='setImageIdFilter("")' style="color:lightgray ">
+      <input type="button" value="Filter" onclick="imageIdFilter()">
+      <input type="button" value="Clear" onclick="clearImageIdFilter()">
+    </div>
+    <span style="color:#999; font-size:80%">
+      (Examples: filter for a specific sequence ID, <br/>
+      or enter "ECV" to show only movie frames)
+    </span>
   </th>
   <th> <h3 onclick="sortTable(4)">Date Taken</h3> </th>
 </tr>
