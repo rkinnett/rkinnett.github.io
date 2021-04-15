@@ -656,7 +656,7 @@ function imageQuery(mission, sol){
   // Get full-frame still frames:
   var rss_url = base_url + '&condition_2=' + sol + ':sol:gte&condition_3=' + sol + ':sol:lte&num=' + images_per_page;
   console.log("Getting full-frame still frames");
-  getFullframeStillframes(rss_url + '&extended=sample_type::full', function(){
+  getPaginatedFrames(rss_url + '&extended=sample_type::full', function(){
   
     // Get thumbnail still frames:
     console.log("Getting thumbnail still frames");
@@ -681,7 +681,7 @@ function imageQuery(mission, sol){
 
 
 function getPaginatedFrames(url, callback){
-  const initial_image_count = image_list_json.images.length;
+  const initial_image_count = (image_list_json && image_list_json.images) ? image_list_json.images.length : 0;
   
   // Extended query to see if there are any video frames from this sol:    
   fetchJson(url + '&page=' + 0, function(extd_image_list_json){
@@ -699,11 +699,17 @@ function getPaginatedFrames(url, callback){
 
     // Append images from the first page, one at a time, to master list
     if(extd_image_list_json.images && extd_image_list_json.images.length>0 ){
-      var this_page_img_count = 0;
-      extd_image_list_json.images.forEach(function(img){
-        image_list_json.images[initial_image_count + extd_image_list_json.page*extd_image_list_json.per_page + this_page_img_count] = img;
-        this_page_img_count++;
-      });
+      if(!image_list_json || !image_list_json.images){
+        console.log("initializing image list");
+        image_list_json = extd_image_list_json;
+        got_images = true;
+      } else {
+        var this_page_img_count = 0;
+        extd_image_list_json.images.forEach(function(img){
+          image_list_json.images[initial_image_count + extd_image_list_json.page*extd_image_list_json.per_page + this_page_img_count] = img;
+          this_page_img_count++;
+        });
+      }
     }
     
     // If there are no frames, or just one page, then proceed to tabulation
@@ -714,13 +720,13 @@ function getPaginatedFrames(url, callback){
 
     // If there are more pages then loop through them:        
     var pages_loaded = 1;
-    for(var page=1; page<=num_pages; page++){
+    for(var page=1; page<num_pages; page++){
       fetchJson(url + '&page=' + page, function(extd_image_list_json){
         console.log(extd_image_list_json);
 
         // Append images, one at a time, to master list
         if(extd_image_list_json.images && extd_image_list_json.images.length>0 ){
-          console.log("appending page " + extd_image_list_json.page + " images to image list");
+          console.log("appending page-" + extd_image_list_json.page + " images (" + extd_image_list_json.images.length + ") to image list");
           var this_page_img_count = 0;
           extd_image_list_json.images.forEach(function(img){
             image_list_json.images[initial_image_count + extd_image_list_json.page*extd_image_list_json.per_page + this_page_img_count] = img;
@@ -757,19 +763,21 @@ function getFullframeStillframes(rss_url, callback){
 
 function fetchJson(url, callback){
   console.log("fetching rss feed:  " + url);
-  setBusyIndicator(true);
   const xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4) {
       if (this.status == 200) {
         console.log(this.responseText);
-        if(callback) callback(JSON.parse(this.responseText));
+        if(callback) {
+          callback(JSON.parse(this.responseText));
+          setBusyIndicator(false);
+        }
       } else {
         console.log("unexpected response:");
         console.log(JSON.stringify(this.responseText));
         alert("Error fetching requested feed. The server may be overloaded, or it's possible no images have been posted from the requested sol.");
+        setBusyIndicator(false);
       }
-      setBusyIndicator(false);
     }
   };
   setBusyIndicator(true);
