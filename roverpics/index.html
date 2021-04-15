@@ -917,6 +917,11 @@ function buildTable(){
       hours_ago_lmst = hoursSinceLmst(date_lmst);
       hours_ago = (hours_ago_lmst && (!hours_ago || hours_ago_lmst>hours_ago)) ? hours_ago_lmst : hours_ago;
 
+      const time_since = !hours_ago ? ""
+        : hours_ago < 72   ?  "(" + hours_ago.toPrecision(2)+" hours ago)"
+        : hours_ago < 8760 ?  "(" + (hours_ago/24).toPrecision(1) + " days ago)"
+        :                     "(" + (hours_ago/24/365).toPrecision(1) + " years ago)";
+
       var row = table.tBodies[0].insertRow(num_rows++);
       var cell0 = row.insertCell(0);
       var cell1 = row.insertCell(1);
@@ -932,7 +937,7 @@ function buildTable(){
       cell2.innerHTML = cam_type;
       cell3.innerHTML = '<a href=' + biggest_url + ' download>' + img_type + '</a>';
       cell4.innerHTML = image_id;
-      cell5.innerHTML = date_lmst.replace(/ /,"&nbsp;") + ' <br/> ' + date_utc + ' <br/> ' + date_local + ' ' + (hours_ago ? "<br/><br/>("+hours_ago.toPrecision(2)+" hours ago)" : "");
+      cell5.innerHTML = date_lmst.replace(/ /,"&nbsp;") + ' <br/> ' + date_utc + ' <br/> ' + date_local + '<br/><br/>' + time_since;
 
     } else {
       //console.log("skipping image " + n + " " + cam_type + " " + img_type);
