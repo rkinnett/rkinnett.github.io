@@ -687,12 +687,15 @@ function getPaginatedFrames(url, callback){
   fetchJson(url + '&page=' + 0, function(extd_image_list_json){
     console.log(extd_image_list_json);
 
+    if(!extd_image_list_json || !extd_image_list_json.total_results){
+      console.log("getPaginatedFrames: no images");
+      callback();
+      return;
+    }
+
     // If first extended query indicates images are available, then get total count and calculate page count:
-    var num_pages = 0;
-    if(extd_image_list_json && extd_image_list_json.total_results){
-      const num_pages = Math.ceil(extd_image_list_json.total_results / extd_image_list_json.per_page);
-    }      
-    console.log("extended query indicates " + extd_image_list_json.total_results + " images available");
+    const num_pages = Math.ceil(extd_image_list_json.total_results / extd_image_list_json.per_page);
+    console.log("extended query indicates " + extd_image_list_json.total_results + " images available (" + num_pages + " pages)");
 
     // Append images from the first page, one at a time, to master list
     if(extd_image_list_json.images && extd_image_list_json.images.length>0 ){
@@ -711,8 +714,8 @@ function getPaginatedFrames(url, callback){
 
     // If there are more pages then loop through them:        
     var pages_loaded = 1;
-    for(var page=1; page<num_pages; page++){
-      fetchJson(rss_url + '&condition_2=' + sol + ':sol:gte&condition_3=' + sol + ':sol:lte&num=' + extd_image_list_json.per_page + '&page=' + page + '&extended=product_id::ecv', function(extd_image_list_json){
+    for(var page=1; page<=num_pages; page++){
+      fetchJson(url + '&page=' + page, function(extd_image_list_json){
         console.log(extd_image_list_json);
 
         // Append images, one at a time, to master list
@@ -723,6 +726,8 @@ function getPaginatedFrames(url, callback){
             image_list_json.images[initial_image_count + extd_image_list_json.page*extd_image_list_json.per_page + this_page_img_count] = img;
             this_page_img_count++;
           });
+        } else {
+          console.log("no images on page " + extd_image_list_json.page);
         }
         
         pages_loaded++;
@@ -753,7 +758,7 @@ function getFullframeStillframes(rss_url, callback){
 function fetchJson(url, callback){
   console.log("fetching rss feed:  " + url);
   setBusyIndicator(true);
-  xhttp = new XMLHttpRequest();
+  const xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4) {
       if (this.status == 200) {
