@@ -255,7 +255,8 @@ strong {
 </div>
 
 <div style="display:block; margin: 8px 0px">
-  <span id="summary">Empty</span>
+  <span id="summary">Empty</span>&nbsp;&nbsp;
+  <span id="image_count"/>
 </div>
 
 <table id="images_table">
@@ -770,13 +771,11 @@ function fetchJson(url, callback){
         console.log(this.responseText);
         if(callback) {
           callback(JSON.parse(this.responseText));
-          setBusyIndicator(false);
         }
       } else {
         console.log("unexpected response:");
         console.log(JSON.stringify(this.responseText));
         alert("Error fetching requested feed. The server may be overloaded, or it's possible no images have been posted from the requested sol.");
-        setBusyIndicator(false);
       }
     }
   };
@@ -871,6 +870,8 @@ function buildTable(){
 
   var lmst = currentMarsTime();
 
+  var included_images_count = 0;
+
   // rebuild checked-checkboxes list:
   checked_checkbox_names = [];
   var checked_checkboxes = document.querySelectorAll('input[type=checkbox]:checked');
@@ -904,6 +905,8 @@ function buildTable(){
       ){
       //console.log("showing image " + n + " " + cam_type + " " + img_type);
 
+      included_images_count++;
+
       thumb_url   = this_img.image_files["small"];
       biggest_url = this_img.image_files["full_res"];
       date_lmst   = this_img.date_taken_mars.replace("M"," ").replace(/-0*/," ").replace(/\.[0-9]+$/,"");
@@ -936,6 +939,8 @@ function buildTable(){
     }    
   }
   setBusyIndicator(false);
+  console.log("displaying " + included_images_count + " images");
+  document.getElementById("image_count").innerText = "(displaying " + included_images_count + " images)";
 }
 
 
