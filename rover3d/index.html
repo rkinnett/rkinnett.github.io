@@ -705,7 +705,7 @@
           ruler.measurement.length = from0to1.length().toPrecision(4) + " m";
           ruler.measurement.vertical = from0to1.z.toPrecision(4) + " m";
           ruler.measurement.horizontal = Math.sqrt(from0to1.x*from0to1.x + from0to1.y*from0to1.y).toPrecision(4) + " m";
-          ruler.measurement.bearing = (Math.atan2(from0to1.x, from0to1.y)*rad2deg).toFixed(1) + " deg";
+          ruler.measurement.bearing = (Math.atan2(from0to1.y, from0to1.x)*rad2deg).toFixed(1) + " deg";
           render();
         }
       }
@@ -767,7 +767,7 @@
             ruler.measurement.length = from0to1.length().toPrecision(4) + " m";
             ruler.measurement.vertical = from0to1.z.toPrecision(4) + " m";
             ruler.measurement.horizontal = Math.sqrt(from0to1.x*from0to1.x + from0to1.y*from0to1.y).toPrecision(4) + " m";
-            ruler.measurement.bearing = (Math.atan2(from0to1.x, from0to1.y)*rad2deg).toFixed(1) + " deg";
+            ruler.measurement.bearing = (Math.atan2(from0to1.y, from0to1.x)*rad2deg).toFixed(1) + " deg";
 
             console.log("resuming controls");
             controls.enabled = true;
