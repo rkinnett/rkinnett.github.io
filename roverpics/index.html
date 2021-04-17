@@ -100,6 +100,7 @@ h3 {
   float: right;
   font-size: 28px;
   font-weight: bold;
+  cursor: pointer;
 }
 
 .close:hover,
@@ -123,6 +124,35 @@ strong {
   padding-right: 2px;
 }
 
+.imgcontainer:hover .imgoverlay {
+  opacity: 0.8;
+  overflow: scroll;
+}
+
+.imgcontainer {
+  position: relative;
+  overflow: hidden;
+}
+
+.imgoverlay {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  width: 100%;
+  opacity: 0;
+  transition: .5s ease;
+  background-color: #eae6e0
+}
+
+pre {
+  font-size: 75%;
+  margin-top: 0px;
+}
+
+
 </style>
 </head>
 
@@ -141,17 +171,19 @@ strong {
     </div>
     <hr/>
     <p>   
-      Also see NASA's raw images pages for <a href="https://mars.nasa.gov/msl/multimedia/raw-images/">MSL</a> (Curiosity) and <a href="https://mars.nasa.gov/mars2020/multimedia/raw-images/">Mars 2020</a> (Perseverance).
+      Also see NASA's <a href="https://mars.nasa.gov/msl/multimedia/raw-images/">MSL</a> and <a href="https://mars.nasa.gov/mars2020/multimedia/raw-images/">Mars 2020</a> raw image sites.
       <br/><br/>
     
-      This interface retrieves image information lists via <a href="https://mars.nasa.gov/rss/">JPL's RSS API</a> and builds a table showing thumbnails and basic metadata for each image, along with links to the maximum available resolution images.  <span style="color: orange">Note:</span> JPL's RSS API (and this page, consequentially) returns incomplete results from MSL.
+      This interface retrieves image information lists via <a href="https://mars.nasa.gov/rss/">JPL's RSS API</a> and builds a table showing thumbnails and basic metadata for each image, along with links to the maximum available resolution images.  This page retrieves all available full-frame and subframe still and movie frames and displays all inline.
+      <br/>
+      <span style="color: orange">Note:</span> JPL's RSS API (and this page, consequentially) returns incomplete results from MSL.
       <br/>
 
       <ol>
-        <li> Start by selecting either MSL or M2020 in the upper left. Then, either:
+        <li> Start by selecting either MSL or M2020 in the upper left. Then, <i>either</i>:
           <ul>
             <li>click "Latest 25 images" to retrieve the latest <i>downlinked</i> images,</li>
-            <li>or click "Current Sol" to retrieve images (if available) for the current sol,</li>
+            <li><i>or</i> click "Current Sol" to retrieve images (if available) for the current sol,</li>
             <li>or enter a specific sol number and click Go, or click Prev/Next to increment/decrement sol number and retrieve images, if available.</li>
           </ul> 
         </li>
@@ -180,7 +212,7 @@ strong {
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020">##PAGE_ADDR##?mars2020</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000">##PAGE_ADDR##?msl&sol3000</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000&camera=HAZ">##PAGE_ADDR##?msl&sol3000&camera=haz</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches hazcam images)</gray>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3052&filter=rhaz00311">##PAGE_ADDR##?msl&sol3052&filter=rhaz00311</a>&nbsp;&nbsp;&nbsp;<gray>(fetch images from specific sequence)</gray>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3052&filter=rhaz00311">##PAGE_ADDR##?msl&sol3052&filter=rhaz00311</a>&nbsp;&nbsp;&nbsp;<gray>(fetches images from specific sequence)</gray>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol0&filter=EDL">##PAGE_ADDR##?mars2020&sol0&filter=EDL</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches specific image type)</gray>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol50&filter=ECV">##PAGE_ADDR##?mars2020&sol50&filter=ECV</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches movie frames)</gray>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol18&fullframe">##PAGE_ADDR##?mars2020&sol18&fullframe</a>
@@ -321,7 +353,7 @@ var image_types = [];
 var image_type_img_counts = [];
 var num_rows = 0;
 var num_images = 0;
-var image_list_json, image_list;
+var image_list_json, images;
 var checked_checkbox_names = [];
 var imageNameFilter = "";
 var mission = "mars2020";
@@ -641,14 +673,19 @@ function imageQuery(mission, sol){
   const base_url = 'https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission;
   const images_per_page = 100; // 100 is API max
 
+  document.getElementById("summary").innerText = "Querying...";
+
   clearTable();
+  document.getElementById("cam_filter").innerHTML = "";
+  document.getElementById("type_filter").innerHTML = "";
+  
+  image_list_json = {};
 
   // If sol was not specified, just do basic full-frame latest image query:
   if(sol === undefined){
     console.log("sol undefined.. performing standard query only");
     getFullframeStillframes(base_url, function(){
       tabulateImages();
-      buildTable();
     });
     return;
   }
@@ -663,19 +700,23 @@ function imageQuery(mission, sol){
     console.log("Getting thumbnail still frames");
     getPaginatedFrames(rss_url + '&extended=sample_type::thumbnail', function(){
     
-      // Get full-frame movie frames:
-      console.log("Getting full-frame movie frames");
-      getPaginatedFrames(rss_url + '&extended=sample_type::full,product_id::ecv,', function(){
+      if(mission=="mars2020"){
+        // Get full-frame movie frames:
+        console.log("Getting full-frame movie frames");
+        getPaginatedFrames(rss_url + '&extended=sample_type::full,product_id::ecv,', function(){
 
-        // Get thumbnail movie frames:
-        console.log("Getting subframe movie frames");
-        getPaginatedFrames(rss_url + '&extended=sample_type::thumbnail,product_id::ecv,', function(){
+          // Get thumbnail movie frames:
+          console.log("Getting subframe movie frames");
+          getPaginatedFrames(rss_url + '&extended=sample_type::thumbnail,product_id::ecv,', function(){
 
-          tabulateImages();
-          buildTable();
-          return;
+            console.log("Completed query");
+            tabulateImages();
+          });
         });
-      });
+      } else {
+        console.log("Completed query");
+        tabulateImages();
+      }
     });
   });
 }
@@ -739,7 +780,7 @@ function getPaginatedFrames(url, callback){
         
         pages_loaded++;
         if(pages_loaded>=num_pages){
-          console.log("finished query");
+          console.log("finished paginated query");
           console.log("extended query returned " + extd_image_list_json.total_results + ' images spanning ' + num_pages + ' pages');
           callback();
         }            
@@ -770,23 +811,26 @@ function fetchJson(url, callback){
       if (this.status == 200) {
         console.log(this.responseText);
         if(callback) {
-          callback(JSON.parse(this.responseText));
+          callback(JSON.parse(this.responseText, null, '\t'));
         }
       } else {
         console.log("unexpected response:");
-        console.log(JSON.stringify(this.responseText));
+        console.log(JSON.stringify(this.responseText, null, '\t'));
         alert("Error fetching requested feed. The server may be overloaded, or it's possible no images have been posted from the requested sol.");
       }
     }
   };
+  xhttp.withCredentials = false;
   setBusyIndicator(true);
   xhttp.open("GET", url, true);
-  setTimeout(function(){ xhttp.send(null); }, 100);
+  setTimeout(function(){ xhttp.send(); }, 100);
 }
 
 
 
 function clearTable(){
+  document.getElementById("image_count").innerText = "";
+  
   // do this in reverse otherwise takes a lot of resources to rebuild bottom of table as top rows are deleted!
   for (var r=table.tBodies[0].rows.length; r>0; r--) {
     table.deleteRow(r);
@@ -796,23 +840,37 @@ function clearTable(){
 
 
 function tabulateImages(){
-  console.log("tabulating images");
+  console.log(image_list_json);
+  
   cameras = [];
   image_types = [];
   camera_type_img_counts = [];
   image_type_img_counts = [];
+
+  clearTable();
   
-  image_list = image_list_json.images;
-  num_images = image_list.length;
-  start_sol = image_list[0].sol; // initial value; will check each image
-  end_sol = image_list[0].sol; // initial value; will check each image
+  if(!image_list_json || !image_list_json.images){
+    console.log("tabulateImages:  nothing to tabulate");
+    document.getElementById("summary").innerText = "Query returned 0 images.";
+    setBusyIndicator(false);
+    return;
+  }
+  
+  images = image_list_json.images;
+  num_images = images.length;
+  start_sol = images[0].sol; // initial value; will check each image
+  end_sol = images[0].sol; // initial value; will check each image
+
+  console.log("tabulating " + num_images + " images");
 
   for(n=0; n<num_images; n++){
-    image_list[n].selected = false;
-    var this_img = image_list[n];
-    var type     = this_img.sample_type;
-    var camera   = this_img.camera.instrument;
-    // console.log('image ' + n + ', ' + camera + ', ' + type);
+    //images[n].selected = false;
+    var type     = images[n].sample_type;
+    var camera   = images[n].camera.instrument;
+    //console.log('image ' + n + ', ' + camera + ', ' + type);
+
+    image_list_json.images[n].idx = n;
+    image_list_json.images[n].Azimuth = "" + ((calculateAz(images[n])*180/Math.PI +720) %360).toFixed(0) + " deg";
 
     if(!cameras.includes(camera)) {
       cameras.push(camera);
@@ -826,24 +884,24 @@ function tabulateImages(){
     image_type_img_counts[type]++;
     
     // Get sol range:
-    if(image_list[n].sol<start_sol) {
-      start_sol = image_list[n].sol;
+    if(images[n].sol<start_sol) {
+      start_sol = images[n].sol;
     }
-    if(image_list[n].sol<end_sol) {
-      end_sol = image_list[n].sol;
+    if(images[n].sol>end_sol) {
+      end_sol = images[n].sol;
     }
     
   }
 
   // Update summary:
-  document.getElementById("summary").innerText = 'Query returned ' + image_list.length + ' images from ' + missionFullName[image_list_json.mission] + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'');
+  document.getElementById("summary").innerText = 'Query returned ' + images.length + ' images from ' + missionFullName[image_list_json.mission] + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'');
 
-  if( image_list.length==25 && start_sol*1<document.getElementById("textSol").value*1 ){
+  if( images.length==25 && start_sol*1<document.getElementById("textSol").value*1 ){
     console.log("Query returned latest 25");
     document.getElementById("summary").innerText += " (images may not be available for requested sol)";
   }
 
-  console.log([start_sol, end_sol]);
+  console.log("Sol range:  " + start_sol + " to " + end_sol);
 
   console.log(camera_type_img_counts);
   console.log(image_type_img_counts);
@@ -860,23 +918,63 @@ function tabulateImages(){
     makeCheckbox("type_filter",img_type, checked);
   });
   setBusyIndicator(false);
+  
+  buildTable();
 }
 
 
+function calculateAz(img){
+  var az;
+  //console.log(img);
+  
+  if(!img || !img.camera || !img.attitude || !/^\(/.test(img.attitude) ){
+    console.log("need camera info and rover attitude");
+    return null;
+  }
+  
+  q = img.attitude.replace(/[\(\)]/mg,'').split(',').map(x=>+x);
+  roverAz = Math.atan2(2*(q[1]*q[2] + q[0]*q[3]), 2*(q[0]*q[0] + q[1]*q[1])-1);
+  
+  // If camera vector is provided, then.. easy!
+  if(img.camera.camera_vector && /^\(/.test(img.camera.camera_vector)){
+    cameraVector = img.camera.camera_vector.replace(/[\(\)]/mg,'').split(',').map(x=>+x);
+    az = Math.atan2(cameraVector[1], cameraVector[0]) + roverAz;
+    //console.log("cam vec");
+    
+  // Otherwse, if camera model is provided then get camera vector from the "A" vector:
+  } else if(img.camera.camera_model_component_list && /^\(/.test(img.camera.camera_model_component_list && false)){
+    cameraVector = img.camera.camera_model_component_list.replace(/^[^;]*;\(([^)]+).*/,"$1").split(',').map(x=>+x);
+    az = Math.atan2(cameraVector[1], cameraVector[0]) + roverAz;
+    //console.log("cam model");
+    
+  // Otherwise, if it's a hazcam then assume rover-forward or backward direction:
+  } else if((/HAZ/).test(img.camera.instrument)) {
+    az = roverAz + (/REAR/).test(img.camera.instrument) ? Math.PI : 0;
+    //console.log("rover att");
+
+  // Otherwise, if it's navcam, mastcam, or RMI, and rover attitude and RSM azimuth are known..
+  } else if(img.extended.mastAz && /^[0-9+-]/.test(img.extended.mastAz) && /^(MCZ)|(NAV)|(SUP)/.test(img.camera.instrument) ) {
+    az = roverAz + img.extended.mastAz*Math.PI/180;
+    //console.log("rover att + rsm");
+  }
+  
+  return az;
+}
+
 
 function buildTable(){
-  console.log("building table");
-  clearTable();
+  console.log("building table with " + num_images + " images");
 
   var lmst = currentMarsTime();
-
   var included_images_count = 0;
 
+  clearTable();
+
   // rebuild checked-checkboxes list:
-  checked_checkbox_names = [];
   var checked_checkboxes = document.querySelectorAll('input[type=checkbox]:checked');
   console.log(checked_checkboxes);
 
+  checked_checkbox_names = [];
   for (var i=0; i<checked_checkboxes.length; i++) {
     checked_checkbox_names.push(checked_checkboxes[i].name);
   }
@@ -891,7 +989,7 @@ function buildTable(){
 
   // build table:
   for(n=0; n<num_images; n++){
-    var this_img  = image_list[n];
+    var this_img  = images[n];
     var img_type  = this_img.sample_type;
     var cam_type  = this_img.camera.instrument;
     var image_id  = this_img.imageid
@@ -911,6 +1009,7 @@ function buildTable(){
       biggest_url = this_img.image_files["full_res"];
       date_lmst   = this_img.date_taken_mars.replace("M"," ").replace(/-0*/," ").replace(/\.[0-9]+$/,"");
       date_utc    = this_img.date_taken_utc.replace("T"," ");    
+      metadata    = JSON.stringify(this_img, null, 2).replace(/^ ( *)"([^"]+)":/mg,'$1$2:').replace(/^[{}]/mg,"");
       date_local  = new Date(date_utc + " UTC").toString();
       hours_ago   = (new Date() - new Date(date_utc + " UTC"))/1000/60/60;
 
@@ -918,9 +1017,9 @@ function buildTable(){
       hours_ago = (hours_ago_lmst && (!hours_ago || hours_ago_lmst>hours_ago)) ? hours_ago_lmst : hours_ago;
 
       const time_since = !hours_ago ? ""
-        : hours_ago < 72   ?  "(" + hours_ago.toPrecision(2)+" hours ago)"
-        : hours_ago < 8760 ?  "(" + (hours_ago/24).toPrecision(1) + " days ago)"
-        :                     "(" + (hours_ago/24/365).toPrecision(1) + " years ago)";
+        : hours_ago < 72   ?  "(" + hours_ago.toFixed(1)+" hours ago)"
+        : hours_ago < 8760 ?  "(" + (hours_ago/24).toFixed(1) + " days ago)"
+        :                     "(" + (hours_ago/24/365).toFixed(1) + " years ago)";
 
       var row = table.tBodies[0].insertRow(num_rows++);
       var cell0 = row.insertCell(0);
@@ -933,9 +1032,9 @@ function buildTable(){
       row.img_idx = n;
 
       cell0.innerHTML = '<input type="checkbox" class="selection_checkbox" id="SEL_' + image_id + '" ' + (selected?"checked":"") + '>';
-      cell1.innerHTML = '<img src=' + thumb_url + ' />';
+      cell1.innerHTML = '<div class="imgcontainer"><img src=' + thumb_url + ' />  <div class="imgoverlay"><pre>' + metadata + '</pre></div></div>';
       cell2.innerHTML = cam_type;
-      cell3.innerHTML = '<a href=' + biggest_url + ' download>' + img_type + '</a>';
+      cell3.innerHTML = '<a href=' + biggest_url + ' target="_blank">' + img_type + '</a>';
       cell4.innerHTML = image_id;
       cell5.innerHTML = date_lmst.replace(/ /,"&nbsp;") + ' <br/> ' + date_utc + ' <br/> ' + date_local + '<br/><br/>' + time_since;
 
@@ -965,7 +1064,7 @@ function doFilter() {
   // Note selection within images structure:
   for(var row of table.tBodies[0].rows){
     var checked = row.cells[0].getElementsByClassName("selection_checkbox")[0].checked;
-    image_list[row.img_idx].selected = checked; 
+    images[row.img_idx].selected = checked; 
   }
   
   setTimeout(function(){buildTable()}, 200);
