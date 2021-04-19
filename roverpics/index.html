@@ -210,12 +210,16 @@ pre {
       Also try URL parameters!  Examples:
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl">##PAGE_ADDR##?msl</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020">##PAGE_ADDR##?mars2020</a>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest">##PAGE_ADDR##?mars2020&latest</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000">##PAGE_ADDR##?msl&sol3000</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000&camera=HAZ">##PAGE_ADDR##?msl&sol3000&camera=haz</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches hazcam images)</gray>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3052&filter=rhaz00311">##PAGE_ADDR##?msl&sol3052&filter=rhaz00311</a>&nbsp;&nbsp;&nbsp;<gray>(fetches images from specific sequence)</gray>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol0&filter=EDL">##PAGE_ADDR##?mars2020&sol0&filter=EDL</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches specific image type)</gray>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol50&filter=ECV">##PAGE_ADDR##?mars2020&sol50&filter=ECV</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches movie frames)</gray>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol18&fullframe">##PAGE_ADDR##?mars2020&sol18&fullframe</a>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=date">##PAGE_ADDR##?mars2020&latest&sort=date</a>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=imageid">##PAGE_ADDR##?mars2020&latest&sort=imageid</a>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=camera">##PAGE_ADDR##?mars2020&latest&sort=camera</a>
       
       <hr/>
       Image credits are provided in the JSON file which can be exported via the Export Metadata button.<br/><br/>
@@ -311,16 +315,16 @@ pre {
     </div>
   </th>
   <th> <h3>Thumbnail</h3> </th>
-  <th> <h3 onclick="sortTable(1)">Camera</h3> 
+  <th> <h3 onclick='sortTable("camera")'>Camera</h3> 
     <div>
       <a onclick='selectCams("all")'>[all]</a>&nbsp;
       <a onclick='selectCams("none")'>[none]</a>
     </div>  
     <form id="cam_filter"></form>
   </th>
-  <th> <h3 onclick="sortTable(2)">Frame Type</h3>  <form id="type_filter"></form> </th>
+  <th> <h3 onclick='sortTable("frametype")'>Frame Type</h3>  <form id="type_filter"></form> </th>
   <th> 
-    <h3 onclick="sortTable(3)">Image ID</h3> 
+    <h3 onclick='sortTable("imageid")'>Image ID</h3> 
     <div style="block">
       <input type="text" id="imageIdFilterPattern" name="imageIdFilterPattern" value="Keyword" onclick='setImageIdFilter("")' style="color:lightgray ">
       <input type="button" value="Filter" onclick="imageIdFilter()">
@@ -331,7 +335,7 @@ pre {
       or enter "ECV" to show only movie frames)
     </span>
   </th>
-  <th> <h3 onclick="sortTable(4)">Date Taken</h3> </th>
+  <th> <h3 onclick='sortTable("date")'>Date Taken</h3> </th>
 </tr>
 </thead>
 <tbody id="table_body">
@@ -364,6 +368,8 @@ var urlParams = {
   filter:   "",
   frame:    "",
   latest:   false,
+  sortfield: "date",
+  sortdir:  "ascending",
 };
 var missionFullName = {
   msl: "MSL",
@@ -403,8 +409,11 @@ document.getElementById("imageIdFilterPattern").addEventListener("keyup", event 
 document.getElementById("textSol").addEventListener("keyup", event => {
   if(event.key == "Enter") {
     sol = document.getElementById("textSol").value;
-    urlParams.sol = sol;
-    getSol(sol);
+    if(/^[0-9]+$/.test(sol)){
+      urlParams.sol = sol;
+      setThisPageUrlParams();
+      getSol(sol);
+    }
     event.preventDefault();
   }
 });
@@ -494,6 +503,16 @@ function parseUrl(){
       urlParams.frame = "subframe";
     } else if(key=="thumb" || key=="thumbnail") {
       urlParams.frame = "thumbnail";
+    } else if(/^sort(field)?$/.test(key) && /^(type)|(frame)|(camera)|(cam)|(name)|(id)|(imageid)|(date)|(datetaken)|(time)$/.test(val) ) {
+      console.log('Sort: "' + val + '"');
+      if(val=="type" || val=="frame") urlParams.sortfield = "frametype";
+      else if(val=="camera" || val=="cam") urlParams.sortfield = "camera";
+      else if(val=="name" || val=="id" || val=="imageid") urlParams.sortfield = "imageid";
+      else if(val=="date" || val=="datetaken" || val=="time") urlParams.sortfield = "date";
+      else console.log('unrecognized sort field: "' + val + '"');
+    } else if(/^(sortdir)|(sortdirection)|(dir)|(direction)?$/.test(key) && /^(ascending)|(descending)$/.test(val) ) {
+      console.log('Sort dir: "' + val + '"');
+      urlParams.sortdir = key;
     } else {
       console.log("unrecognized url parameter: " + key);
     }
@@ -583,7 +602,6 @@ function selectImages(allOrNone){
 function getLatest(){
   setThisPageUrlParams(mission);
   imageQuery(mission);
-  urlParams.sol = "";
   urlParams.mission = mission;
   setThisPageUrlParams();
 }
@@ -634,7 +652,11 @@ function setThisPageUrlParams(){
     paramString += urlParams.mission;
     paramsCount++;
   }
-  if(urlParams.sol!==""){
+  if(urlParams.sol=="latest"){
+    if(paramsCount>0) paramString += "&";
+    paramString += "latest";
+    paramsCount++;  
+  } else if(/^[0-9]+$/.test(urlParams.sol)){
     if(paramsCount>0) paramString += "&";
     paramString += "sol" + urlParams.sol;
     paramsCount++;
@@ -652,6 +674,11 @@ function setThisPageUrlParams(){
   if(urlParams.filter!==""){
     if(paramsCount>0) paramString += "&";
     paramString += "filter=" + urlParams.filter;
+    paramsCount++;
+  }
+  if(urlParams.sortfield!==""){
+    if(paramsCount>0) paramString += "&";
+    paramString += "sort=" + urlParams.sortfield;
     paramsCount++;
   }
 
@@ -896,7 +923,7 @@ function tabulateImages(){
   // Update summary:
   document.getElementById("summary").innerText = 'Query returned ' + images.length + ' images from ' + missionFullName[image_list_json.mission] + ' sol ' + start_sol + ((end_sol>start_sol)?(' to sol ' + end_sol):'');
 
-  if( images.length==25 && start_sol*1<document.getElementById("textSol").value*1 ){
+  if( images.length==25 && urlParams.sol!=="latest" && start_sol*1<document.getElementById("textSol").value*1 ){
     console.log("Query returned latest 25");
     document.getElementById("summary").innerText += " (images may not be available for requested sol)";
   }
@@ -953,13 +980,44 @@ function calculateAz(img){
     //console.log("rover att");
 
   // Otherwise, if it's navcam, mastcam, or RMI, and rover attitude and RSM azimuth are known..
-  } else if(img.extended.mastAz && /^[0-9+-]/.test(img.extended.mastAz) && /^(MCZ)|(NAV)|(SUP)/.test(img.camera.instrument) ) {
+  } else if(img.extended && img.extended.mastAz && /^[0-9+-]/.test(img.extended.mastAz) && /^(MCZ)|(NAV)|(SUP)/.test(img.camera.instrument) ) {
     az = roverAz + img.extended.mastAz*Math.PI/180;
     //console.log("rover att + rsm");
   }
   
   return az;
 }
+
+
+
+function getSortOrder() {
+  var sortVals = [];
+
+  switch(urlParams.sortfield) {
+    case "camera":
+      for(n=0; n<num_images; n++){ sortVals[n] = images[n].camera.instrument; }
+      break;
+    case "frametype":
+      for(n=0; n<num_images; n++){ sortVals[n] = images[n].sample_type; }    
+      break;
+    case "imageid":
+      for(n=0; n<num_images; n++){ sortVals[n] = images[n].imageid; }    
+      break;
+    case "date":
+      for(n=0; n<num_images; n++){ sortVals[n] = /^S/.test(images[n].date_taken_mars) ? images[n].date_taken_mars : /^2/.test(images[n].date_taken_utc) ? images[n].date_taken_utc : ""; }
+      break;
+    default:
+      console.log('unable to sort; invalid sort field: "' + urlParams.sortfield + '"');
+      return;
+  }
+  console.log(sortVals);
+  
+  // make list with indices and values
+  indexedList = sortVals.map(function(e,i){return {ind: i, val: e}});
+  indexedList.sort(function(x, y){return x.val > y.val ? 1 : x.val == y.val ? 0 : -1});
+  sortOrder = indexedList.map(function(e){return e.ind});
+  return urlParams.sortdirection=="descending" ? sortOrder.reverse() : sortOrder;
+};
 
 
 function buildTable(){
@@ -973,7 +1031,7 @@ function buildTable(){
   // rebuild checked-checkboxes list:
   var checked_checkboxes = document.querySelectorAll('input[type=checkbox]:checked');
   console.log(checked_checkboxes);
-
+  
   checked_checkbox_names = [];
   for (var i=0; i<checked_checkboxes.length; i++) {
     checked_checkbox_names.push(checked_checkboxes[i].name);
@@ -987,8 +1045,15 @@ function buildTable(){
   console.log('Filter pattern: "' + imageNameFilter + '"');
   var image_id_filter = new RegExp(imageNameFilter);
 
+  // Sort images:
+  const sortField = /(camera)|(frametype)|(imageid)|(date)/.test(urlParams.sortfield) ? urlParams.sortfield : "date";
+  console.log("sorting images by " + urlParams.sortfield);
+  sortOrder = getSortOrder();
+  console.log(sortOrder);
+  
+
   // build table:
-  for(n=0; n<num_images; n++){
+  for(n of sortOrder){
     var this_img  = images[n];
     var img_type  = this_img.sample_type;
     var cam_type  = this_img.camera.instrument;
@@ -1071,9 +1136,18 @@ function doFilter() {
 }
 
 
-function sortTable(n){
-  setBusyIndicator(true);
-  setTimeout(function(){ doSort(n) }, 200);
+function sortTable(field){
+  // If requested field matches current sort field, then toggle sort direction:
+  if(urlParams.sortfield == field){
+    urlParams.sortdirection = (urlParams.sortdirection=="descending") ? "ascending" : "descending";
+  // Otherwise set sortfield to requested field and initialize direction to ascending:
+  } else {
+    urlParams.sortfield = field;
+    urlParams.sortdirection="ascending";
+  }
+  if(!/(ascending)|(descending)/.test(urlParams.sortdirection)) urlParams.sortdirection="ascending";
+  console.log('sortTable, field: ' + urlParams.sortfield + ', direction: ' + urlParams.sortdirection);
+  buildTable();
 }
 
 
@@ -1135,57 +1209,6 @@ function hoursSinceLmst(lmstStr){
   return;
 }
 
-
-
-function doSort(n) {
-  console.log("starting sort");
-  var rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
-  switching = true;
-  // Set the sorting direction to ascending:
-  dir = "asc";
-  // loop continues until no switching has been done:
-  while (switching) {
-    switching = false;
-    rows = table.tBodies[0].rows;
-    // Loop through all table rows (except the first, which contains table headers):
-    for(var i=0; i<rows.length-1; i++) {
-      shouldSwitch = false;
-      /* Get the two elements you want to compare, one from current row and one from the next: */
-      x = rows[i].getElementsByTagName("TD")[n];
-      y = rows[i+1].getElementsByTagName("TD")[n];
-      /* Check if the two rows should switch place, based on the direction, asc or desc: */
-      if (dir == "asc") {
-        if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
-          // If so, mark as a switch and break the loop:
-          shouldSwitch = true;
-          break;
-        }
-      } else if (dir == "desc") {
-        if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
-          // If so, mark as a switch and break the loop:
-          shouldSwitch = true;
-          break;
-        }
-      }
-    }
-    if (shouldSwitch) {
-      /* If a switch has been marked, make the switch and mark that a switch has been done: */
-      rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-      switching = true;
-      // Each time a switch is done, increase this count by 1:
-      switchcount ++;
-    } else {
-      /* If no switching has been done AND the direction is "asc",
-      set the direction to "desc" and run the while loop again. */
-      if (switchcount == 0 && dir == "asc") {
-        dir = "desc";
-        switching = true;
-      }
-    }
-  }
-  console.log("done sorting");
-  setBusyIndicator(false);
-}
 
 
 function exportImageURLs(){
