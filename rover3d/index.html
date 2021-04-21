@@ -4,9 +4,19 @@
 		<title>Rover3D</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-		<link type="text/css" rel="stylesheet" href="main.css">
+		
     
     <style>
+    body {
+      margin: 0;
+      background-color: #000;
+      color: #fff;
+      font-family: Monospace;
+      font-size: 13px;
+      line-height: 24px;
+      overscroll-behavior: none;
+    }    
+    
     a:link {
       color: #adf;
     }
@@ -78,7 +88,6 @@
     
     #info_button {
       z-index: 99;
-      font-family: Monospace;
       text-shadow: 0px 0px 6px #FF6;
       color: #F86;
       position: absolute;
@@ -99,6 +108,8 @@
     
     emph {
       font-weight: bold;
+      font-size: 110%;
+      text-decoration: underline;
       color: white;
     }
     
@@ -126,7 +137,7 @@
     <div class="annotation" id="status_container">Initializing</div>  
 
     <!-- Make Acknowledgments Panel -->
-    <button class="astext" id="info_button" onclick="infoOverlayOn()">About</button>
+    <!-- <button class="astext" id="info_button" onclick="infoOverlayOn()">About</button> -->
     <div id="overlay" onclick="infoOverlayOff()">
       <div id="info">
         <h1>Rover 3D</h1>
@@ -139,7 +150,6 @@
         <li>Double-click or double-tap:  center view over selected position</li>
         <li>Key "d":  <emph>d</emph>rop rover at cursor</li>
         <li>Key "r":  center view over <emph>r</emph>over</li>
-        <br/>
         <hr/>
         <h3>Acknowledgments:</h3>
         <li>
@@ -149,7 +159,7 @@
           <a href="https://mars.nasa.gov/resources/25042/mars-perseverance-rover-3d-model/">Perseverance rover model</a> courtesy NASA/JPL, heavily modified by R. Kinnett
         </li>
         <hr/>
-        Get the source code on <a href="https://github.com/rkinnett/rkinnett.github.io/tree/master/rover3d">Github</a>.<br/>
+        View source code at <a href="https://github.com/rkinnett/rkinnett.github.io/tree/master/rover3d">Github</a>.<br/>
         <b>Comments and suggestions: </b> <a href="https://twitter.com/rover_18">twitter</a> or <a href="https://discord.gg/Eky6AhRSnj">discord</a>
       </div>
     </div>
@@ -314,6 +324,7 @@
           wireframeColor: 0x090909,
           showRnavCoordFrame: false,
           showStrategicRoute: true,
+          cameraFOV: 50,
         },
         scene: {
           surfaceColor:  0xb6a089,
@@ -417,7 +428,7 @@
         //scene.background = new THREE.Color( options.skyColor );
 
 
-				camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 20000 );
+				camera = new THREE.PerspectiveCamera( options["tools"].cameraFOV, window.innerWidth / window.innerHeight, 0.1, 20000 );
         camera.up.set( 0, 0, -1 );
         camera.lookAt(0,0,-1.25);
 				//camera.position.set( 3.6, -0.1, -0.65 );
@@ -433,8 +444,10 @@
         //controls.mouseButtons = { ORBIT: THREE.MOUSE.LEFT, ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
         //controls.mouseButtons = { ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
         controls.mouseButtons = {LEFT: 0, MIDDLE: 1, RIGHT: 2};
-        controls.enableKeys = true;
-        controls.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
+        //controls.enableKeys = true;
+        controls.enableKeys = false;
+        //controls.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
+        controls.keys = { LEFT: 0, RIGHT: 0, UP: 0, BOTTOM: 0 }; //disables keys
         controls.touches = {ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN};
 				controls.minDistance = 0.1;
 				controls.listenToKeyEvents( window );
@@ -569,8 +582,8 @@
         
         
         makeTerrain({
-          urlHeightMap: 'images/JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_rescale120m.tif',  // must be 16-bit grayscale tif
-          hscale:   120,    // m/px
+          urlHeightMap: 'images/JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_rescale240m.tif',  // must be 16-bit grayscale tif
+          hscale:   240,    // m/px
           vscale:   7,  // m/dn
           offset:   new THREE.Vector3(1250, -1300, 330),
           rotation: new THREE.Vector3(-1*Math.PI, 0, -1*Math.PI/2),
@@ -1263,10 +1276,13 @@
         var keyAscii = String.fromCharCode(event.keyCode);
         console.log('key pressed: "' + keyAscii + '" [' + event.keyCode + ']');
         console.log(event);
+        
+        //controls.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
+        
         var mouseNow = new THREE.Vector2().copy(mouse);
         console.log(mouseNow);
         if(event.key == "Enter") {
-          
+          //
         } else if(keyAscii) {
           switch (keyAscii) {
             case "d":  console.log("DROP");   dropRover(mouseNow);  break;
@@ -1399,6 +1415,12 @@
         xhr.send();
       }
   
+      function setCameraFOV(fov){
+        camera.fov = fov;
+        camera.updateProjectionMatrix();
+        render();
+      }
+    
     
       function makeGUI(){
         gui = new dat.GUI();
@@ -1408,7 +1430,6 @@
         var drawMeasurementLineFcnWrapper = { add:function(){ drawMeasurementLine() }};
         var clearRulerFcnWrapper = { add:function(){ clearRuler() }};
 
-  
         folder["tools"] = gui.addFolder('Tools');
         
         folder["ruler"] = folder["tools"].addFolder("Ruler");
@@ -1420,19 +1441,21 @@
         folder["ruler"].add(clearRulerFcnWrapper,'add').name("Clear");
         folder["ruler"].open();
         
-        folder["tools"].add(options["tools"], 'showCompass').listen().name("Compass").onChange(function(val){compass.visible = val; render()});
-        folder["tools"].add(options["tools"], 'showWireframe').listen().name("Grid (" + options["scene"].terrainHscale + "m)").onChange(function(val){
+        folder["tools"].add(options["tools"], 'showCompass').name("Compass").onChange(function(val){compass.visible = val; render()});
+        folder["tools"].add(options["tools"], 'showWireframe').name("Grid (" + options["scene"].terrainHscale + "m)").onChange(function(val){
           terrainWireframe.visible = val;
           render();
         });
-        folder["tools"].add(options["tools"], 'showRnavCoordFrame').listen().name("Show RNAV").onChange(function(val){
+        folder["tools"].add(options["tools"], 'showRnavCoordFrame').name("Show RNAV").onChange(function(val){
           roverNavCoordFrameAxes.visible = val; 
           render(); 
         });
-        folder["tools"].add(options["tools"], 'showStrategicRoute').listen().name("Strategic Route").onChange(function(val){
+        folder["tools"].add(options["tools"], 'showStrategicRoute').name("Strategic Route").onChange(function(val){
           routes.visible = val;
           render(); 
         });
+        folder["tools"].add(options["tools"], 'cameraFOV', 15, 120).name("Camera FOV").onChange(function(val){setCameraFOV(val)});
+
         
         folder["scene"] = gui.addFolder('Scene');
         folder["scene"].add(options["sun"], 'az', -179.9, 180.1).listen().name("Sun azimuth").onChange(placeSun);
@@ -1471,6 +1494,7 @@
         folder["attitude"].add(options["attitude"], 'yaw', -370, 370).listen().name("Heading").onChange(changeHeading);
         folder["attitude"].add(options["attitude"], 'height', -3.0, 3.0).listen().name("Height").onChange(liftRover);
 
+
         // make GUI folder for each joint group:
         jointGroupNames.forEach(function(jointGroupName){
           folder[jointGroupName] = gui.addFolder(jointGroupLongNames[jointGroupName]);
@@ -1498,6 +1522,9 @@
                 
         // modify differential onchange callback:
         joints["mob"]["diff"].gui.onChange(function(val){ mobSetRockers(val); });
+        
+        gui.add({add:function(){infoOverlayOn()}},'add').name("Page Info");
+
       }
   
   
