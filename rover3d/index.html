@@ -190,7 +190,7 @@
       const { decode } = window.decodeTiff;
     
 			let camera, scene, renderer, controls, gui;
-      let rover, diffuselight, selected, roverNavCoordFrameAxes, terrain, terrainWireframe;
+      let rover, diffuselight, selected, roverNavCoordFrameAxes, terrain, terrainWireframe, terrain2;
       let mirrorCamera, rmiMirror, insetWidth, insetHeight, mirrorMaterial, mirror, mirrorRendertTarget;
       let compassInsetContainer, compassInsetScene, compassInsetRenderer, compassInsetCamera, compass;
 			let sky, uniforms;
@@ -316,10 +316,13 @@
           showStrategicRoute: true,
         },
         scene: {
-          surfaceColor:  0xc3a17f,
+          surfaceColor:  0xb6a089,
           showHaze:   true,
-          fogDist:    8000,
-          terrainTextureResolution: (ismobile?'2m':'1m'),
+          fogDist:    12000,
+          //terrainTextureResolution: (ismobile?'2m':'1m'),
+          terrainTextureResolution: 1m,
+          terrainHscale: 8,    //m/px, horizontal grid spacing of terrain height map
+          terrainVscale: 0.02, //m/dn, vertical scale of terrain height map
         },
         pose: {
           arm: "STOW",
@@ -338,7 +341,7 @@
 					rayleigh: 0.025,
 					mieCoefficient: 0.001,
 					mieDirectionalG: 0.7,
-          diffuseLightColor:     0xf7d9a4,
+          diffuseLightColor:     0xffcb98,
           initialDiffuseLightIntensity: 0.6,
         },
         sun: {
@@ -349,7 +352,7 @@
           y:0, 
           z:0, 
           intensity:     0.75,
-          lightColor:    0xffffff,
+          lightColor:    0xfff2de,
           maxIntensity:  0.9,
           minLightFraction: 0.01,  //light intensity with sun at zero el
           maxElQuadraticLight: 15, //deg below which light falls off quadratically
@@ -414,7 +417,7 @@
         //scene.background = new THREE.Color( options.skyColor );
 
 
-				camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 8000 );
+				camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 20000 );
         camera.up.set( 0, 0, -1 );
         camera.lookAt(0,0,-1.25);
 				//camera.position.set( 3.6, -0.1, -0.65 );
@@ -543,18 +546,19 @@
         groundPlane.receiveShadow = true;
         //scene.add( groundPlane );
                 
-        const vscale = 0.02;  //m/dn, vertical scale of terrain height map
-        const hscale = 8;    //m/px, horizontal grid spacing of terrain height map
+
         makeTerrain({
           urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h8m.tif',  // must be 16-bit grayscale tif
-          hscale: hscale,    // m/px
-          vscale: vscale,  // m/px
+          hscale:   options["scene"].terrainHscale,    // m/px
+          vscale:   options["scene"].terrainVscale,  // m/px
           offset:   new THREE.Vector3(875, -1165, 240.14),
           rotation: new THREE.Vector3(-1*Math.PI, 0, -1*Math.PI/2),
-          color:  options["scene"].surfaceColor,
-          onload: function(){
+          color:    options["scene"].surfaceColor,
+          onload: function(mesh){
             console.log("loaded terrain");
-            setTerrainTexture(options["scene"].terrainTextureResolution, function(){
+            terrain = mesh;
+            window.terrain = terrain;
+            setTerrainTexture(terrain, options["scene"].terrainTextureResolution, function(){
               scene.add(terrain);
               render();
               //var vnh = new VertexNormalsHelper( terrain, 1 );
@@ -562,6 +566,30 @@
             });
           }
         });
+        
+        
+        makeTerrain({
+          urlHeightMap: 'images/JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_rescale120m.tif',  // must be 16-bit grayscale tif
+          hscale:   120,    // m/px
+          vscale:   7,  // m/dn
+          offset:   new THREE.Vector3(1250, -1300, 330),
+          rotation: new THREE.Vector3(-1*Math.PI, 0, -1*Math.PI/2),
+          color:    options["scene"].surfaceColor,
+          onload: function(mesh){
+            console.log("loaded low-res terrain");
+            terrain2 = mesh;
+            window.terrain2 = mesh;
+            mesh.material.map = new THREE.TextureLoader().load('images/JCowart_color_mosaic.jpg', function(){
+              console.log("done loading low-res terrain texture");
+              scene.add(mesh);
+              render();
+              //var vnh = new VertexNormalsHelper(mesh, 1 );
+              //scene.add( vnh );              
+            });
+          }
+        });
+        
+        
 
         // Make coordinate frame axes:
         roverNavCoordFrameAxes = createCoordAxes(scene, 0.5, "rnav");
@@ -1012,76 +1040,72 @@
         var color  = (params.color==undefined) ? '0x3c332c' : params.color;
 
         console.log("loading terrain");
-        terrain = new THREE.Mesh();
-        terrain.material = new THREE.MeshPhongMaterial({
+        const terrainMesh = new THREE.Mesh();
+        terrainMesh.material = new THREE.MeshPhongMaterial({
           color: color,
           shininess: 3,
         });
-        window.terrain = terrain;
 
-        terrain.hscale = hscale; // not used by 3js; just note for general use elsewhere
-        terrain.vscale = vscale; // not used by 3js; just note for general use elsewhere 
-
-        terrainWireframe = new THREE.Mesh();
-        terrainWireframe.visible = options["tools"].showWireframe;
-        terrainWireframe.material = new THREE.MeshBasicMaterial({
-          color: 0x111111,
-          //polygonOffset: true,
-          //polygonOffsetFactor: 0.2,
-          //polygonOffsetUnits: 1,
-          wireframe: true,
-        });
+        terrainMesh.hscale = hscale; // not used by 3js; just note for general use elsewhere
+        terrainMesh.vscale = vscale; // not used by 3js; just note for general use elsewhere 
         
         console.log("loading height map");
         readTiff(params.urlHeightMap, function(heightMap){
 
-          terrain.geometry = new THREE.PlaneBufferGeometry(heightMap.width*hscale, heightMap.height*hscale, heightMap.width-1, heightMap.height-1);
+          terrainMesh.geometry = new THREE.PlaneBufferGeometry(heightMap.width*hscale, heightMap.height*hscale, heightMap.width-1, heightMap.height-1);
           
           //set height of vertices:
-          const vertices = terrain.geometry.attributes.position;
+          const vertices = terrainMesh.geometry.attributes.position;
           for(var i=0; i<vertices.count; i++ ) {
             vertices.setZ(i, heightMap.data[i]*vscale);
           }
 
-          terrain.position.copy(offset);
-          terrain.rotation.setFromVector3(rotation, 'XYZ');
+          terrainMesh.position.copy(offset);
+          terrainMesh.rotation.setFromVector3(rotation, 'XYZ');
           
-          terrain.geometry.computeVertexNormals();
-          terrain.geometry.computeFaceNormals();
-          terrain.castShadow = true;
-          terrain.receiveShadow = true;
+          terrainMesh.geometry.computeVertexNormals();
+          terrainMesh.geometry.computeFaceNormals();
+          terrainMesh.castShadow = true;
+          terrainMesh.receiveShadow = true;
           renderer.shadowMap.needsUpdate = true;
 
-          //terrain.matrixAutoUpdate = false;;
+          //terrainMesh.matrixAutoUpdate = false;;
 
           //render();
-          console.log("done loading terrain");
+          console.log("done loading terrain hieght map");
           
           //render();
 
-          if(params.onload!==undefined) params.onload();
+          if(params.onload!==undefined) params.onload(terrainMesh);
 
           
           if(params.urlNormalsMap!==undefined){
-            terrain.material.normalMap = new THREE.TextureLoader().load(params.urlNormalsMap);
+            terrainMesh.material.normalMap = new THREE.TextureLoader().load(params.urlNormalsMap);
           }
           
-          terrainWireframe.geometry = terrain.geometry;
-          terrainWireframe.rotation.copy(terrain.rotation);
-          terrainWireframe.position.copy(terrain.position);
+          // Make terrain wireframe:
+          terrainWireframe = new THREE.Mesh();
+          terrainWireframe.visible = options["tools"].showWireframe;
+          terrainWireframe.material = new THREE.MeshBasicMaterial({
+            color: 0x111111,
+            wireframe: true,
+          });
+          terrainWireframe.geometry = terrainMesh.geometry;
+          terrainWireframe.rotation.copy(terrainMesh.rotation);
+          terrainWireframe.position.copy(terrainMesh.position);
           terrainWireframe.position.z += -0.02;
-          terrain.attach(terrainWireframe);
+          terrainMesh.attach(terrainWireframe);
 
         });
       }
       window.makeTerrain = makeTerrain;
 
 
-      function setTerrainTexture(resolution, onload){
+      function setTerrainTexture(object, resolution, onload){
         if( /^[0-9]+c?m$/.test(resolution) ){
           const urlTextureMap = 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale' + resolution + '_color.jpg';
           console.log("loading terrain texture: " + urlTextureMap);
-          terrain.material.map = new THREE.TextureLoader().load(urlTextureMap, function(){
+          object.material.map = new THREE.TextureLoader().load(urlTextureMap, function(){
             console.log("done loading terrain texture");
             if(onload) onload();
           });
@@ -1145,7 +1169,7 @@
         options["sun"].intensity = options["sun"].maxIntensity * intensityMultiplier;
         sun.light1.intensity = options["sun"].intensity;
         sun.light2.intensity = options["sun"].intensity;
-        scene.fog.color = new THREE.Color(options["scene"].surfaceColor).multiplyScalar(intensityMultiplier*0.8);
+        scene.fog.color = new THREE.Color(options["scene"].surfaceColor).multiplyScalar(intensityMultiplier*0.65);
         render();
       }
 
@@ -1397,7 +1421,7 @@
         folder["ruler"].open();
         
         folder["tools"].add(options["tools"], 'showCompass').listen().name("Compass").onChange(function(val){compass.visible = val; render()});
-        folder["tools"].add(options["tools"], 'showWireframe').listen().name("Grid (" + terrain.hscale + "m)").onChange(function(val){
+        folder["tools"].add(options["tools"], 'showWireframe').listen().name("Grid (" + options["scene"].terrainHscale + "m)").onChange(function(val){
           terrainWireframe.visible = val;
           render();
         });
@@ -1426,8 +1450,12 @@
         folder["scene"].add(diffuselight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(render);
         folder["scene"].addColor(options["sky"],'diffuseLightColor').name("Diffuse light color").onChange(function(val){diffuselight.color.set(val); render()});
         //folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
-        folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){terrain.material.color.set(val); render()});
-        folder["scene"].add(options["scene"], 'terrainTextureResolution', terrainTextureResolutions).name('Resolution').onChange(function(val){setTerrainTexture(val)});
+        folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){
+          terrain.material.color.set(val); 
+          terrain2.material.color.set(val); 
+          placeSun(); //updates fog and renders
+        });
+        folder["scene"].add(options["scene"], 'terrainTextureResolution', terrainTextureResolutions).name('Resolution').onChange(function(val){setTerrainTexture(terrain, val)});
         folder["scene"].add(options["scene"], 'showHaze').name("Haze").onChange(function(val){
           scene.fog.far = val ? options["scene"].fogDist : 0; 
           render();
