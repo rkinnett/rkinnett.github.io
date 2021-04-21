@@ -327,9 +327,10 @@
           cameraFOV: 50,
         },
         scene: {
-          surfaceColor:  0xb6a089,
+          surfaceColor:  0xa7886e,
           showHaze:   true,
           fogDist:    12000,
+          fogColor:   0xa7886e,
           //terrainTextureResolution: (ismobile?'2m':'1m'),
           terrainTextureResolution: '2m',
           terrainHscale: 8,    //m/px, horizontal grid spacing of terrain height map
@@ -348,23 +349,23 @@
           height: -0.01,
         },
         sky: {
-					turbidity: 4,
-					rayleigh: 0.025,
-					mieCoefficient: 0.001,
-					mieDirectionalG: 0.7,
-          diffuseLightColor:     0xffe7d3,
-          initialDiffuseLightIntensity: 0.6,
+					turbidity:          1.0,
+					rayleigh:           0.01,
+					mieCoefficient:     0.0005,
+					mieDirectionalG:    0.9,
+          diffuseLightColor:  0xffe7d3,
+          initialDiffuseLightIntensity: 0.5,
         },
         sun: {
           az: -90, 
-          el: 60, 
+          el: 45, 
           dist: 20000, 
           x:0, 
           y:0, 
           z:0, 
           intensity:     0.75,
-          lightColor:    0xfed495,
-          maxIntensity:  0.9,
+          lightColor:    0xffe2b7,
+          maxIntensity:  1.0,
           minLightFraction: 0.01,  //light intensity with sun at zero el
           maxElQuadraticLight: 15, //deg below which light falls off quadratically
         }
@@ -424,16 +425,17 @@
 
 				scene = new THREE.Scene();
         window.scene = scene;
-        scene.fog = new THREE.Fog(0xc3a17f, 0.1, options["scene"].showHaze ? options["scene"].fogDist : 0 );
+        scene.fog = new THREE.Fog(options["scene"].fogColor, 0.1, options["scene"].showHaze ? options["scene"].fogDist : 0 );
         //scene.background = new THREE.Color( options.skyColor );
 
 
 				camera = new THREE.PerspectiveCamera( options["tools"].cameraFOV, window.innerWidth / window.innerHeight, 0.1, 20000 );
         camera.up.set( 0, 0, -1 );
-        camera.lookAt(0,0,-1.25);
+        camera.lookAt(0,0,-1.5);
 				//camera.position.set( 3.6, -0.1, -0.65 );
         //camera.position.set( 3.6, 0, -0.65 );
-        camera.position.set( 4, 2, -1.4 );
+        //camera.position.set( 4, 2, -1.4 );
+        camera.position.set( -2, 10, -4 );
         window.camera = camera;
                 
                 
@@ -584,8 +586,8 @@
         makeTerrain({
           urlHeightMap: 'images/JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_rescale240m_centerReduced.tif',  // must be 16-bit grayscale tif
           hscale:   240*0.96,    // m/px
-          vscale:   7,  // m/dn
-          offset:   new THREE.Vector3(1300, -1300, 330),
+          vscale:   6,  // m/dn
+          offset:   new THREE.Vector3(1300, -1300, 250),
           rotation: new THREE.Vector3(-1*Math.PI, 0, -1*Math.PI/2),
           color:    options["scene"].surfaceColor,
           onload: function(mesh){
@@ -1166,25 +1168,31 @@
 
 
       function placeSun(){
+        const minEl = -2;
         var sunX = options["sun"].dist * Math.cos(options["sun"].el * deg2rad) * Math.cos(options["sun"].az * deg2rad) ;
         var sunY = options["sun"].dist * Math.cos(options["sun"].el * deg2rad) * Math.sin(options["sun"].az * deg2rad);
-        var sunZ = -1 * options["sun"].dist * Math.sin(Math.max(-0.5,options["sun"].el) * deg2rad);
+        var sunZ = -1 * options["sun"].dist * Math.sin(Math.max(minEl,options["sun"].el) * deg2rad);
         sun.pos.set(sunX, sunY, sunZ);
         sun.lights.position.set(sunX, sunY, sunZ);
 				sky.material.uniforms[ "sunDirection" ].value.copy( sun.pos.normalize() );
         var intensityMultiplier = 1;
         var sunEl = Math.max(0, options["sun"].el<90? options["sun"].el : 180-options["sun"].el);
-        if(sunEl<20){
+        if(sunEl<options["sun"].maxElQuadraticLight){
           // Quadratic extinction
-          var intensityMultiplier = sun.extinctionCoeffs[0]*sunEl*sunEl + sun.extinctionCoeffs[1]*sunEl + sun.extinctionCoeffs[2];
+          intensityMultiplier = sun.extinctionCoeffs[0]*sunEl*sunEl + sun.extinctionCoeffs[1]*sunEl + sun.extinctionCoeffs[2];
         }
+        console.log("intensityMultiplier: " + intensityMultiplier);
         diffuselight.intensity = options["sky"].initialDiffuseLightIntensity * intensityMultiplier * intensityMultiplier;
         options["sun"].intensity = options["sun"].maxIntensity * intensityMultiplier;
         sun.light1.intensity = options["sun"].intensity;
         sun.light2.intensity = options["sun"].intensity;
-        scene.fog.color = new THREE.Color(options["scene"].surfaceColor).multiplyScalar(intensityMultiplier*0.65);
+        
+        //Update fog:
+        options["scene"].fogColor = interpHex(options["scene"].surfaceColor, options["sky"].diffuseLightColor, 0.5);  // blend of terrain and diffuse light color
+        scene.fog.color = new THREE.Color(options["scene"].fogColor).multiplyScalar(intensityMultiplier*intensityMultiplier*0.5);
         render();
       }
+
 
       function tiltRover(){
         var newAttitude = new THREE.Vector3(
@@ -1209,6 +1217,17 @@
         render();
       }
 
+
+      function interpHex(hex1, hex2, ratio){
+        const rgb1 = hex1.toString(16).padStart(6, '0').match(/.{1,2}/g);
+        const rgb2 = hex2.toString(16).padStart(6, '0').match(/.{1,2}/g);
+        var hex = [];
+        for(var i=0; i<3; i++){
+          hex[i] = Math.ceil(parseInt(rgb1[i],16)*(1-ratio) + parseInt(rgb2[i],16)*ratio).toString(16).padStart(2, '0');
+        }
+        console.log([rgb1, rgb2, hex])
+        return parseInt('' + hex[0] + hex[1] + hex[2], 16);
+      }
 
 
       function createCoordAxes(parent, vector_length, frame_name = "coord_frame"){ 
@@ -1454,12 +1473,12 @@
           routes.visible = val;
           render(); 
         });
-        folder["tools"].add(options["tools"], 'cameraFOV', 15, 120).name("Camera FOV").onChange(function(val){setCameraFOV(val)});
+        folder["tools"].add(options["tools"], 'cameraFOV', 5, 120).name("Camera FOV").onChange(function(val){setCameraFOV(val)});
 
         
         folder["scene"] = gui.addFolder('Scene');
         folder["scene"].add(options["sun"], 'az', -179.9, 180.1).listen().name("Sun azimuth").onChange(placeSun);
-        folder["scene"].add(options["sun"], 'el', -0.5, 180.5).listen().name("Sun elevation").onChange(placeSun);
+        folder["scene"].add(options["sun"], 'el', 0, 182).listen().name("Sun elevation").onChange(placeSun);
         folder["scene"].add(options["sun"], 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){
           sun.light1.intensity = val;
           sun.light2.intensity = val;
@@ -1468,14 +1487,14 @@
         folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){
           sun.light1.color.set(val);
           sun.light2.color.set(val); 
-          render();
+          placeSun(); //updates fog and renders
         });
-        folder["scene"].add(diffuselight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(render);
+        folder["scene"].add(diffuselight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(render); 
         folder["scene"].addColor(options["sky"],'diffuseLightColor').name("Diffuse light color").onChange(function(val){diffuselight.color.set(val); render()});
         //folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
         folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){
           terrain.material.color.set(val); 
-          terrain2.material.color.set(val); 
+          terrain2.material.color.set(val);
           placeSun(); //updates fog and renders
         });
         folder["scene"].add(options["scene"], 'terrainTextureResolution', terrainTextureResolutions).name('Resolution').onChange(function(val){setTerrainTexture(terrain, val)});

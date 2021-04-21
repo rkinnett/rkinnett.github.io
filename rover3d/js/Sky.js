@@ -74,12 +74,12 @@ Sky.SkyShader = {
 		'const float pi = 3.141592653589793238462643383279502884197169;',
     'const float piOver2 = 1.57079632679;',
 
-    'const vec3 totalRayleigh = vec3( 3.4E-4, 2.0E-4, 0.9E-4 );',  // RK: Rayleight scatter color (main sky color)
+    'const vec3 totalRayleigh = vec3( 3.2E-4, 2.4E-4, 1.9E-4 );',  // RK: Rayleight scatter color (main sky color)
 
-		'const vec3 MieConst = vec3( 1.6, 3.6, 6.1 );',  // RK: Mie scattering "color"
+		'const vec3 MieConst = vec3( 0.5, 2.6, 5.1 );',  // RK: Mie scattering "color"
 
-    'const float sunIntensityVsElevation = 1.0;', //(~1-10) (1.5 orig, 2.5 mars) RK: affects sky brightness vs sun elevation, higher=brighter
-		'const float sunIntensityZenith = 400.0;',  //(1.0-4000.0) RK: sky brightness scalar
+    'const float sunIntensityVsElevation = 1.8;', //(~1-10) RK: affects sky brightness vs sun elevation, higher value falls off faster near horizon
+		'const float sunIntensityZenith = 1500.0;',  //(1.0-4000.0) RK: sky brightness scalar
     
 
 		'void main() {',
@@ -88,8 +88,9 @@ Sky.SkyShader = {
 		'	vWorldPosition = worldPosition.xyz;',
 		'	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
 		'	gl_Position.z = gl_Position.w;',
-		'	float zenithAngleCos = clamp( dot( sunDirection, up ), -1.0, 1.0);',
-    '	vSunE = sunIntensityZenith * max( 0.0, 1.0 - pow( e, -( ( piOver2 - acos( zenithAngleCos ) ) / sunIntensityVsElevation ) ) );',
+		//'	float zenithAngleCos = clamp( dot( sunDirection, up ), -1.0, 1.0);',
+    '	float zenithAngleCos = dot( sunDirection, up );',
+    '	vSunE = sunIntensityZenith * max( 0.0, 1.0 - pow( e, -( ( piOver2 +0.15 - acos( zenithAngleCos ) ) / sunIntensityVsElevation ) ) );',
 		'	vSunfade = 1.0 - clamp( 1.0 - exp( ( -1.0 * sunDirection.z ) ), 0.0, 1.0 );',
 
 		'	float rayleighCoefficient = rayleigh - ( 1.0 * ( 1.0 - vSunfade ) );',
@@ -119,11 +120,11 @@ Sky.SkyShader = {
 
 
 		// optical length at zenith
-		'const float rayleighZenithLength   = 4.0E3;',   //RK: affects Rayleigh scattering intensity (10.0E3)
+		'const float rayleighZenithLength   = 1.0E3;',   //RK: affects Rayleigh scattering intensity (10.0E3)
 		'const float mieZenithLength        = 1.0E3;',   //RK: affects Mie scattering intensity (5.0E3)
 
     // sun disk
-    'const float sunAngularDiameterCos  = 0.99998;',  //RK: higher value = smaller sun disk
+    'const float sunAngularDiameterCos  = 0.999985;',  //RK: higher value = smaller sun disk
 
 
 		'float rayleighPhase( float cosTheta ) {',
@@ -150,7 +151,8 @@ Sky.SkyShader = {
 		'	vec3 Fex = exp( -( vBetaR * sR + vBetaM * sM ) );',
 
 		// in-scattering
-		'	float cosTheta = clamp(dot( direction, sunDirection ), 0.0, 1.0);',
+		//'	float cosTheta = clamp(dot( direction, sunDirection ), 0.0, 1.0);',
+    ' float cosTheta = dot( direction, sunDirection );',
 
 		'	float rPhase = rayleighPhase( cosTheta * 0.5 + 0.5 );',
 		'	vec3 betaRTheta = vBetaR * rPhase;',
