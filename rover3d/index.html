@@ -582,10 +582,10 @@
         
         
         makeTerrain({
-          urlHeightMap: 'images/JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_rescale240m.tif',  // must be 16-bit grayscale tif
-          hscale:   240,    // m/px
+          urlHeightMap: 'images/JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_rescale240m_centerReduced.tif',  // must be 16-bit grayscale tif
+          hscale:   240*0.96,    // m/px
           vscale:   7,  // m/dn
-          offset:   new THREE.Vector3(1250, -1300, 330),
+          offset:   new THREE.Vector3(1300, -1300, 330),
           rotation: new THREE.Vector3(-1*Math.PI, 0, -1*Math.PI/2),
           color:    options["scene"].surfaceColor,
           onload: function(mesh){
