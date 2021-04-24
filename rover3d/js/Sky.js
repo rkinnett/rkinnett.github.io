@@ -74,7 +74,7 @@ Sky.SkyShader = {
 		'const float pi = 3.141592653589793238462643383279502884197169;',
     'const float piOver2 = 1.57079632679;',
 
-    'const vec3 totalRayleigh = vec3( 3.2E-4, 2.4E-4, 1.9E-4 );',  // RK: Rayleight scatter color (main sky color)
+    'const vec3 totalRayleigh = vec3( 3.2E-4, 2.1E-4, 1.4E-4 );',  // RK: Rayleight scatter color (main sky color)
 
 		'const vec3 MieConst = vec3( 0.5, 2.6, 5.1 );',  // RK: Mie scattering "color"
 
