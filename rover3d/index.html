@@ -152,32 +152,49 @@
       <div id="info">
         <h1>Rover 3D</h1>
         R. Kinnett, 2021
-        <br/>
+        <hr/>
+        An immersive Mars exploration experience featuring NASA's Perseverance rover and its home on Mars, Jezero Crater.<br/>
+        This page leverages public resources provided by NASA and JPL but is not affiliated with NASA or JPL.
         <hr/>
         <h3>Controls:</h3>
         <ul class="info_ul">
           <li>Mouse:  Left button: rotate, center wheel: zoom, right button: pan</li>
           <li>Touch:  Single-touch drag: rotate, double-touch drag: pan, double-touch pinch: zoom</li>
           <li>Double-click or double-tap:  center view over selected position</li>
-          <li>Key "g":  place rover at cursor ("<emph>g</emph>o to")</li>
           <li>Key "h":  place rover at landing site ("<emph>h</emph>ome")</li>
+          <li>Key "g":  place rover at cursor ("<emph>g</emph>o to")</li>
           <li>Key "r":  center view over <emph>r</emph>over</li>
           <li>Key "f":  toggle camera rover-<emph>f</emph>ollow during drive</li>
           <li>Key "w":  increment drive speed</li>
-          <li>Key "s":  decrement drive speed</li>
-          <li>Key "a":  decrement drive turn rate</li>
-          <li>Key "d":  increment drive turn rate</li>
-          <li>Key "x":  stop driving</li>
-          <li>Key "z":  straighten wheels</li>
+          <li>Key "x":  decrement drive speed</li>
+          <li>Key "d":  increment turn angle</li>
+          <li>Key "a":  decrement turn angle</li>
+          <li>Key "s":  <emph>s</emph>top driving and <emph>s</emph>traighten wheels</li>
         </ul>
         <hr/>
         <h3>Acknowledgments:</h3>
         <ul class="info_ul">
           <li>
-            Base terrain map derived from USGS <a href="https://astrogeology.usgs.gov/search/map/Mars/Mars2020/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40">"Mars 2020 Terrain Relative Navigation HiRISE DTM Mosaic"</a> via Mars Reconnaissance Orbiter MOLA (NASA/JPL/GSFC/USGS) and HiRISE (NASA/JPL/University of Arizona).  Colorized via <a href="https://www.flickr.com/photos/132160802@N06/50905666446/">Jezero Crater color mosaic</a> by J. Cowart with source images from MRO CTX (NASA/JPL/MSSS) and CRISM (NASA/JPL/JHUAPL), and Mars Express HRSC (ESA/DLR/FU Berlin), re-blended by R. Kinnett.
+            Base terrain map derived (cropped and scaled) from USGS "<a href="https://astrogeology.usgs.gov/search/map/Mars/Mars2020/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40">Mars 2020 Terrain Relative Navigation HiRISE DTM Mosaic</a>".
+            <ul>
+              <li>
+                Terrain height map derived from <a href="https://astrogeology.usgs.gov/search/map/Mars/Mars2020/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40">MOLA DTM</a> via Mars Reconnaissance Orbiter MOLA, courtesty NASA/JPL-Caltech/GSFC/USGS.
+              </li>
+              <li>
+                Terrain luminance texture derived from <a href="https://astrogeology.usgs.gov/search/map/Mars/Mars2020/JEZ_hirise_soc_006_orthoMosaic_25cm_Eqc_latTs0_lon0_first">Mars 2020 TRN HiRISE mosaic</a> via Mars Reconnaissance Orbiter HiRISE, courtesty NASA/JPL-Caltech/GSFC/USGS.
+              </li>
+            </ul>
+            <li>
+              Terrain texture colorized via <a href="https://www.flickr.com/photos/132160802@N06/50905666446/">Jezero Crater color mosaic</a> by J. Cowart with source images from MRO CTX (NASA/JPL/MSSS) and CRISM (NASA/JPL/JHUAPL), and Mars Express HRSC (ESA/DLR/FU Berlin), re-blended by R. Kinnett.
+            </li>
+          <li>
+            Perseverance <a href="https://mars.nasa.gov/resources/25042/mars-perseverance-rover-3d-model/">rover model</a> courtesy NASA/JPL, heavily modified by R. Kinnett
           </li>
           <li>
-            <a href="https://mars.nasa.gov/resources/25042/mars-perseverance-rover-3d-model/">Perseverance rover model</a> courtesy NASA/JPL, heavily modified by R. Kinnett
+            Perseverance <a href="https://mars.nasa.gov/resources/25732/sounds-of-perseverance-mars-rover-driving-sol-16-90-second-highlights/">rover audio</a> courtesy NASA/JPL-Caltech.
+          </li>
+          <li>
+            This page is built using the <a href="https://threejs.org/">three.js</a> javascript library for WebGL.
           </li>
         </ul>  
         <hr/>
@@ -192,7 +209,7 @@
     <!-- Compass inset -->
 		<div id="compassInset"></div>
 
-
+    
     <!-- USEFUL REFERENCES:
       https://www-robotics.jpl.nasa.gov/publications/Mark_Maimone/fulltext.pdf
       https://pds-imaging.jpl.nasa.gov/documentation/MSL_COORDINATE_FRAMES.PDF 
@@ -228,6 +245,7 @@
 			let sky, uniforms;
       let routes;
       let ruler;
+      let prevRenderTime;
       
       let renderRequested = false;
       
@@ -243,6 +261,7 @@
       let vecs = {};
       window.vecs = vecs;
 
+      const clock = new THREE.Clock();
 
       let parts = {};
       window.parts = parts;
@@ -461,9 +480,22 @@
       window.drive = drive;
       
       
+      let audio = {
+        listener:   null,
+        maxVol:     1,
+        fadeGain:   0,
+        fadeRate:   20, //per sec
+        roverSound: null,
+        state:      "not loaded",
+      }
+      window.audio = audio;
+      
+      
       startLoadingManager();
-			init();
-      render();
+			//init();
+      
+      init();
+      
       //animate();
 
 			function init() {
@@ -506,7 +538,7 @@
         //camera.position.set( 4, 2, -1.4 );
         camera.position.set( -2, 10, -4 );
         window.camera = camera;
-                
+                        
                 
         // Make Controls:
 				controls = new MapControls( camera, renderer.domElement );
@@ -528,7 +560,7 @@
 				controls.target.set( 0, 0, -1 );
         window.controls = controls;
         
-
+        
         // make compass inset:
         makeCompass();
         compass.visible = options["tools"].showCompass;
@@ -571,11 +603,10 @@
         scene.add( diffuselight );
         
         // Define 2 directional lights with different shadow map scales
-        // Light1 with narrow shadow map:
-        
         sun.lights = new THREE.Group();
         scene.add(sun.lights);
-        
+
+        // Light1 with narrow shadow map:
         sun.light1 = new THREE.DirectionalLight( options["sun"].lightColor, options["sun"].intensity);
         sun.light1.castShadow = true;
         sun.light1.shadow.camera.near = 1000;
@@ -640,6 +671,7 @@
           onload: function(mesh){
             console.log("loaded terrain");
             terrain = mesh;
+            sun.light2.target = terrain;
             window.terrain = terrain;
             setTerrainTexture(terrain, options["scene"].terrainTextureResolution, function(){
               scene.add(terrain);
@@ -716,7 +748,21 @@
         makeGUI();
         
 
-        loadRover();
+        loadRover(function(){
+          rover.attach(roverNavCoordFrameAxes);
+          if(terrain) projectRoverToSurface(); // repositions rover onto terrain
+          tiltRover(); //matches rover tilt to local terrain
+          sun.light1.target = rover; //attach narrow sunlight to rover for fine scale shadows
+          
+          // Go to initial poses:
+          ["arm", "rsm", "hga", "mob"].forEach(function(jointGroupName){     
+            goToPose(jointGroupName, options["pose"][jointGroupName]);
+          });
+
+          scene.add(rover);
+          requestRenderIfNotRequested();
+        });
+
 
 				controls.update();
 
@@ -786,12 +832,19 @@
 				requestRenderIfNotRequested();
 			}
 
-			function render() {
+			function render() {     
         renderRequested = false;
         updateCompass();
         renderer.render( scene, camera );
+        
+        const secondsElepased = clock.getDelta();
         if(drive.driving){
-          updateDrive();
+          updateDrive(secondsElepased);
+          requestRenderIfNotRequested();
+        }
+        
+        updateRoverAudio(secondsElepased);
+        if(audio.state!="stopped"){
           requestRenderIfNotRequested();
         }
       }
@@ -804,8 +857,56 @@
         }
       }
       
-
-
+      
+      function updateRoverAudio(timeElapsed){
+        if(audio.state=="not loaded"){
+          // Set up rover audio:
+          audio.listener = new THREE.AudioListener(),
+          camera.add(audio.listener);
+          audio.roverSound = new THREE.PositionalAudio( audio.listener );  // volume increases near rover!
+          audio.fadeGain = audio.listener.context.createGain();  // additional gain control for smoothly starting/stopping
+          const audioloader = new THREE.AudioLoader().load( 'data/45857_FILTERED_HIGHLIGHTS_-_Sol16RoverDriveHighlights.mp3', function ( buffer ) {
+            audio.roverSound.setBuffer( buffer );
+            audio.roverSound.setLoop(true);
+            audio.roverSound.setRefDistance( 2 );
+            audio.roverSound.setMaxDistance( 20 );
+            audio.state = "stopped";
+          } );
+          const helper = new PositionalAudioHelper( audio.roverSound );
+          positionalAudio.add( helper );
+          scene.add(helper);
+          
+        } else {
+        
+          audio.roverSound.panner.setPosition(rover.position.x, rover.position.y, rover.position.z);
+        
+          if(audio.state=="starting"){
+            if(!audio.roverSound.isPlaying) {
+              audio.fadeGain.gain.value = 0;
+              //console.log("resuming audio");
+              audio.roverSound.play();
+            } else {
+              audio.fadeGain.gain.value = Math.min(1, audio.fadeGain.gain.value + audio.fadeRate * timeElapsed);
+              if(audio.fadeGain.gain.value==1) {
+                audio.state = "playing";
+                updateRoverAudio();
+              }
+            }
+            
+          } else if(audio.state=="stopping"){
+            audio.fadeGain.gain.value = Math.max(0, audio.fadeGain.gain.value - audio.fadeRate * timeElapsed);
+            if(audio.fadeGain.gain.value==0) {
+              audio.state = "stopped";
+              if(audio.roverSound.isPlaying) {
+                //console.log("pausing audio");
+                audio.roverSound.pause();
+              }
+            }
+          }
+        }
+      }
+      
+      
       function updateCompass(){
 				//copy position of the camera into inset
 				compassInsetCamera.position.copy(controls.target.clone().sub(camera.position));
@@ -1057,7 +1158,7 @@
 			}
 
 
-      function loadRover(){
+      function loadRover(onload){
         const loader = new GLTFLoader().setPath( 'model/' );        
         loader.load( 'Perseverance.glb', function ( gltf ) {
           rover = gltf.scene;
@@ -1102,23 +1203,8 @@
           
           console.log(rover);
           
-          // Go to initial poses:
-          ["arm", "rsm", "hga", "mob"].forEach(function(jointGroupName){     
-            goToPose(jointGroupName, options["pose"][jointGroupName]);
-          });
+          if(onload) onload();
 
-          tiltRover();
-
-          sun.light1.target = rover;
-          sun.light2.target = rover;
-
-          rover.attach(roverNavCoordFrameAxes);
-      
-          scene.add(rover);
-          
-          if(terrain) projectRoverToSurface();
-
-          requestRenderIfNotRequested();
         } );
       }
 
@@ -1392,11 +1478,10 @@
             case "t":  console.log("TOP");       break;
             case "f":  console.log("FOLLOW");    options["camera"].followRover=!options["camera"].followRover; break;
             case "w":  console.log("SPEEDUP");   drive.speedRatio+=drive.speedRatioIncr; setSpeed(); break;
-            case "s":  console.log("SPEEDDN");   drive.speedRatio-=drive.speedRatioIncr; setSpeed(); break;
-            case "x":  console.log("SPEEDSTOP"); drive.speedRatio=0;  setSpeed(); break;
+            case "x":  console.log("SPEEDDN");   drive.speedRatio-=drive.speedRatioIncr; setSpeed(); break;
+            case "s":  console.log("DRIVESTOP"); drive.speedRatio=0;  drive.turnRate=0;  setSteering();  break;
             case "a":  console.log("TURNLEFT");  drive.turnRate-=drive.turnRateIncr;  setSteering(); break;
             case "d":  console.log("TURNRIGHT"); drive.turnRate+=drive.turnRateIncr;  setSteering(); break;
-            case "z":  console.log("STRAIGHTEN"); drive.turnRate=0;  setSteering(); break;
             default:   console.log("unhandled key"); 
           }
         } else {
@@ -1551,6 +1636,16 @@
         const turnRate = Math.max(-180, Math.min(180, Math.round(drive.turnRate/drive.turnRateIncr)*drive.turnRateIncr ));
         drive.turnRate = turnRate;
         
+        // play sound for 0.25 sec
+        if(!drive.driving) {
+          if(!audio.roverSound.isPlaying) audio.state="starting";
+          setTimeout(function(){
+            if(!drive.driving && audio.roverSound.isPlaying) {
+              audio.state="stopping";
+            }
+          },250);
+        }
+        
         if(turnRate==0){
           straightenWheels();
           return;
@@ -1593,8 +1688,12 @@
           console.log("Starting drive");
           drive.prevStepTime = new Date().getTime();
           requestRenderIfNotRequested();
+          if(!audio.roverSound.isPlaying) audio.roverSound.play();
         }
-        if(!drive.driving && prevDriving) console.log("Stopping drive");
+        if(!drive.driving && prevDriving){
+          console.log("Stopping drive");
+          if(audio.roverSound.isPlaying) audio.roverSound.pause();
+        }
 
         const wheelRadius = 0.25; //m
         for(var wheel in drive.wheelSpeed){
@@ -1607,11 +1706,7 @@
       }
 
       
-      function updateDrive() {
-        const currentTime = new Date().getTime();
-        const secondsElepased = (currentTime - drive.prevStepTime)/1000;
-        drive.prevStepTime = currentTime;
-        
+      function updateDrive(secondsElepased) {
         for(var wheel in wheels){
           var jointAngle = joints["wheels"][wheel].angle;
           jointAngle += ((drive.wheelSpeed[wheel]*secondsElepased) % 360);
