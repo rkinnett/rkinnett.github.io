@@ -1387,7 +1387,7 @@
         } else if(keyAscii) {
           switch (keyAscii) {
             case "g":  console.log("PLACE");     placeRover(mouseNow);  break;
-            case "h":  console.log("PLACE");     rover.position.set(0,0,0);  requestRenderIfNotRequested(); break;
+            case "h":  console.log("PLACE");     rover.position.set(0,0,0);  settleRover(new THREE.Vector3(0,0,-1)); requestRenderIfNotRequested(); break;
             case "r":  console.log("ROVER");     moveCameraToViewTarget(rover.position); break;
             case "t":  console.log("TOP");       break;
             case "f":  console.log("FOLLOW");    options["camera"].followRover=!options["camera"].followRover; break;
