@@ -16,7 +16,7 @@
       line-height: 24px;
       overscroll-behavior: none;
     }    
-    
+        
     a:link {
       color: #adf;
     }
@@ -104,6 +104,16 @@
       left: 10%;
       font-size: 14px;
       color: #ccc;
+      line-height: 120%;
+    }
+    
+    .info_ul li {
+      margin-top:  0px;
+      line-height: 95%;
+    }
+    
+    .info_ul li:not(:last-child) {
+      margin-bottom: 0px;
     }
     
     emph {
@@ -145,19 +155,31 @@
         <br/>
         <hr/>
         <h3>Controls:</h3>
-        <li>Mouse:  Left button: rotate, center wheel: zoom, right button: pan</li>
-        <li>Touch:  Single-touch drag: rotate, double-touch drag: pan, double-touch pinch: zoom</li>
-        <li>Double-click or double-tap:  center view over selected position</li>
-        <li>Key "d":  <emph>d</emph>rop rover at cursor</li>
-        <li>Key "r":  center view over <emph>r</emph>over</li>
+        <ul class="info_ul">
+          <li>Mouse:  Left button: rotate, center wheel: zoom, right button: pan</li>
+          <li>Touch:  Single-touch drag: rotate, double-touch drag: pan, double-touch pinch: zoom</li>
+          <li>Double-click or double-tap:  center view over selected position</li>
+          <li>Key "g":  place rover at cursor ("<emph>g</emph>o to")</li>
+          <li>Key "h":  place rover at landing site ("<emph>h</emph>ome")</li>
+          <li>Key "r":  center view over <emph>r</emph>over</li>
+          <li>Key "f":  toggle camera rover-<emph>f</emph>ollow during drive</li>
+          <li>Key "w":  increment drive speed</li>
+          <li>Key "s":  decrement drive speed</li>
+          <li>Key "a":  decrement drive turn rate</li>
+          <li>Key "d":  increment drive turn rate</li>
+          <li>Key "x":  stop driving</li>
+          <li>Key "z":  straighten wheels</li>
+        </ul>
         <hr/>
         <h3>Acknowledgments:</h3>
-        <li>
-          Base terrain map derived from USGS <a href="https://astrogeology.usgs.gov/search/map/Mars/Mars2020/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40">"Mars 2020 Terrain Relative Navigation HiRISE DTM Mosaic"</a> via Mars Reconnaissance Orbiter MOLA (NASA/JPL/GSFC/USGS) and HiRISE (NASA/JPL/University of Arizona).  Colorized via <a href="https://www.flickr.com/photos/132160802@N06/50905666446/">Jezero Crater color mosaic</a> by J. Cowart with source images from MRO CTX (NASA/JPL/MSSS) and CRISM (NASA/JPL/JHUAPL), and Mars Express HRSC (ESA/DLR/FU Berlin), re-blended by R. Kinnett.
-        </li>
-        <li>
-          <a href="https://mars.nasa.gov/resources/25042/mars-perseverance-rover-3d-model/">Perseverance rover model</a> courtesy NASA/JPL, heavily modified by R. Kinnett
-        </li>
+        <ul class="info_ul">
+          <li>
+            Base terrain map derived from USGS <a href="https://astrogeology.usgs.gov/search/map/Mars/Mars2020/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40">"Mars 2020 Terrain Relative Navigation HiRISE DTM Mosaic"</a> via Mars Reconnaissance Orbiter MOLA (NASA/JPL/GSFC/USGS) and HiRISE (NASA/JPL/University of Arizona).  Colorized via <a href="https://www.flickr.com/photos/132160802@N06/50905666446/">Jezero Crater color mosaic</a> by J. Cowart with source images from MRO CTX (NASA/JPL/MSSS) and CRISM (NASA/JPL/JHUAPL), and Mars Express HRSC (ESA/DLR/FU Berlin), re-blended by R. Kinnett.
+          </li>
+          <li>
+            <a href="https://mars.nasa.gov/resources/25042/mars-perseverance-rover-3d-model/">Perseverance rover model</a> courtesy NASA/JPL, heavily modified by R. Kinnett
+          </li>
+        </ul>  
         <hr/>
         View source code at <a href="https://github.com/rkinnett/rkinnett.github.io/tree/master/rover3d">Github</a>.<br/>
         <b>Comments and suggestions: </b> <a href="https://twitter.com/rover_18">twitter</a> or <a href="https://discord.gg/Eky6AhRSnj">discord</a>
@@ -207,6 +229,8 @@
       let routes;
       let ruler;
       
+      let renderRequested = false;
+      
       let timeout;
       let lastTap = 0;
       
@@ -233,7 +257,7 @@
       }
       window.sun = sun;
     
-      let jointGroupNames = ["arm", "rsm", "hga", "mob"];
+      let jointGroupNames = ["arm", "rsm", "hga", "mob", "wheels"];
       let jointGroupLongNames = {arm: "Robotic Arm", rsm: "Remote Sensing Mast", hga: "High-Gain Antenna", mob: "Suspension"};
     
       let joints = {
@@ -264,12 +288,21 @@
           bogie_left: {name: "Bogie Left",         model_obj_name: "suspension_bogie_left",   axis: "y",  dir: 1,  angle: 0.1,  min:-40,   max:40  },
           bogie_right: {name: "Bogie Right",       model_obj_name: "suspension_bogie_right",  axis: "y",  dir: 1,  angle: 0.1,  min:-40,   max:40  },
         },
+        
+        wheels: {
+          lf:   {name: "Wheel Left-Front",   model_obj_name: "wheel_LF",  axis: "y",  dir:-1,  angle: 0,  min:-360,  max:360 },
+          lm:   {name: "Wheel Left-Mid",     model_obj_name: "wheel_LM",  axis: "y",  dir:-1,  angle: 0,  min:-360,  max:360 },
+          lr:   {name: "Wheel Left-Rear",    model_obj_name: "wheel_LR",  axis: "y",  dir:-1,  angle: 0,  min:-360,  max:360 },
+          rf:   {name: "Wheel Right-Front",  model_obj_name: "wheel_RF",  axis: "y",  dir:-1,  angle: 0,  min:-360,  max:360 },
+          rm:   {name: "Wheel Right-Mid",    model_obj_name: "wheel_RM",  axis: "y",  dir:-1,  angle: 0,  min:-360,  max:360 },
+          rr:   {name: "Wheel Right-Rear",   model_obj_name: "wheel_RR",  axis: "y",  dir:-1,  angle: 0,  min:-360,  max:360 },
+        },
       };
       window.joints = joints;
       
       
       // factor the joint names:
-      let jointNames = {arm:[], rsm:[], hga:[], mob:[]};
+      let jointNames = {arm:[], rsm:[], hga:[], mob:[], wheels:[]};
       window.jointNames = jointNames;
       jointGroupNames.forEach(function(jointGroupName){
         for(var jointName in joints[jointGroupName]) { 
@@ -324,7 +357,6 @@
           wireframeColor: 0x090909,
           showRnavCoordFrame: false,
           showStrategicRoute: true,
-          cameraFOV: 50,
         },
         scene: {
           surfaceColor:  0xa7886e,
@@ -335,6 +367,11 @@
           terrainTextureResolution: '2m',
           terrainHscale: 8,    //m/px, horizontal grid spacing of terrain height map
           terrainVscale: 0.02, //m/dn, vertical scale of terrain height map
+        },
+        camera: {
+          fov: 50,        //deg
+          exposure: 0.65, //0-1
+          followRover: false,
         },
         pose: {
           arm: "STOW",
@@ -351,7 +388,7 @@
         sky: {
 					turbidity:          1.0,
 					rayleigh:           0.01,
-					mieCoefficient:     0.0005,
+					mieCoefficient:     0.0003,
 					mieDirectionalG:    0.9,
           diffuseLightColor:  0xffe7d3,
           initialDiffuseLightIntensity: 0.5,
@@ -393,8 +430,40 @@
       ];
       
       
+      let wheels = {
+        lf: {x:  1.18,  y: -1.06},
+        lm: {x:  0.00,  y: -1.18},
+        lr: {x: -1.08,  y: -1.06},
+        rf: {x:  1.18,  y:  1.06},
+        rm: {x:  0.00,  y:  1.18},
+        rr: {x: -1.08,  y:  1.06},
+      }
+      
+      let drive = {
+        driving:         false,
+        rnavSpeed:       0,
+        rnavSpeedRatio:  1,
+        maxSpeed:        0.042, //m/sec
+        maxSpeedRatio:   30,    // x actual max rover speed (maxSpeed)
+        speedRatioIncr:  2,     // x actual rover speed
+        speedRatio:      0,
+        headingRate:     0,     //deg/sec
+        headingChange:   0,
+        arcLength:       0,
+        turnRadius:      0,
+        turnRate:        0,     //deg/m
+        turnRateIncr:    20,    //deg/m
+        wheelSpeed:      {lf: 0, lm: 0, lr: 0, rf: 0, rm: 0, rr: 0}, //rad/sec
+        wheelSpeedRatio: {lf: 1, lm: 1, lr: 1, rf: 1, rm: 1, rr: 1},
+        nextPosRnav:     new THREE.Vector3(0,0,0),
+        nextPos:         new THREE.Vector3(0,0,0),
+      }
+      window.drive = drive;
+      
+      
       startLoadingManager();
 			init();
+      render();
       //animate();
 
 			function init() {
@@ -413,7 +482,7 @@
 				renderer.outputEncoding = THREE.sRGBEncoding;
 				renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.physicallyCorrectLights = true;
-        renderer.toneMappingExposure = 0.65; 
+        renderer.toneMappingExposure = options["camera"].exposure; 
         window.renderer = renderer;
 				container.appendChild( renderer.domElement );
 
@@ -429,7 +498,7 @@
         //scene.background = new THREE.Color( options.skyColor );
 
 
-				camera = new THREE.PerspectiveCamera( options["tools"].cameraFOV, window.innerWidth / window.innerHeight, 0.1, 20000 );
+				camera = new THREE.PerspectiveCamera( options["camera"].fov, window.innerWidth / window.innerHeight, 0.1, 20000 );
         camera.up.set( 0, 0, -1 );
         camera.lookAt(0,0,-1.5);
 				//camera.position.set( 3.6, -0.1, -0.65 );
@@ -442,7 +511,7 @@
         // Make Controls:
 				controls = new MapControls( camera, renderer.domElement );
 				//const controls = new OrbitControls( camera, renderer.domElement );
-				controls.addEventListener( 'change', render ); // use if there is no animation loop
+				controls.addEventListener( 'change', requestRenderIfNotRequested ); // use if there is no animation loop
         //controls.mouseButtons = { ORBIT: THREE.MOUSE.LEFT, ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
         //controls.mouseButtons = { ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
         controls.mouseButtons = {LEFT: 0, MIDDLE: 1, RIGHT: 2};
@@ -457,7 +526,6 @@
         controls.screenSpacePanning = true;
         controls.enableDamping = false;
 				controls.target.set( 0, 0, -1 );
-        controls.addEventListener('change', render);
         window.controls = controls;
         
 
@@ -575,9 +643,11 @@
             window.terrain = terrain;
             setTerrainTexture(terrain, options["scene"].terrainTextureResolution, function(){
               scene.add(terrain);
-              render();
+              requestRenderIfNotRequested();
               //var vnh = new VertexNormalsHelper( terrain, 1 );
               //scene.add( vnh );
+              if(rover) projectRoverToSurface();
+
             });
           }
         });
@@ -597,7 +667,7 @@
             mesh.material.map = new THREE.TextureLoader().load('images/JCowart_color_mosaic.jpg', function(){
               console.log("done loading low-res terrain texture");
               scene.add(mesh);
-              render();
+              requestRenderIfNotRequested();
               //var vnh = new VertexNormalsHelper(mesh, 1 );
               //scene.add( vnh );              
             });
@@ -713,20 +783,27 @@
 					window.innerWidth * window.devicePixelRatio,
 					window.innerHeight * window.devicePixelRatio
 				);
-				render();
+				requestRenderIfNotRequested();
 			}
 
 			function render() {
+        renderRequested = false;
         updateCompass();
         renderer.render( scene, camera );
-			}
-      
-      
-      function animate() {
-        requestAnimationFrame( animate );
-        render();
-        controls.update();
+        if(drive.driving){
+          updateDrive();
+          requestRenderIfNotRequested();
+        }
       }
+      
+      
+      function requestRenderIfNotRequested() {
+        if (!renderRequested) {
+          renderRequested = true;
+          requestAnimationFrame(render);
+        }
+      }
+      
 
 
       function updateCompass(){
@@ -749,7 +826,7 @@
           ruler.measurement.vertical = from0to1.z.toPrecision(4) + " m";
           ruler.measurement.horizontal = Math.sqrt(from0to1.x*from0to1.x + from0to1.y*from0to1.y).toPrecision(4) + " m";
           ruler.measurement.bearing = (Math.atan2(from0to1.y, from0to1.x)*rad2deg).toFixed(1) + " deg";
-          render();
+          requestRenderIfNotRequested();
         }
       }
 
@@ -775,7 +852,7 @@
         ruler.measurement.horizontal = "m";
         ruler.measurement.vertical = "m";
         ruler.measurement.bearing = "deg";
-        render();
+        requestRenderIfNotRequested();
       }
 
 
@@ -792,7 +869,7 @@
           ruler.pos0 = movePinToCursor(event1, ruler.pin0);
           ruler.pin0.visible = true;
           console.log("setting first pin to pos: " + ruler.pos0.x.toPrecision(4) + ", " + ruler.pos0.y.toPrecision(4) + ", " + ruler.pos0.z.toPrecision(4));
-          render();
+          requestRenderIfNotRequested();
           
           //then continuously draw/update connecting line from first marker to cursor
           ruler.line.visible = true;
@@ -804,7 +881,7 @@
             ruler.pos1 = movePinToCursor(event2, ruler.pin1);
             ruler.pin1.visible = true;
             console.log("setting second pin to pos: " + ruler.pos1.x.toPrecision(4) + ", " + ruler.pos1.y.toPrecision(4) + ", " + ruler.pos1.z.toPrecision(4));
-            render();
+            requestRenderIfNotRequested();
 
             var from0to1 = ruler.pos1.clone().sub(ruler.pos0);
             ruler.measurement.length = from0to1.length().toPrecision(4) + " m";
@@ -1026,7 +1103,7 @@
           console.log(rover);
           
           // Go to initial poses:
-          jointGroupNames.forEach(function(jointGroupName){     
+          ["arm", "rsm", "hga", "mob"].forEach(function(jointGroupName){     
             goToPose(jointGroupName, options["pose"][jointGroupName]);
           });
 
@@ -1038,7 +1115,10 @@
           rover.attach(roverNavCoordFrameAxes);
       
           scene.add(rover);
-          render();
+          
+          if(terrain) projectRoverToSurface();
+
+          requestRenderIfNotRequested();
         } );
       }
 
@@ -1118,6 +1198,8 @@
 
       function setTerrainTexture(object, resolution, onload){
         if( /^[0-9]+c?m$/.test(resolution) ){
+          drive.speedRatio=0; // stop driving
+          setSpeed();
           const urlTextureMap = 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale' + resolution + '_color.jpg';
           console.log("loading terrain texture: " + urlTextureMap);
           object.material.map = new THREE.TextureLoader().load(urlTextureMap, function(){
@@ -1143,7 +1225,7 @@
         jointNames[jointGroup].forEach(function(jointName){
           setJoint(jointGroup, jointName, jointAngles[n++]);
         });
-        render();
+        requestRenderIfNotRequested();
       }
    
 
@@ -1163,7 +1245,7 @@
         parts["suspension_rocker_left"].rotation.y = -1*rocker_angle;
         parts["suspension_diff_link_right"].rotation.y = -1*rocker_angle;
         parts["suspension_diff_link_left"].rotation.y = rocker_angle;
-        render();
+        requestRenderIfNotRequested();
       }
 
 
@@ -1190,7 +1272,7 @@
         //Update fog:
         options["scene"].fogColor = interpHex(options["scene"].surfaceColor, options["sky"].diffuseLightColor, 0.5);  // blend of terrain and diffuse light color
         scene.fog.color = new THREE.Color(options["scene"].fogColor).multiplyScalar(intensityMultiplier*intensityMultiplier*0.5);
-        render();
+        requestRenderIfNotRequested();
       }
 
 
@@ -1202,7 +1284,7 @@
         );
         //console.log(newAttitude);
         rover.rotation.setFromVector3(newAttitude, 'ZYX');
-        render();
+        requestRenderIfNotRequested();
       }
       
       function changeHeading(){
@@ -1214,7 +1296,7 @@
       
       function liftRover(){
         rover.position.z = -1*options["attitude"].height;
-        render();
+        requestRenderIfNotRequested();
       }
 
 
@@ -1287,7 +1369,7 @@
         camera.position.copy(oldCamPos.clone().add(vecOldTargetToNewTarget));
         controls.target.copy(newTargetPosition);
         controls.update();
-        render();
+        requestRenderIfNotRequested();
       }
 
 
@@ -1304,18 +1386,26 @@
           //
         } else if(keyAscii) {
           switch (keyAscii) {
-            case "d":  console.log("DROP");   dropRover(mouseNow);  break;
-            case "r":  console.log("ROVER");  moveCameraToViewTarget(rover.position); break;
-            case "t":  console.log("TOP");    break;
+            case "g":  console.log("PLACE");     placeRover(mouseNow);  break;
+            case "h":  console.log("PLACE");     rover.position.set(0,0,0);  requestRenderIfNotRequested(); break;
+            case "r":  console.log("ROVER");     moveCameraToViewTarget(rover.position); break;
+            case "t":  console.log("TOP");       break;
+            case "f":  console.log("FOLLOW");    options["camera"].followRover=!options["camera"].followRover; break;
+            case "w":  console.log("SPEEDUP");   drive.speedRatio+=drive.speedRatioIncr; setSpeed(); break;
+            case "s":  console.log("SPEEDDN");   drive.speedRatio-=drive.speedRatioIncr; setSpeed(); break;
+            case "x":  console.log("SPEEDSTOP"); drive.speedRatio=0;  setSpeed(); break;
+            case "a":  console.log("TURNLEFT");  drive.turnRate-=drive.turnRateIncr;  setSteering(); break;
+            case "d":  console.log("TURNRIGHT"); drive.turnRate+=drive.turnRateIncr;  setSteering(); break;
+            case "z":  console.log("STRAIGHTEN"); drive.turnRate=0;  setSteering(); break;
             default:   console.log("unhandled key"); 
           }
         } else {
           console.log("unhandled key"); 
         }
       }
-
-
-      function dropRover( mousecoords ) {
+      
+      
+      function placeRover( mousecoords ) {
         //var intersects = checkWhatWasClicked(event);
         //console.log(intersects[0].point);
         var mouseCameraCoords = new THREE.Vector2();
@@ -1333,6 +1423,7 @@
         settleRover(vecs.n);
       }
 
+      
       function settleRover(roverUpVec){
         // Rotate rover to match local normal vector, preserving heading.
         // Start by calculating local-level heading vector via basic trig in local-level xy plane.
@@ -1353,11 +1444,11 @@
         vecs.zzr  = new THREE.Vector3().crossVectors(vecs.nhz, vecs.newx).normalize(); // where newz would be if zero roll
         var rollsign = vecs.nhz.dot(vecs.newz)>0? 1 : -1;
         var roll = Math.acos(vecs.zzr.clone().dot(vecs.newz))*rollsign;
-        console.log("roll: " + roll);
-        console.log(vecs);
+        //console.log("roll: " + roll);
+        //console.log(vecs);
         
         var pitch = Math.asin(vecs.newx.z*-1);
-        console.log("pitch: " + pitch);
+        //console.log("pitch: " + pitch);
         options["attitude"].roll = roll*rad2deg;
         options["attitude"].pitch = pitch*rad2deg;
         tiltRover();
@@ -1401,7 +1492,7 @@
             child.visible = doShow;
           });
         }
-        render();
+        requestRenderIfNotRequested();
       }
       window.show = show;
 
@@ -1437,17 +1528,151 @@
       function setCameraFOV(fov){
         camera.fov = fov;
         camera.updateProjectionMatrix();
-        render();
+        requestRenderIfNotRequested();
+      }
+    
+  
+      function straightenWheels(){
+        drive.turnRadius = Infinity;
+        setJoint("mob", "steer_lf", 0);
+        setJoint("mob", "steer_rf", 0);
+        setJoint("mob", "steer_lr", 0);
+        setJoint("mob", "steer_rr", 0);
+        for(var wheel in wheels){
+          drive.wheelSpeedRatio[wheel] = 1;
+        }
+        drive.rnavSpeedRatio = 1;
+        setSpeed();
+      }
+  
+  
+      function setSteering(){      
+        // force turn rate to follow increments between allowable range:
+        const turnRate = Math.max(-180, Math.min(180, Math.round(drive.turnRate/drive.turnRateIncr)*drive.turnRateIncr ));
+        drive.turnRate = turnRate;
+        
+        if(turnRate==0){
+          straightenWheels();
+          return;
+        }
+
+        drive.turnRadius = 1/turnRate/deg2rad;
+        
+        //Ackerman steering
+        const dxFront = 1.18; //m
+        const dxRear  = 1.08; //m
+        const dySteer = 1.06; //m
+        setJoint("mob", "steer_lf", Math.atan2(-1*dxFront, dySteer + drive.turnRadius) *rad2deg + (drive.turnRadius<=-dySteer ? -180 : 0));
+        setJoint("mob", "steer_rf", Math.atan2(   dxFront, dySteer - drive.turnRadius) *rad2deg + (drive.turnRadius>=dySteer ? -180 : 0));
+        setJoint("mob", "steer_lr", Math.atan2(   dxFront, dySteer + drive.turnRadius) *rad2deg + (drive.turnRadius<=-dySteer ? -180 : 0));
+        setJoint("mob", "steer_rr", Math.atan2(-1*dxFront, dySteer - drive.turnRadius) *rad2deg + (drive.turnRadius>=dySteer ? -180 : 0));
+        
+        //Figure out which wheel has the longest path length.
+        //That wheel gets to turn full speed.
+        //All others turn proportional to path length relative to the longest path length
+        var maxWheelPathRadius = 0;
+        for(var wheel in wheels){
+          wheels[wheel].pathRadius = Math.sqrt(wheels[wheel].x*wheels[wheel].x + (drive.turnRadius-wheels[wheel].y)*(drive.turnRadius-wheels[wheel].y));
+          if(wheels[wheel].pathRadius>maxWheelPathRadius) maxWheelPathRadius = wheels[wheel].pathRadius;
+        }
+        for(var wheel in wheels){
+          drive.wheelSpeedRatio[wheel] = wheels[wheel].pathRadius/maxWheelPathRadius;
+          //invert wheel drive direction if center of turn is between rover centerline and this wheel:
+          if( Math.sign(drive.turnRadius)==Math.sign(wheels[wheel].y)  &&  Math.abs(drive.turnRadius)<Math.abs(wheels[wheel].y) ) drive.wheelSpeedRatio[wheel]*=-1;
+        }
+        drive.rnavSpeedRatio  = Math.abs(drive.turnRadius)/maxWheelPathRadius;
+        setSpeed();
       }
     
     
+      function setSpeed(){
+        drive.speedRatio = Math.min(drive.maxSpeedRatio, Math.max(-1*drive.maxSpeedRatio, Math.round(drive.speedRatio/drive.speedRatioIncr)*drive.speedRatioIncr ));
+        const prevDriving = drive.driving;
+        drive.driving = (drive.speedRatio!=0);
+        if(drive.driving && !prevDriving) {
+          console.log("Starting drive");
+          drive.prevStepTime = new Date().getTime();
+          requestRenderIfNotRequested();
+        }
+        if(!drive.driving && prevDriving) console.log("Stopping drive");
+
+        const wheelRadius = 0.25; //m
+        for(var wheel in drive.wheelSpeed){
+          drive.wheelSpeed[wheel] = drive.speedRatio * drive.wheelSpeedRatio[wheel] * drive.maxSpeed / wheelRadius * rad2deg;  //deg/sec
+        }
+        drive.rnavSpeed       = drive.rnavSpeedRatio * drive.speedRatio * drive.maxSpeed;
+        drive.headingRate     = drive.turnRate * drive.rnavSpeed;  // (deg/s) = (deg/m)*(m/s)
+        console.log(drive);
+        requestRenderIfNotRequested();
+      }
+
+      
+      function updateDrive() {
+        const currentTime = new Date().getTime();
+        const secondsElepased = (currentTime - drive.prevStepTime)/1000;
+        drive.prevStepTime = currentTime;
+        
+        for(var wheel in wheels){
+          var jointAngle = joints["wheels"][wheel].angle;
+          jointAngle += ((drive.wheelSpeed[wheel]*secondsElepased) % 360);
+          setJoint("wheels", wheel, jointAngle);
+        }
+
+        if(drive.turnRate==0){
+          drive.nextPosRnav.set(drive.rnavSpeed*secondsElepased, 0, 0);
+        } else {
+          drive.headingChange = drive.headingRate*secondsElepased;  //deg        
+          drive.nextPosRnav.set(drive.turnRadius*Math.sin(drive.headingChange*deg2rad), drive.turnRadius*(1-Math.cos(drive.headingChange*deg2rad)), 0);
+          const newHeading = (options["attitude"].yaw + drive.headingChange) %360;
+          options["attitude"].yaw = newHeading;
+          rover.updateMatrixWorld();
+        }
+        var rot = new THREE.Matrix4();
+        rot.extractRotation( rover.matrix );
+        drive.nextPos.copy( rover.position.clone().add( drive.nextPosRnav.clone().applyMatrix4(rot) ));
+        rover.position.copy(drive.nextPos);
+        projectRoverToSurface();
+        if(drive.turnRate!=0) changeHeading();
+        
+        const rnavRoverUp = new THREE.Vector3(0,0,-1);
+        const worldRoverUp = rnavRoverUp.clone().applyMatrix4(rot);
+
+        if(options["camera"].followRover) moveCameraToViewTarget(rover.position.clone().add(worldRoverUp.multiplyScalar(2)));
+      }
+      
+
+      function projectRoverToSurface(){
+        const rnavRoverUp = new THREE.Vector3(0,0,-1);
+        const rnavRoverDown = new THREE.Vector3(0,0,1);
+        const rot = new THREE.Matrix4().extractRotation( rover.matrix ); // get rover rotation matrix
+        const worldRoverUp = rnavRoverUp.clone().applyMatrix4(rot);
+        const worldRoverDown = rnavRoverDown.clone().applyMatrix4(rot);
+        //Starting from rover position, define a vector some distance "above the rover" (-rnavZ), then 
+        //project a ray through the surface to get intersection, then place rover at intersection.
+        //console.log(rot);
+        //console.log(worldRoverUp);
+        const worldPointAboveRover = rover.position.clone().add( worldRoverUp.clone().multiplyScalar(1000) );
+        raycaster.set(worldPointAboveRover, worldRoverDown);
+        var intersects = raycaster.intersectObjects([terrain]);
+        //console.log(intersects);
+        if(intersects){
+          rover.position.copy(intersects[0].point);
+          const normalMatrix = new THREE.Matrix3().getNormalMatrix( intersects[0].object.matrixWorld );        
+          vecs.n = intersects[0].face.normal.clone().applyMatrix3( normalMatrix ).normalize();  // normal vector to local terrain
+          settleRover(vecs.n);
+        }
+      }
+      window.projectRoverToSurface = projectRoverToSurface;
+      
+    
+    
       function makeGUI(){
-        gui = new dat.GUI();
+        gui = new dat.GUI({hideable: false});
         window.gui = gui;
         var folder = {};
   
         var drawMeasurementLineFcnWrapper = { add:function(){ drawMeasurementLine() }};
-        var clearRulerFcnWrapper = { add:function(){ clearRuler() }};
+        var clearRulerFcnWrapper = {add:function(){clearRuler}};
 
         folder["tools"] = gui.addFolder('Tools');
         
@@ -1460,29 +1685,28 @@
         folder["ruler"].add(clearRulerFcnWrapper,'add').name("Clear");
         folder["ruler"].open();
         
-        folder["tools"].add(options["tools"], 'showCompass').name("Compass").onChange(function(val){compass.visible = val; render()});
+        folder["tools"].add(options["tools"], 'showCompass').name("Compass").onChange(function(val){compass.visible = val; requestRenderIfNotRequested()});
         folder["tools"].add(options["tools"], 'showWireframe').name("Grid (" + options["scene"].terrainHscale + "m)").onChange(function(val){
           terrainWireframe.visible = val;
-          render();
+          requestRenderIfNotRequested();
         });
         folder["tools"].add(options["tools"], 'showRnavCoordFrame').name("Show RNAV").onChange(function(val){
           roverNavCoordFrameAxes.visible = val; 
-          render(); 
+          requestRenderIfNotRequested(); 
         });
         folder["tools"].add(options["tools"], 'showStrategicRoute').name("Strategic Route").onChange(function(val){
           routes.visible = val;
-          render(); 
+          requestRenderIfNotRequested(); 
         });
-        folder["tools"].add(options["tools"], 'cameraFOV', 5, 120).name("Camera FOV").onChange(function(val){setCameraFOV(val)});
 
         
         folder["scene"] = gui.addFolder('Scene');
         folder["scene"].add(options["sun"], 'az', -179.9, 180.1).listen().name("Sun azimuth").onChange(placeSun);
-        folder["scene"].add(options["sun"], 'el', 0, 182).listen().name("Sun elevation").onChange(placeSun);
+        folder["scene"].add(options["sun"], 'el', -1, 182).listen().name("Sun elevation").onChange(placeSun);
         folder["scene"].add(options["sun"], 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){
           sun.light1.intensity = val;
           sun.light2.intensity = val;
-          render();
+          requestRenderIfNotRequested();
         });
         folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){
           sun.light1.color.set(val);
@@ -1500,14 +1724,19 @@
         folder["scene"].add(options["scene"], 'terrainTextureResolution', terrainTextureResolutions).name('Resolution').onChange(function(val){setTerrainTexture(terrain, val)});
         folder["scene"].add(options["scene"], 'showHaze').name("Haze").onChange(function(val){
           scene.fog.far = val ? options["scene"].fogDist : 0; 
-          render();
+          requestRenderIfNotRequested();
         });
-        //gui.add(options, 'showSun').listen().name("Show sun").onChange(function(val){ noOp() });
-        //gui.add(options, 'showFloor').listen().name("Show floor").onChange(function(val){ noOp() });
-        //gui.add(armStowFcnWrapper,'add').name("Stow Arm");
-        //gui.add(armUnstowFcnWrapper,'add').name("Unstow Arm");
 
-        folder["attitude"] = gui.addFolder('Attitude');
+        
+        folder["camera"] = gui.addFolder('Camera');
+        folder["camera"].add(options["camera"], 'fov', 5, 120).name("Field of View").onChange(function(val){setCameraFOV(val)});
+        folder["camera"].add(options["camera"], 'exposure', 0.1, 1).name("Exposure").onChange(function(val){renderer.toneMappingExposure=val; requestRenderIfNotRequested()});
+        folder["camera"].add(options["camera"], 'followRover').listen().name("Follow rover");
+
+
+        folder["rover"] = gui.addFolder('Rover');        
+        
+        folder["attitude"] = folder["rover"].addFolder('Attitude');
         folder["attitude"].add(options["attitude"], 'roll', -40, 40).listen().name("Roll").onChange(tiltRover);
         folder["attitude"].add(options["attitude"], 'pitch', -40, 40).listen().name("Pitch").onChange(tiltRover);
         folder["attitude"].add(options["attitude"], 'yaw', -370, 370).listen().name("Heading").onChange(changeHeading);
@@ -1515,17 +1744,13 @@
 
 
         // make GUI folder for each joint group:
-        jointGroupNames.forEach(function(jointGroupName){
-          folder[jointGroupName] = gui.addFolder(jointGroupLongNames[jointGroupName]);
-        });
+        ["arm", "rsm", "hga", "mob"].forEach(function(jointGroupName){
+          folder[jointGroupName] = folder["rover"].addFolder(jointGroupLongNames[jointGroupName]);
 
-        // make pose selectors:
-        jointGroupNames.forEach(function(jointGroupName){          
+          // make pose selector:
           folder[jointGroupName].add(options["pose"], jointGroupName, poseNames[jointGroupName]).name("Pose").onChange(function(poseName){goToPose(jointGroupName, poseName)});
-        });
 
-        // add joint controls to each joint group folder:
-        jointGroupNames.forEach(function(jointGroupName){          
+          // add joint control for each joint:
           jointNames[jointGroupName].forEach(function(jointName){
             //console.log(jointName);
             var joint = joints[jointGroupName][jointName];
@@ -1534,7 +1759,7 @@
               .name(joint.name)
               .onChange(function(val){
                 setJoint(jointGroupName, jointName, val); 
-                render();
+                requestRenderIfNotRequested();
               });
           });
         });
@@ -1542,6 +1767,14 @@
         // modify differential onchange callback:
         joints["mob"]["diff"].gui.onChange(function(val){ mobSetRockers(val); });
         
+        
+        folder["drive"] = gui.addFolder('Drive');
+        //folder["drive"].add(drive, 'turnRadius', -10, 10).name("Turn Radius (m)").onChange(function(val){setSteering(val); render();});
+        folder["drive"].add(drive, 'turnRate', -180, 180).name("Turn Rate (deg/m)").listen().onChange(setSteering);
+        folder["drive"].add(drive, 'speedRatio', -1*drive.maxSpeedRatio, drive.maxSpeedRatio).name("Speed x").listen().onChange(setSpeed);
+
+        //folder["drive"].add({add:function(){setSteering(0); render;}}).name("Turn in place");
+
         gui.add({add:function(){infoOverlayOn()}},'add').name("Page Info");
 
       }
@@ -1589,7 +1822,7 @@
           console.log( 'Loading Complete!');
           status.style.color = "#6F6";
           status.innerHTML = "Ready";
-          render();
+          requestRenderIfNotRequested();
         };
       }
 

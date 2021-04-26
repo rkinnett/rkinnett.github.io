@@ -76,7 +76,7 @@ Sky.SkyShader = {
 
     'const vec3 totalRayleigh = vec3( 3.2E-4, 2.1E-4, 1.4E-4 );',  // RK: Rayleight scatter color (main sky color)
 
-		'const vec3 MieConst = vec3( 0.5, 2.6, 5.1 );',  // RK: Mie scattering "color"
+		'const vec3 MieConst = vec3( 0.4, 2.0, 5.0 );',  // RK: Mie scattering "color"
 
     'const float sunIntensityVsElevation = 1.8;', //(~1-10) RK: affects sky brightness vs sun elevation, higher value falls off faster near horizon
 		'const float sunIntensityZenith = 1500.0;',  //(1.0-4000.0) RK: sky brightness scalar
@@ -166,7 +166,7 @@ Sky.SkyShader = {
 		'	vec3 L0 = vec3( 0.1 ) * Fex;',
 
 		// composition + solar disc
-		'	float sundisk = smoothstep( sunAngularDiameterCos, sunAngularDiameterCos + 0.00002, cosTheta );',
+		'	float sundisk = smoothstep( sunAngularDiameterCos, sunAngularDiameterCos + 0.0000002, cosTheta );',
 		'	L0 += ( vSunE * 19000.0 * Fex ) * sundisk;',
 		'	vec3 texColor = ( Lin + L0 ) * 0.04 + vec3( 0.0, 0.0003, 0.00075 );',
 		'	vec3 retColor = pow( texColor, vec3( 1.0 / ( 1.2 + ( 1.2 * vSunfade ) ) ) );',
