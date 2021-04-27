@@ -721,7 +721,7 @@ function imageQuery(mission, sol){
   // Get full-frame still frames:
   var rss_url = base_url + '&condition_2=' + sol + ':sol:gte&condition_3=' + sol + ':sol:lte&num=' + images_per_page;
   console.log("Getting full-frame still frames");
-  getPaginatedFrames(rss_url + '&extended=sample_type::full', function(){
+  getPaginatedFrames(rss_url + (mission=="mars2020" ? '&extended=sample_type::full' : ''), function(){
   
     // Get thumbnail still frames:
     console.log("Getting thumbnail still frames");
