@@ -196,6 +196,9 @@
           <li>
             This page is built using the <a href="https://threejs.org/">three.js</a> javascript library for WebGL.
           </li>
+          <li>
+            Thanks to Michael Schlachter ("thrax" in <a href="https://join.slack.com/t/threejs/shared_invite/zt-4m0gnh6d-Rb~KQZHEA72GVsSnm820Eg"three.js slack</a>) for technical advistement!
+          </li>          
         </ul>  
         <hr/>
         View source code at <a href="https://github.com/rkinnett/rkinnett.github.io/tree/master/rover3d">Github</a>.<br/>
@@ -872,9 +875,6 @@
             audio.roverSound.setMaxDistance( 20 );
             audio.state = "stopped";
           } );
-          const helper = new PositionalAudioHelper( audio.roverSound );
-          positionalAudio.add( helper );
-          scene.add(helper);
           
         } else {
         
