@@ -289,9 +289,59 @@ function splitImage(){
   imageCanvas.width = db.width; 
   imageCanvas.height = db.height; 
   imageContext.putImageData(newImageData,0,0);
+}
 
 
+function saveCanvas(){
+  imageCanvas.toBlob(function(blob) {
+    saveAs(blob, "image.png");
+  });
+}
 
+
+var _global = typeof window === 'object' && window.window === window
+  ? window : typeof self === 'object' && self.self === self
+  ? self : typeof global === 'object' && global.global === global
+  ? global
+  : this
+var isMacOSWebView = _global.navigator && /Macintosh/.test(navigator.userAgent) && /AppleWebKit/.test(navigator.userAgent) && !/Safari/.test(navigator.userAgent)
+  
+
+function saveAs (blob, name, opts, popup) {
+  // Based on https://github.com/eligrey/FileSaver.js/blob/master/src/FileSaver.js
+  // Open a popup immediately do go around popup blocker
+  // Mostly only available on user interaction and the fileReader is async so...
+  popup = popup || open('', '_blank')
+  if (popup) {
+    popup.document.title =
+    popup.document.body.innerText = 'downloading...'
+  }
+
+  if (typeof blob === 'string') return download(blob, name, opts)
+
+  var force = blob.type === 'application/octet-stream'
+  var isSafari = /constructor/i.test(_global.HTMLElement) || _global.safari
+  var isChromeIOS = /CriOS\/[\d]+/.test(navigator.userAgent)
+
+  if ((isChromeIOS || (force && isSafari) || isMacOSWebView) && typeof FileReader !== 'undefined') {
+    // Safari doesn't allow downloading of blob URLs
+    var reader = new FileReader()
+    reader.onloadend = function () {
+      var url = reader.result
+      url = isChromeIOS ? url : url.replace(/^data:[^;]*;/, 'data:attachment/file;')
+      if (popup) popup.location.href = url
+      else location = url
+      popup = null // reverse-tabnabbing #460
+    }
+    reader.readAsDataURL(blob)
+  } else {
+    var URL = _global.URL || _global.webkitURL
+    var url = URL.createObjectURL(blob)
+    if (popup) popup.location = url
+    else location.href = url
+    popup = null // reverse-tabnabbing #460
+    setTimeout(function () { URL.revokeObjectURL(url) }, 4E4) // 40s
+  }
 }
 
 
