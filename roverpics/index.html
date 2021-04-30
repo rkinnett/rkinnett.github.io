@@ -343,8 +343,7 @@ pre {
 </table>
 
 
-
-
+<canvas id="canv" style='display:"none"'></canvas>
 
 <script>
 
@@ -368,7 +367,7 @@ var urlParams = {
   filter:   "",
   frame:    "",
   latest:   false,
-  sortfield: "date",
+  sortfield: "",
   sortdir:  "ascending",
 };
 var missionFullName = {
@@ -600,6 +599,7 @@ function selectImages(allOrNone){
 
 
 function getLatest(){
+  urlParams.sol = "latest";
   setThisPageUrlParams(mission);
   imageQuery(mission);
   urlParams.mission = mission;
@@ -832,8 +832,8 @@ function getFullframeStillframes(rss_url, callback){
 
 function fetchJson(url, callback){
   console.log("fetching rss feed:  " + url);
-  const xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function() {
+  const xhr = new XMLHttpRequest();
+  xhr.onreadystatechange = function() {
     if (this.readyState == 4) {
       if (this.status == 200) {
         console.log(this.responseText);
@@ -847,10 +847,10 @@ function fetchJson(url, callback){
       }
     }
   };
-  xhttp.withCredentials = false;
+  xhr.withCredentials = false;
   setBusyIndicator(true);
-  xhttp.open("GET", url, true);
-  setTimeout(function(){ xhttp.send(); }, 100);
+  xhr.open("GET", url, true);
+  setTimeout(function(){ xhr.send(); }, 100);
 }
 
 
@@ -990,10 +990,9 @@ function calculateAz(img){
 
 
 
-function getSortOrder() {
+function getSortOrder(sortField) {
   var sortVals = [];
-
-  switch(urlParams.sortfield) {
+  switch(sortField || urlParams.sortfield || "date") {
     case "camera":
       for(n=0; n<num_images; n++){ sortVals[n] = images[n].camera.instrument; }
       break;
@@ -1046,8 +1045,6 @@ function buildTable(){
   var image_id_filter = new RegExp(imageNameFilter);
 
   // Sort images:
-  const sortField = /(camera)|(frametype)|(imageid)|(date)/.test(urlParams.sortfield) ? urlParams.sortfield : "date";
-  console.log("sorting images by " + urlParams.sortfield);
   sortOrder = getSortOrder();
   console.log(sortOrder);
   
@@ -1248,6 +1245,66 @@ function exportJson(){
 	URL.revokeObjectURL(a.href);
 }
 
+
+var _global = typeof window === 'object' && window.window === window
+  ? window : typeof self === 'object' && self.self === self
+  ? self : typeof global === 'object' && global.global === global
+  ? global
+  : this
+var isMacOSWebView = _global.navigator && /Macintosh/.test(navigator.userAgent) && /AppleWebKit/.test(navigator.userAgent) && !/Safari/.test(navigator.userAgent)
+ 
+
+
+function saveSelectedImages(){
+  // build list of URLs of selected images:
+  var urls = [];
+  for(var r=0; r<num_rows; r++){
+    var checked = table.tBodies[0].rows[r].cells[0].querySelector('input[type="checkbox"]').checked;
+    if(checked){
+      url = table.tBodies[0].rows[r].cells[3].querySelector('a').href;
+      if( /^http/.test(url) ){
+        urls.push(url);
+      } else console.log('unable to resolve url from row ' + r);
+    }
+  }  
+  var urlCount = urls.length;
+  console.log("downloading " + urlCount + " images");
+
+  // get each image, with delay between each to avoid overloading the proxy:
+  delay = 500 //milliseconds
+  for(var i=0; i<urlCount; i++){
+    (function(url) {
+      setTimeout(function(){ downloadImage(url) }, delay*i);
+    })(urls[i]);
+  }
+}
+
+
+function downloadImage(url){
+  const proxy = 'https://cors.bridged.cc/';
+  const canvas = document.getElementById('canv');
+  canvas.style.display = 'none';
+  const ctx = canvas.getContext('2d');
+
+  var imageFilename = url.replace(/.*\//,"");
+  if( /\.([jJ][pP][eE]?[gG])|([pP][nN][gG])$/.test(imageFilename) ){
+    console.log("loading image " + url);
+    var img = new Image();
+    img.crossOrigin = "";
+    img.onload = function() {
+      console.log(img);
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img,0,0);
+      console.log("saving image " + imageFilename);
+      var link = document.createElement('a');
+      link.download = imageFilename;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    }
+    img.src = proxy + url;
+  } else console.log('unable to resolve image filename (url: "' + url + '")');
+}
 
 
 
