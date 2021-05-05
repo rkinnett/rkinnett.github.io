@@ -505,7 +505,7 @@
         listener:   null,
         maxVol:     1,
         fadeGain:   0,
-        fadeRate:   20, //per sec
+        fadeRate:   5, //per sec
         drive:      null,
         armBrake:   null,
         arm:        null,
@@ -551,7 +551,6 @@
         renderer.domElement.addEventListener('webglcontextlost', (event) => {
           alert("webgl error");
         });
-
 
 
 				scene = new THREE.Scene();
@@ -889,18 +888,18 @@
         const secondsElepased = clock.getDelta();
         if(drive.driving){
           updateDrive(secondsElepased);
-          updateAudio(secondsElepased);
+          //updateAudio(secondsElepased);
           requestRenderIfNotRequested();
         }
 
         if(armMotion.moving){
           updateArm(secondsElepased);
-          updateAudio(secondsElepased);
+          //updateAudio(secondsElepased);
           requestRenderIfNotRequested();
         }
 
-        updateAudio(secondsElepased);
-        if(audio.started && (audio.drive.isPlaying || audio.arm.isPlaying)){
+        if(audio.started && (audio.arm.state!="stopped" || audio.drive.state!="stopped")){
+          updateAudio(secondsElepased);
           requestRenderIfNotRequested();
         }
       }
@@ -914,7 +913,7 @@
       }
 
 
-      function loadAudio(whichSound, callback){
+      function loadAudio(){
         // Set up audio listener (this is like a virtual microphone in the scene):
         audio.listener = new THREE.AudioListener(),
         audio.fadeGain = audio.listener.context.createGain();  // additional gain control for smoothly starting/stopping
@@ -929,7 +928,6 @@
           audio.drive.setBuffer( buffer );
           audio.loaded.drive = true;
           audio.drive.state = "stopped";
-          if(whichSound=="drive" && callback) callback();
         });
 
         audio.armBrake = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(false);
@@ -937,7 +935,6 @@
           audio.armBrake.setBuffer( buffer );
           audio.loaded.armBrake = true;
           audio.armBrake.state = "stopped";
-          if(whichSound=="arm" && callback && audio.loaded.arm) callback();
         });
 
         audio.arm = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(true);
@@ -945,48 +942,59 @@
           audio.arm.setBuffer( buffer );
           audio.loaded.arm = true;
           audio.arm.state = "stopped";
-          if(whichSound=="arm" && callback && audio.loaded.armBrake) callback();
         });
       }        
+      
       
       function updateAudio(timeElapsed){
         if(!audio.started) {
           loadAudio();
         } else {
-          if(rover.position) audio.drive.panner.setPosition(rover.position.x, rover.position.y, rover.position.z);
+          if(rover && rover.position) {
+            audio.drive.panner.setPosition(rover.position.x, rover.position.y, rover.position.z);
+            audio.armBrake.panner.setPosition(rover.position.x, rover.position.y, rover.position.z);
+            audio.arm.panner.setPosition(rover.position.x, rover.position.y, rover.position.z);
+          }
+        
+          console.log("updating audio " + audio.drive.state + " " + audio.arm.state);
         
           if(audio.drive.state=="starting"){
             if(!audio.drive.isPlaying) {
               audio.fadeGain.gain.value = 0;
-              //console.log("resuming audio");
+              console.log("resuming drive audio");
               audio.drive.play();
+              requestRenderIfNotRequested();
             } else {
               audio.fadeGain.gain.value = Math.min(1, audio.fadeGain.gain.value + audio.fadeRate * timeElapsed);
               if(audio.fadeGain.gain.value==1) {
+                console.log("drive audio playing");
                 audio.drive.state = "playing";
-                updateAudio(0);
               }
             }
             
           } else if(audio.drive.state=="stopping"){
+            console.log("drive audio stopping " + audio.fadeGain.gain.value + " " + audio.fadeRate + " " + timeElapsed);
             audio.fadeGain.gain.value = Math.max(0, audio.fadeGain.gain.value - audio.fadeRate * timeElapsed);
             if(audio.fadeGain.gain.value==0) {
               audio.drive.state = "stopped";
               if(audio.drive.isPlaying) {
-                //console.log("pausing audio");
+                console.log("pausing drive audio");
                 audio.drive.pause();
               }
-            }
-          }
+            } else requestRenderIfNotRequested();
+          } 
           
           if(audio.arm.state=="starting"){
             if(!audio.arm.isPlaying) {
               audio.fadeGain.gain.value = 0;
-              //console.log("resuming audio");
+              console.log("resuming arm audio");
               audio.arm.play();
+              requestRenderIfNotRequested();
             } else {
               audio.fadeGain.gain.value = Math.min(1, audio.fadeGain.gain.value + audio.fadeRate * timeElapsed);
               if(audio.fadeGain.gain.value==1) {
+                console.log("playing arm audio " + audio.fadeGain.gain.value);
+                console.log("arm audio reached full gain");
                 audio.arm.state = "playing";
                 updateAudio(0);
               }
@@ -997,10 +1005,10 @@
             if(audio.fadeGain.gain.value==0) {
               audio.arm.state = "stopped";
               if(audio.arm.isPlaying) {
-                //console.log("pausing audio");
+                console.log("pausing arm audio");
                 audio.arm.pause();
               }
-            }
+            } else requestRenderIfNotRequested();
           }
         }
       }
@@ -1532,15 +1540,17 @@
             console.log("starting arm motion");
             drive.speedRatio=0;
             setSpeed(); // stop driving
-
-            if(!audio.armBrake.isPlaying) audio.armBrake.play();
-            
+  
             setTimeout(function(){
-              if(!audio.arm.isPlaying) audio.arm.play();
-              clock.getDelta();  // update clock since previous frame may have been a long time ago
-              armMotion.moving = true;
-              requestRenderIfNotRequested();
-            }, 600); //delay milliseconds
+              if(audio.armBrake && !audio.armBrake.isPlaying) audio.armBrake.play();
+              
+              setTimeout(function(){
+                if(!audio.arm.isPlaying) audio.arm.state="starting";
+                clock.getDelta();  // update clock since previous frame may have been a long time ago
+                armMotion.moving = true;
+                requestRenderIfNotRequested();
+              }, 500); //delay milliseconds
+            }, 200);
           }
         }
       }
@@ -1944,7 +1954,7 @@
             //var blob = new Blob([xhr.response], {type: "image/tiff"});
             const { width, height, data, ifdEntries } = decode(xhr.response, {singlePage: true, normalizeStripData: false} );
             const metadata = JSON.stringify({ width, height, ifdEntries }, null, 2);
-            console.log(metadata);
+            //console.log(metadata);
             if(onload!==undefined) onload({width: width, height: height, data: data});
             return {width: width, height: height, data: data};
           } else {
@@ -1986,7 +1996,10 @@
         
         // play sound for 0.25 sec
         if(!drive.driving) {
-          if(audio.started && !audio.drive.isPlaying) audio.drive.state="starting";
+          if(audio.started && !audio.drive.isPlaying) {
+            audio.drive.state="starting";
+            requestRenderIfNotRequested();
+          }
           setTimeout(function(){
             if(!drive.driving && audio.drive.isPlaying) {
               audio.drive.state="stopping";
@@ -2041,7 +2054,7 @@
         }
         if(!drive.driving && prevDriving){
           console.log("Stopping drive");
-          if(audio.started && audio.drive.isPlaying) audio.drive.pause();
+          if(audio.started && audio.drive.isPlaying) audio.drive.state="stopping";
         }
 
         const wheelRadius = 0.25; //m
@@ -2197,6 +2210,8 @@
             poseControl.onChange(function(poseName){
               planArmSequence(poseName);
               if(!audio.started) loadAudio();
+              gui.__folders.Rover.__folders["Robotic Arm"].__controllers[0].domElement.blur();
+              renderer.domElement.focus();
             });
           } else {
             poseControl.onChange(function(poseName){goToPose(jointGroupName, poseName)});
