@@ -289,7 +289,7 @@
           az:     {name: "Azimuth",   model_obj_name: "arm_az",     axis: "z",  dir: 1,  angle: 0.1,  min:-180,  max:180},
           el:     {name: "Elevation", model_obj_name: "arm_el",     axis: "y",  dir:-1,  angle: 0.1,  min:-180,  max:180},
           elbow:  {name: "Elbow",     model_obj_name: "arm_elbow",  axis: "y",  dir:-1,  angle: 0.1,  min:-180,  max:180},
-          wrist:  {name: "Wrist",     model_obj_name: "arm_wrist",  axis: "y",  dir:-1,  angle: 0.1,  min:0,     max:360},
+          wrist:  {name: "Wrist",     model_obj_name: "arm_wrist",  axis: "y",  dir:-1,  angle: 0.1,  min:-10,   max:210},
           turret: {name: "Turret",    model_obj_name: "arm_turret", axis: "z",  dir: 1,  angle: 0.1,  min:-10,   max:370},
         },
         
@@ -340,20 +340,21 @@
         arm: {
           STOW:          [ 1.5721, -0.2778, -2.8163,  3.1211,  1.5708],
           READY_OUT:     [ 0.0000, -1.5708,  1.5708,  0.0000,  3.1416],
-          READY_IN:      [-3.1416, -1.5708, -1.5708, -3.1416,  0.0000],
+          READY_IN:      [-3.1416, -1.5708, -1.5708,  3.1416,  0.0000],
           DECK_READY:    [-0.1586, -1.1120, -1.2482,  0.7949,  0.0458],
           BIT_BOX:       [-1.4525, -1.9292, -1.3844,  0.1139,  1.2716],
-          DRILL_SIEUWU:  [-2.474, -2.3378, -2.1335, 2.9149, 6.281],
-          DRILL_SOEUWU:  [0.38626, -0.70338, 2.225, 3.1873, -0.0405],
-          DRILL_SOEUWD:  [0.38626, -0.43097, 2.0207, 0, 3.118],
-          PIXL_SIEUWU:   [-2.474, -2.3378, -2.4059, 3.1873, 4.6995],
-          PIXL_SOEUWD:   [0.045751, -0.22666, 1.8164, 0, 1.6084],
-          ZERO:          [0, 0, 0, 0, 0],
+          DRILL_SIEUWU:  [-2.4740, -2.3378, -2.1335,  2.9149,  0.0000],
+          DRILL_SOEUWU:  [ 0.3863, -0.7034,  2.2250,  3.1873, -0.0405],
+          DRILL_SOEUWD:  [ 0.3863, -0.4309,  2.0207,  0.0000,  3.1180],
+          PIXL_SIEUWU:   [-2.4740, -2.3378, -2.4059,  3.1873,  4.6995],
+          PIXL_SOEUWD:   [ 0.0458, -0.2266,  1.8164,  0.0000,  1.6084],
+          ZERO:          [ 0, 0, 0, 0, 0],
         },
         rsm: {
           STOW:          [-2.09, -1],
           STRAIGHT:      [0, 0],
           WORKSPACE:     [-0.5, -0.8],
+          WORKSPACE:     [ 0.0, -0.6],
         },
         hga: {
           STOW:          [-1.05, 1.5708],
@@ -398,6 +399,7 @@
           followRover: false,
         },
         pose: {
+          armPrev: "STOW",
           arm: "STOW",
           hga: "READY",
           rsm: "STRAIGHT",
@@ -485,13 +487,30 @@
       window.drive = drive;
       
       
+      let armMotion = {
+        moving: false,
+        goal:   [0, 0, 0, 0, 0],  //rad
+        rate:   [0, 0, 0, 0, 0],  //rad/sec
+        dir:    [0, 0, 0, 0, 0],  //sign (1, -1)
+        initialPos: [],
+        maxRate: 20, //deg/sec
+        sequence: [],
+        stowed:  true,
+      }
+      window.armMotion = armMotion;
+      
+      
       let audio = {
         listener:   null,
         maxVol:     1,
         fadeGain:   0,
         fadeRate:   20, //per sec
-        roverSound: null,
-        state:      "not loaded",
+        drive:      null,
+        armBrake:   null,
+        arm:        null,
+        refDist:    2,  //m
+        maxDist:    20, //m
+        loaded:     false,
       }
       window.audio = audio;
       
@@ -569,6 +588,18 @@
         // make compass inset:
         makeCompass();
         compass.visible = options["tools"].showCompass;
+
+        // Set up audio listener (this is like a virtual microphone in the scene):
+        audio.listener = new THREE.AudioListener(),
+        audio.fadeGain = audio.listener.context.createGain();  // additional gain control for smoothly starting/stopping
+        camera.add(audio.listener);
+
+        audio.drive = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(true);
+        audio.armBrake = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(false);
+        audio.arm = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(true);
+        audio.drive.state = "not loaded";
+        audio.armBrake.state = "not loaded";
+        audio.arm.state = "not loaded";
 
 
         // Make RMI mirror:
@@ -857,9 +888,14 @@
           updateDrive(secondsElepased);
           requestRenderIfNotRequested();
         }
+
+        if(armMotion.moving){
+          updateArm(secondsElepased);
+          requestRenderIfNotRequested();
+        }
         
-        updateRoverAudio(secondsElepased);
-        if(audio.state!="stopped"){
+        updateAudio(secondsElepased);
+        if(audio.drive.state!="stopped" || audio["arm"].state!="stopped"){
           requestRenderIfNotRequested();
         }
       }
@@ -873,45 +909,73 @@
       }
       
       
-      function updateRoverAudio(timeElapsed){
-        if(audio.state=="not loaded"){
-          // Set up rover audio:
-          audio.listener = new THREE.AudioListener(),
-          camera.add(audio.listener);
-          audio.roverSound = new THREE.PositionalAudio( audio.listener );  // volume increases near rover!
-          audio.fadeGain = audio.listener.context.createGain();  // additional gain control for smoothly starting/stopping
-          const audioloader = new THREE.AudioLoader().load( 'data/45857_FILTERED_HIGHLIGHTS_-_Sol16RoverDriveHighlights.mp3', function ( buffer ) {
-            audio.roverSound.setBuffer( buffer );
-            audio.roverSound.setLoop(true);
-            audio.roverSound.setRefDistance( 2 );
-            audio.roverSound.setMaxDistance( 20 );
-            audio.state = "stopped";
-          } );
+      function updateAudio(timeElapsed){
+        if(!audio.loaded){
+          console.log("loading audio files");
+          const audioloader = new THREE.AudioLoader();
+          
+          audioloader.load( 'data/45857_FILTERED_HIGHLIGHTS_-_Sol16RoverDriveHighlights.mp3', function ( buffer ) {
+            audio.drive.setBuffer( buffer );
+          });
+
+          audioloader.load( 'data/brake_release.mp3', function ( buffer ) {
+            audio.armBrake.setBuffer( buffer );
+          });
+
+          audioloader.load( 'data/arm_motors.mp3', function ( buffer ) {
+            audio.arm.setBuffer( buffer );
+          });
+          
+          audio.loaded = true;
           
         } else {
         
-          audio.roverSound.panner.setPosition(rover.position.x, rover.position.y, rover.position.z);
+          if(rover.position) audio.drive.panner.setPosition(rover.position.x, rover.position.y, rover.position.z);
         
-          if(audio.state=="starting"){
-            if(!audio.roverSound.isPlaying) {
+          if(audio.drive.state=="starting"){
+            if(!audio.drive.isPlaying) {
               audio.fadeGain.gain.value = 0;
               //console.log("resuming audio");
-              audio.roverSound.play();
+              audio.drive.play();
             } else {
               audio.fadeGain.gain.value = Math.min(1, audio.fadeGain.gain.value + audio.fadeRate * timeElapsed);
               if(audio.fadeGain.gain.value==1) {
-                audio.state = "playing";
-                updateRoverAudio();
+                audio.drive.state = "playing";
+                updateAudio(0);
               }
             }
             
-          } else if(audio.state=="stopping"){
+          } else if(audio.drive.state=="stopping"){
             audio.fadeGain.gain.value = Math.max(0, audio.fadeGain.gain.value - audio.fadeRate * timeElapsed);
             if(audio.fadeGain.gain.value==0) {
-              audio.state = "stopped";
-              if(audio.roverSound.isPlaying) {
+              audio.drive.state = "stopped";
+              if(audio.drive.isPlaying) {
                 //console.log("pausing audio");
-                audio.roverSound.pause();
+                audio.drive.pause();
+              }
+            }
+          }
+          
+          if(audio.arm.state=="starting"){
+            if(!audio.arm.isPlaying) {
+              audio.fadeGain.gain.value = 0;
+              //console.log("resuming audio");
+              audio.arm.play();
+            } else {
+              audio.fadeGain.gain.value = Math.min(1, audio.fadeGain.gain.value + audio.fadeRate * timeElapsed);
+              if(audio.fadeGain.gain.value==1) {
+                audio.arm.state = "playing";
+                updateAudio(0);
+              }
+            }
+            
+          } else if(audio.arm.state=="stopping"){
+            audio.fadeGain.gain.value = Math.max(0, audio.fadeGain.gain.value - audio.fadeRate * timeElapsed);
+            if(audio.fadeGain.gain.value==0) {
+              audio.arm.state = "stopped";
+              if(audio.arm.isPlaying) {
+                //console.log("pausing audio");
+                audio.arm.pause();
               }
             }
           }
@@ -1395,6 +1459,175 @@
         requestRenderIfNotRequested();
       }
    
+      
+      function planArmSequence(){
+        var toPose = options["pose"].arm;        
+        const fromPoseShoulderState = joints["arm"]["az"].angle>-90? "OUT" : "IN";
+        const toPoseShoulderState = /(STOW)|(READY_OUT)|(DECK_READY)|(.*_SO)|(ZERO)/.test(toPose) ? "OUT" : "IN";
+
+        armMotion.sequence = [];
+
+        if(armMotion.stowed){
+          armMotion.sequence.push("ONEJOINT:5:105");  // just a guess
+          armMotion.sequence.push("ONEJOINT:3:-155");
+          armMotion.sequence.push("ONEJOINT:1:75");
+          armMotion.sequence.push("READY_OUT");
+        }
+        
+        // If the shoulder state of the goal pose is opposite of initial shoulder state,
+        // then move to READY_* corresponding to the initial pose, then flip.
+        console.log([toPose, fromPoseShoulderState, toPoseShoulderState]);
+        if(fromPoseShoulderState=="OUT" && toPoseShoulderState=="IN"){
+          armMotion.sequence.push("READY_OUT");
+          armMotion.sequence.push("READY_IN");
+        } else if(fromPoseShoulderState=="IN" && toPoseShoulderState=="OUT"){
+          armMotion.sequence.push("READY_IN");
+          armMotion.sequence.push("READY_OUT");
+        }
+
+        if(toPose=="STOW"){
+          armMotion.sequence.push("READY_OUT");
+          armMotion.sequence.push("JOINTS:75,-16,-155,180,105");
+          armMotion.sequence.push("ONEJOINT:1:90");
+          armMotion.sequence.push("ONEJOINT:3:-161");
+          armMotion.sequence.push("ONEJOINT:5:90");
+          armMotion.sequence.push("STOW");
+        }
+
+        if(armMotion.sequence[armMotion.sequence.length]!=toPose){ 
+          armMotion.sequence.push(toPose);
+        }
+        console.log(armMotion.sequence);
+        
+        if(armMotion.sequence.length){
+          updateArmJointGoals();
+          if(!armMotion.moving){
+            console.log("starting arm motion");
+            drive.speedRatio=0;
+            setSpeed(); // stop driving
+
+            if(!audio.armBrake.isPlaying) audio.armBrake.play();
+            
+            setTimeout(function(){
+              if(!audio.arm.isPlaying) audio.arm.play();
+              clock.getDelta();  // update clock since previous frame may have been a long time ago
+              armMotion.moving = true;
+              requestRenderIfNotRequested();
+            }, 200); //delay milliseconds
+          }
+        }
+      }
+
+
+      function updateArmJointGoals(){
+        if(armMotion.sequence.length==0){
+          armMotion.moving = false;
+          return;
+        }
+        
+        const armCmd = armMotion.sequence[0].split(/[:,]/);
+        console.log("Arm command: " + armCmd);
+        
+        for(var j=0; j<5; j++){
+          armMotion.initialPos[j] = joints["arm"][jointNames["arm"][j]].angle*1;
+        }
+        
+        switch(armCmd[0]){
+          case "ONEJOINT":
+            const jntIndex = armCmd[1]*1 - 1;  // convert from 1-index to 0-index
+            console.log("updating arm goal, joint " + armCmd[1] + '(' + jntIndex + ') to ' + armCmd[2]);
+            const goalPos = armCmd[2]*1;
+            const distToGoal = goalPos - armMotion.initialPos[jntIndex]*1;
+            const dir = Math.sign(distToGoal);
+            for(var j=0; j<5; j++){
+              armMotion.goal[j] = (jntIndex==j) ? goalPos : armMotion.initialPos[j]*1;
+              armMotion.rate[j] = (jntIndex==j) ? dir*armMotion.maxRate : 0;
+              armMotion.dir[j]  = (jntIndex==j) ? dir : 0;
+            }
+            break;
+            
+          case "JOINTS":
+            console.log("updating arm goal, all joints");
+            for(var j=0; j<5; j++){
+              armMotion.goal[j] = armCmd[1+j];
+            }
+            break;
+            
+          default:
+            if(poses["arm"][armCmd[0]]){
+              armMotion.goal = poses["arm"][armCmd[0]].map(function(angle){return angle*rad2deg});
+              console.log("updating arm goal to pose " + armCmd[0]);
+
+            } else {
+              console.log('updateArmJointGoals:  unrecongnized command: "' + armMotion.sequence[0] + '"');
+              return;
+            }
+        }
+        
+        if(armCmd[0]!="ONEJOINT"){
+          // Check which joint has the furthest to go to get to its goal:
+          // That joint will move at full speed while other joints move proportional to their distance to goal relative to the longest move.
+          var longestDistToGoal = 0;
+          var distToGoal = [];
+          for(var j=0; j<5; j++){
+            distToGoal[j] = armMotion.goal[j] - armMotion.initialPos[j];
+            if(distToGoal[j]) console.log("joint " + j + " distance to goal: " + distToGoal[j]);
+            //console.log([distToGoal[j], armMotion.goal[j], armMotion.initialPos[j]]);
+            if(Math.abs(distToGoal[j])>longestDistToGoal) longestDistToGoal = Math.abs(distToGoal[j]);
+          }
+          console.log([distToGoal, longestDistToGoal, armMotion.maxRate]);
+          for(var j=0; j<5; j++){
+            armMotion.rate[j] = distToGoal[j]/longestDistToGoal * armMotion.maxRate;
+            armMotion.dir[j] = Math.sign(armMotion.rate[j]);
+          }
+        }
+        console.log(JSON.parse(JSON.stringify(armMotion)));
+      }
+
+
+      function updateArm(timeDelta){
+        if(armMotion.sequence.length==0){
+          armMotion.moving = false;
+          return;
+        }
+                
+        var nJointsReachedGoal = 0;
+        const armCmd = armMotion.sequence[0];
+        
+        for(var j=0; j<5; j++){
+          if(armMotion.rate[j]){
+            const jointName = jointNames["arm"][j];
+            const currentPos = joints["arm"][jointName].angle*1;
+            var nextPos = currentPos + armMotion.rate[j]*timeDelta;
+            //console.log([j, armMotion.dir[j], nextPos, armMotion.goal[j], nJointsReachedGoal]);
+            if( (armMotion.dir[j]==1 && nextPos>armMotion.goal[j])  ||  (armMotion.dir[j]==-1 && nextPos<armMotion.goal[j])  ){
+              nextPos = armMotion.goal[j];
+              nJointsReachedGoal++;
+              armMotion.rate[j] = 0;
+            }
+            joints["arm"][jointName].angle = nextPos;
+            setJoint("arm", jointName, nextPos);
+          } else nJointsReachedGoal++;
+        }
+        
+        if(nJointsReachedGoal==5){
+          console.log("Arm reached sequence goal");
+          armMotion.sequence.shift();
+          console.log(JSON.parse(JSON.stringify(armMotion)));
+          armMotion.moving = !(armMotion.sequence.length==0);
+          if(!armMotion.moving){
+            console.log("stopping arm motion");
+            armMotion.stowed = (armCmd=="STOW");
+            if(audio.arm.isPlaying) audio.arm.pause();
+            if(!audio.armBrake.isPlaying) audio.armBrake.play();
+          } else {
+            updateArmJointGoals();
+          }
+        }
+      }
+
+
+
 
       function setJoint(jointGroupName, jointName, angle){
         //console.log(jointGroupName + ", joint " + jointName + ", angle " + angle);
@@ -1720,10 +1953,10 @@
         
         // play sound for 0.25 sec
         if(!drive.driving) {
-          if(!audio.roverSound.isPlaying) audio.state="starting";
+          if(!audio.drive.isPlaying) audio.drive.state="starting";
           setTimeout(function(){
-            if(!drive.driving && audio.roverSound.isPlaying) {
-              audio.state="stopping";
+            if(!drive.driving && audio.drive.isPlaying) {
+              audio.drive.state="stopping";
             }
           },250);
         }
@@ -1771,11 +2004,11 @@
           console.log("Starting drive");
           drive.prevStepTime = new Date().getTime();
           requestRenderIfNotRequested();
-          if(!audio.roverSound.isPlaying) audio.roverSound.play();
+          if(!audio.drive.isPlaying) audio.drive.play();
         }
         if(!drive.driving && prevDriving){
           console.log("Stopping drive");
-          if(audio.roverSound.isPlaying) audio.roverSound.pause();
+          if(audio.drive.isPlaying) audio.drive.pause();
         }
 
         const wheelRadius = 0.25; //m
@@ -1926,7 +2159,12 @@
           folder[jointGroupName] = folder["rover"].addFolder(jointGroupLongNames[jointGroupName]);
 
           // make pose selector:
-          folder[jointGroupName].add(options["pose"], jointGroupName, poseNames[jointGroupName]).name("Pose").onChange(function(poseName){goToPose(jointGroupName, poseName)});
+          const poseControl = folder[jointGroupName].add(options["pose"], jointGroupName, poseNames[jointGroupName]).name("Pose");
+          if(jointGroupName=="arm"){
+            poseControl.onChange(function(poseName){planArmSequence(poseName)});
+          } else {
+            poseControl.onChange(function(poseName){goToPose(jointGroupName, poseName)});
+          }
 
           // add joint control for each joint:
           jointNames[jointGroupName].forEach(function(jointName){
