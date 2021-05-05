@@ -1346,12 +1346,16 @@
             }            
             const chunk = new THREE.Mesh(chunkGeom, chunkMatl);
             chunk.geometry.computeBoundingBox();
+            chunk.castShadow = true;
+            chunk.receiveShadow = true;
             chunks.add(chunk);
           }
         }
         
         chunks.rotation.copy(mastermesh.rotation);
         chunks.position.copy(mastermesh.position);
+        
+        renderer.shadowMap.needsUpdate = true;
         
         if(onload!==undefined) onload(chunks);
         return chunks;
