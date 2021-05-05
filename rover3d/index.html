@@ -192,7 +192,7 @@
             Perseverance <a href="https://mars.nasa.gov/resources/25042/mars-perseverance-rover-3d-model/">rover model</a> courtesy NASA/JPL, heavily modified by R. Kinnett
           </li>
           <li>
-            Perseverance <a href="https://mars.nasa.gov/resources/25732/sounds-of-perseverance-mars-rover-driving-sol-16-90-second-highlights/">rover audio</a> courtesy NASA/JPL-Caltech.
+            Perseverance <a href="https://mars.nasa.gov/resources/25732/sounds-of-perseverance-mars-rover-driving-sol-16-90-second-highlights/">drive audio</a> (recorded on Mars!) courtesy NASA/JPL-Caltech.
           </li>
           <li>
             This page is built using the <a href="https://threejs.org/">three.js</a> javascript library for WebGL.
@@ -354,7 +354,8 @@
           STOW:          [-2.09, -1],
           STRAIGHT:      [0, 0],
           WORKSPACE:     [-0.5, -0.8],
-          WORKSPACE:     [ 0.0, -0.6],
+          DRIVE_FWD:     [ 0.0, -0.6],
+          DRIVE_STBD:    [ 0.7, -0.6],
         },
         hga: {
           STOW:          [-1.05, 1.5708],
@@ -875,7 +876,7 @@
 					window.innerWidth * window.devicePixelRatio,
 					window.innerHeight * window.devicePixelRatio
 				);
-				requestRenderIfNotRequested();
+				render();
 			}
 
 			function render() {     
@@ -1513,7 +1514,7 @@
               clock.getDelta();  // update clock since previous frame may have been a long time ago
               armMotion.moving = true;
               requestRenderIfNotRequested();
-            }, 200); //delay milliseconds
+            }, 600); //delay milliseconds
           }
         }
       }
@@ -1618,8 +1619,12 @@
           if(!armMotion.moving){
             console.log("stopping arm motion");
             armMotion.stowed = (armCmd=="STOW");
-            if(audio.arm.isPlaying) audio.arm.pause();
-            if(!audio.armBrake.isPlaying) audio.armBrake.play();
+            setTimeout(function(){
+              if(audio.arm.isPlaying) audio.arm.pause();
+              setTimeout(function(){
+                if(!audio.armBrake.isPlaying) audio.armBrake.play();
+              }, 600);
+            }, 300);
           } else {
             updateArmJointGoals();
           }
