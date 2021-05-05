@@ -511,7 +511,12 @@
         arm:        null,
         refDist:    2,  //m
         maxDist:    20, //m
-        loaded:     false,
+        started:    false,
+        loaded: {
+          arm:      false,
+          armBrake: false,
+          drive:    false,
+        }
       }
       window.audio = audio;
       
@@ -590,17 +595,7 @@
         makeCompass();
         compass.visible = options["tools"].showCompass;
 
-        // Set up audio listener (this is like a virtual microphone in the scene):
-        audio.listener = new THREE.AudioListener(),
-        audio.fadeGain = audio.listener.context.createGain();  // additional gain control for smoothly starting/stopping
-        camera.add(audio.listener);
 
-        audio.drive = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(true);
-        audio.armBrake = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(false);
-        audio.arm = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(true);
-        audio.drive.state = "not loaded";
-        audio.armBrake.state = "not loaded";
-        audio.arm.state = "not loaded";
 
 
         // Make RMI mirror:
@@ -816,9 +811,9 @@
 				window.addEventListener('resize', onWindowResize );
         //renderer.domElement.addEventListener('mousedown', handleMouseDown, false );
         //renderer.domElement.addEventListener('mouseup', handleMouseUp, false );
-        renderer.domElement.addEventListener('click', function(e){checkWhatWasClicked(e, scene.children)}, false );
+        renderer.domElement.addEventListener('click', singleClickHandler, false );
         window.addEventListener('keypress', checkKeypress, false );
-        renderer.domElement.addEventListener('dblclick', doubleClicked, false);
+        renderer.domElement.addEventListener('dblclick', doubleClickHandler, false);
 
         document.addEventListener('mousemove', function(e){mouse.x = e.clientX; mouse.y = e.clientY;}, false); // cache mouse pos
         window.mouse = mouse;
@@ -834,6 +829,11 @@
         //document.addEventListener('gestureend',    function(e) { dontZoomWindow(e) });
 			}
 
+      function singleClickHandler(e){
+        checkWhatWasClicked(e, scene.children);
+        if(!audio.started) loadAudio();
+      }
+
 
       function dontZoomWindow(event){
         e.preventDefault();
@@ -845,6 +845,7 @@
         touch.current.moved = false;
         touch.current.startTime = new Date().getTime();
         touch.current.nFingers = event.touches.length;
+        if(!audio.started) loadAudio();
       }
 
       function onTouchEnd(event){
@@ -856,7 +857,7 @@
         console.log(timeBetween + " ms");
         if(touch.current.singleFingerTap && touch.prev.singleFingerTap && timeBetween<500){
           //alert("double tap " + event.touches.length);
-          doubleClicked(event.changedTouches[0]);
+          doubleClickHandler(event.changedTouches[0]);
           //event.preventDefault();
         }        
         touch.prev = JSON.parse(JSON.stringify(touch.current));
@@ -864,6 +865,7 @@
 
       function onTouchMove(event){
         touch.current.moved = true;
+        if(!audio.started) loadAudio();
       }
 
 
@@ -887,16 +889,18 @@
         const secondsElepased = clock.getDelta();
         if(drive.driving){
           updateDrive(secondsElepased);
+          updateAudio(secondsElepased);
           requestRenderIfNotRequested();
         }
 
         if(armMotion.moving){
           updateArm(secondsElepased);
+          updateAudio(secondsElepased);
           requestRenderIfNotRequested();
         }
-        
+
         updateAudio(secondsElepased);
-        if(audio.drive.state!="stopped" || audio["arm"].state!="stopped"){
+        if(audio.started && (audio.drive.isPlaying || audio.arm.isPlaying)){
           requestRenderIfNotRequested();
         }
       }
@@ -908,29 +912,47 @@
           requestAnimationFrame(render);
         }
       }
-      
+
+
+      function loadAudio(whichSound, callback){
+        // Set up audio listener (this is like a virtual microphone in the scene):
+        audio.listener = new THREE.AudioListener(),
+        audio.fadeGain = audio.listener.context.createGain();  // additional gain control for smoothly starting/stopping
+        camera.add(audio.listener);
+        audio.started = true;
+        
+        console.log("loading audio files");
+        const audioloader = new THREE.AudioLoader();
+
+        audio.drive = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(true);
+        audioloader.load( 'data/45857_FILTERED_HIGHLIGHTS_-_Sol16RoverDriveHighlights.mp3', function ( buffer ) {
+          audio.drive.setBuffer( buffer );
+          audio.loaded.drive = true;
+          audio.drive.state = "stopped";
+          if(whichSound=="drive" && callback) callback();
+        });
+
+        audio.armBrake = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(false);
+        audioloader.load( 'data/brake_release.mp3', function ( buffer ) {
+          audio.armBrake.setBuffer( buffer );
+          audio.loaded.armBrake = true;
+          audio.armBrake.state = "stopped";
+          if(whichSound=="arm" && callback && audio.loaded.arm) callback();
+        });
+
+        audio.arm = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(true);
+        audioloader.load( 'data/arm_motors.mp3', function ( buffer ) {
+          audio.arm.setBuffer( buffer );
+          audio.loaded.arm = true;
+          audio.arm.state = "stopped";
+          if(whichSound=="arm" && callback && audio.loaded.armBrake) callback();
+        });
+      }        
       
       function updateAudio(timeElapsed){
-        if(!audio.loaded){
-          console.log("loading audio files");
-          const audioloader = new THREE.AudioLoader();
-          
-          audioloader.load( 'data/45857_FILTERED_HIGHLIGHTS_-_Sol16RoverDriveHighlights.mp3', function ( buffer ) {
-            audio.drive.setBuffer( buffer );
-          });
-
-          audioloader.load( 'data/brake_release.mp3', function ( buffer ) {
-            audio.armBrake.setBuffer( buffer );
-          });
-
-          audioloader.load( 'data/arm_motors.mp3', function ( buffer ) {
-            audio.arm.setBuffer( buffer );
-          });
-          
-          audio.loaded = true;
-          
+        if(!audio.started) {
+          loadAudio();
         } else {
-        
           if(rover.position) audio.drive.panner.setPosition(rover.position.x, rover.position.y, rover.position.z);
         
           if(audio.drive.state=="starting"){
@@ -1627,7 +1649,7 @@
               if(audio.arm.isPlaying) audio.arm.pause();
               setTimeout(function(){
                 if(!audio.armBrake.isPlaying) audio.armBrake.play();
-              }, 600);
+              }, 200);
             }, 300);
           } else {
             updateArmJointGoals();
@@ -1746,7 +1768,7 @@
       }
       window.createCoordAxes = createCoordAxes;
 
-      function doubleClicked(event){
+      function doubleClickHandler(event){
         console.log("double clicked");
         console.log(event);
         var intersects = checkWhatWasClicked(event, [terrain, rover]);
@@ -1786,6 +1808,8 @@
         var keyAscii = String.fromCharCode(event.keyCode);
         console.log('key pressed: "' + keyAscii + '" [' + event.keyCode + ']');
         console.log(event);
+        
+        if(!audio.started) loadAudio();
         
         //controls.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
         
@@ -1962,7 +1986,7 @@
         
         // play sound for 0.25 sec
         if(!drive.driving) {
-          if(!audio.drive.isPlaying) audio.drive.state="starting";
+          if(audio.started && !audio.drive.isPlaying) audio.drive.state="starting";
           setTimeout(function(){
             if(!drive.driving && audio.drive.isPlaying) {
               audio.drive.state="stopping";
@@ -2012,12 +2036,12 @@
           clock.getDelta();  // update clock since previous frame may have been a long time ago
           console.log("Starting drive");
           drive.prevStepTime = new Date().getTime();
+          if(!audio.drive.isPlaying) audio.drive.state="starting";
           requestRenderIfNotRequested();
-          if(!audio.drive.isPlaying) audio.drive.play();
         }
         if(!drive.driving && prevDriving){
           console.log("Stopping drive");
-          if(audio.drive.isPlaying) audio.drive.pause();
+          if(audio.started && audio.drive.isPlaying) audio.drive.pause();
         }
 
         const wheelRadius = 0.25; //m
@@ -2075,7 +2099,7 @@
         raycaster.set(worldPointAboveRover, worldRoverDown);
         var intersects = raycaster.intersectObjects(terrain.children);
         //console.log(intersects);
-        if(intersects){
+        if(intersects && intersects[0].point){
           rover.position.copy(intersects[0].point);
           const normalMatrix = new THREE.Matrix3().getNormalMatrix( intersects[0].object.matrixWorld );        
           vecs.n = intersects[0].face.normal.clone().applyMatrix3( normalMatrix ).normalize();  // normal vector to local terrain
@@ -2170,7 +2194,10 @@
           // make pose selector:
           const poseControl = folder[jointGroupName].add(options["pose"], jointGroupName, poseNames[jointGroupName]).name("Pose");
           if(jointGroupName=="arm"){
-            poseControl.onChange(function(poseName){planArmSequence(poseName)});
+            poseControl.onChange(function(poseName){
+              planArmSequence(poseName);
+              if(!audio.started) loadAudio();
+            });
           } else {
             poseControl.onChange(function(poseName){goToPose(jointGroupName, poseName)});
           }
