@@ -396,7 +396,7 @@
         },
         camera: {
           fov: 50,        //deg
-          exposure: 0.65, //0-1
+          exposure: 0.75, //0-1
           followRover: false,
         },
         pose: {
@@ -570,8 +570,8 @@
                         
                 
         // Make Controls:
-				controls = new MapControls( camera, renderer.domElement );
-				//const controls = new OrbitControls( camera, renderer.domElement );
+        //controls = new MapControls( camera, renderer.domElement );
+				controls = new OrbitControls( camera, renderer.domElement );
 				controls.addEventListener( 'change', requestRenderIfNotRequested ); // use if there is no animation loop
         //controls.mouseButtons = { ORBIT: THREE.MOUSE.LEFT, ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
         //controls.mouseButtons = { ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
@@ -1840,7 +1840,7 @@
             case "h":  console.log("PLACE");     rover.position.set(0,0,0);  settleRover(new THREE.Vector3(0,0,-1)); requestRenderIfNotRequested(); break;
             case "r":  console.log("ROVER");     moveCameraToViewTarget(rover.position); break;
             case "t":  console.log("TOP");       break;
-            case "f":  console.log("FOLLOW");    options["camera"].followRover=!options["camera"].followRover; break;
+            case "f":  console.log("FOLLOW");    options["camera"].followRover = !options["camera"].followRover; break;
             case "w":  console.log("SPEEDUP");   drive.speedRatio+=drive.speedRatioIncr; setSpeed(); break;
             case "x":  console.log("SPEEDDN");   drive.speedRatio-=drive.speedRatioIncr; setSpeed(); break;
             case "s":  console.log("DRIVESTOP"); drive.speedRatio=0;  drive.turnRate=0;  setSteering();  break;
@@ -1853,6 +1853,8 @@
           console.log("unhandled key"); 
         }
       }
+      
+      
       
       
       function placeRover( mousecoords ) {
@@ -2101,7 +2103,8 @@
         }
         var rot = new THREE.Matrix4();
         rot.extractRotation( rover.matrix );
-        drive.nextPos.copy( rover.position.clone().add( drive.nextPosRnav.clone().applyMatrix4(rot) ));
+        const deltaPos = drive.nextPosRnav.clone().applyMatrix4(rot);
+        drive.nextPos.copy( rover.position.clone().add( deltaPos ));
         rover.position.copy(drive.nextPos);
         if(terrain) projectRoverToSurface();
         if(drive.turnRate!=0) changeHeading();
@@ -2109,7 +2112,8 @@
         const rnavRoverUp = new THREE.Vector3(0,0,-1);
         const worldRoverUp = rnavRoverUp.clone().applyMatrix4(rot);
 
-        if(options["camera"].followRover) moveCameraToViewTarget(rover.position.clone().add(worldRoverUp.multiplyScalar(2)));
+        if(options["camera"].followRover) moveCameraToViewTarget(rover.position.clone().add(worldRoverUp.multiplyScalar(3)));
+        //if(options["camera"].followRover) camera.position.add(deltaPos);
       }
       
 
@@ -2227,8 +2231,8 @@
             poseControl.onChange(function(poseName){
               planArmSequence(poseName);
               if(!audio.started) loadAudio();
-              gui.__folders.Rover.__folders["Robotic Arm"].__controllers[0].domElement.blur();
-              renderer.domElement.focus();
+              //defocus the selector to prevent later keyboard events (like the wasd drive keys) from changing the selection.
+              gui.__folders.Rover.__folders["Robotic Arm"].__controllers[0].domElement.children[0].blur();
             });
           } else {
             poseControl.onChange(function(poseName){goToPose(jointGroupName, poseName)});
