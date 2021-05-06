@@ -691,6 +691,7 @@
         });
 
 
+        // Build high-res terrain, initially as monolithic mesh, then break it up into chunks:
         makeTerrain({
           //urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h8m.tif',  // must be 16-bit grayscale tif
           urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h' + options["scene"].terrainHscale + 'm.tif',  // must be 16-bit grayscale tif
@@ -719,6 +720,7 @@
         });
         
         
+        // Build low-res terrain:
         makeTerrain({
           urlHeightMap: 'images/JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_rescale240m_centerReduced.tif',  // must be 16-bit grayscale tif
           hscale:   240*0.96,    // m/px
@@ -928,6 +930,7 @@
           audio.drive.setBuffer( buffer );
           audio.loaded.drive = true;
           audio.drive.state = "stopped";
+          if(rover) rover.add(audio.drive);
         });
 
         audio.armBrake = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(false);
@@ -935,6 +938,7 @@
           audio.armBrake.setBuffer( buffer );
           audio.loaded.armBrake = true;
           audio.armBrake.state = "stopped";
+          if(rover) joints["arm"].elbow.obj.add(audio.armBrake);
         });
 
         audio.arm = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(true);
@@ -942,6 +946,7 @@
           audio.arm.setBuffer( buffer );
           audio.loaded.arm = true;
           audio.arm.state = "stopped";
+          if(rover) joints["arm"].elbow.obj.add(audio.arm);
         });
       }        
       
@@ -950,13 +955,15 @@
         if(!audio.started) {
           loadAudio();
         } else {
+        /*
           if(rover && rover.position) {
             audio.drive.panner.setPosition(rover.position.x, rover.position.y, rover.position.z);
             audio.armBrake.panner.setPosition(rover.position.x, rover.position.y, rover.position.z);
             audio.arm.panner.setPosition(rover.position.x, rover.position.y, rover.position.z);
           }
+          */
         
-          console.log("updating audio " + audio.drive.state + " " + audio.arm.state);
+          //console.log("updating audio " + audio.drive.state + " " + audio.arm.state);
         
           if(audio.drive.state=="starting"){
             if(!audio.drive.isPlaying) {
@@ -1561,7 +1568,7 @@
           armMotion.moving = false;
           return;
         }
-        
+                
         const armCmd = armMotion.sequence[0].split(/[:,]/);
         console.log("Arm command: " + armCmd);
         
@@ -2069,12 +2076,20 @@
 
       
       function updateDrive(secondsElepased) {
+        if(!audio.loaded["drive"])  loadAudio();
+        if(audio.drive.state=="stopped") {
+          audio.drive.state="starting";
+          updateAudio();
+        }
+      
+        // Turn wheels:
         for(var wheel in wheels){
           var jointAngle = joints["wheels"][wheel].angle;
           jointAngle += ((drive.wheelSpeed[wheel]*secondsElepased) % 360);
           setJoint("wheels", wheel, jointAngle);
         }
 
+        // Update rover position:
         if(drive.turnRate==0){
           drive.nextPosRnav.set(drive.rnavSpeed*secondsElepased, 0, 0);
         } else {
@@ -2088,7 +2103,7 @@
         rot.extractRotation( rover.matrix );
         drive.nextPos.copy( rover.position.clone().add( drive.nextPosRnav.clone().applyMatrix4(rot) ));
         rover.position.copy(drive.nextPos);
-        projectRoverToSurface();
+        if(terrain) projectRoverToSurface();
         if(drive.turnRate!=0) changeHeading();
         
         const rnavRoverUp = new THREE.Vector3(0,0,-1);
@@ -2099,24 +2114,26 @@
       
 
       function projectRoverToSurface(){
-        const rnavRoverUp = new THREE.Vector3(0,0,-1);
-        const rnavRoverDown = new THREE.Vector3(0,0,1);
-        const rot = new THREE.Matrix4().extractRotation( rover.matrix ); // get rover rotation matrix
-        const worldRoverUp = rnavRoverUp.clone().applyMatrix4(rot);
-        const worldRoverDown = rnavRoverDown.clone().applyMatrix4(rot);
-        //Starting from rover position, define a vector some distance "above the rover" (-rnavZ), then 
-        //project a ray through the surface to get intersection, then place rover at intersection.
-        //console.log(rot);
-        //console.log(worldRoverUp);
-        const worldPointAboveRover = rover.position.clone().add( worldRoverUp.clone().multiplyScalar(1000) );
-        raycaster.set(worldPointAboveRover, worldRoverDown);
-        var intersects = raycaster.intersectObjects(terrain.children);
-        //console.log(intersects);
-        if(intersects && intersects[0].point){
-          rover.position.copy(intersects[0].point);
-          const normalMatrix = new THREE.Matrix3().getNormalMatrix( intersects[0].object.matrixWorld );        
-          vecs.n = intersects[0].face.normal.clone().applyMatrix3( normalMatrix ).normalize();  // normal vector to local terrain
-          settleRover(vecs.n);
+        if(terrain){
+          const rnavRoverUp = new THREE.Vector3(0,0,-1);
+          const rnavRoverDown = new THREE.Vector3(0,0,1);
+          const rot = new THREE.Matrix4().extractRotation( rover.matrix ); // get rover rotation matrix
+          const worldRoverUp = rnavRoverUp.clone().applyMatrix4(rot);
+          const worldRoverDown = rnavRoverDown.clone().applyMatrix4(rot);
+          //Starting from rover position, define a vector some distance "above the rover" (-rnavZ), then 
+          //project a ray through the surface to get intersection, then place rover at intersection.
+          //console.log(rot);
+          //console.log(worldRoverUp);
+          const worldPointAboveRover = rover.position.clone().add( worldRoverUp.clone().multiplyScalar(1000) );
+          raycaster.set(worldPointAboveRover, worldRoverDown);
+          var intersects = raycaster.intersectObjects(terrain.children);
+          //console.log(intersects);
+          if(intersects && intersects[0] && intersects[0].point){
+            rover.position.copy(intersects[0].point);
+            const normalMatrix = new THREE.Matrix3().getNormalMatrix( intersects[0].object.matrixWorld );        
+            vecs.n = intersects[0].face.normal.clone().applyMatrix3( normalMatrix ).normalize();  // normal vector to local terrain
+            settleRover(vecs.n);
+          }
         }
       }
       window.projectRoverToSurface = projectRoverToSurface;
