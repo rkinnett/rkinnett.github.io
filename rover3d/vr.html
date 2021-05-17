@@ -1,0 +1,2375 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Rover3D</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		
+    
+    <style>
+    body {
+      margin: 0;
+      background-color: #000;
+      color: #fff;
+      font-family: Monospace;
+      font-size: 13px;
+      line-height: 24px;
+      overscroll-behavior: none;
+    }    
+        
+    a:link {
+      color: #adf;
+    }
+    a:visited {
+      color: #adf;
+    }
+    a:hover {
+      color: #4ff;
+    }
+    
+    #annotation {
+      position: absolute;
+      padding: 5px 10px;
+      color: #ddd;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: .5em;
+      font-size: 12px;
+      line-height: 1.2;
+      transition: opacity .5s;
+    }
+
+    #status_container {
+      text-shadow: 0px 0px 6px #FFF;
+      color: #F95;
+      margin: 5px;
+      position: absolute;
+      right: 3px;
+      z-index: 98;
+      bottom: 0px;
+      //opacity: 0.5;
+      font-size: 12px;
+    }
+    
+    #webgl {
+      position: fixed;
+      width: 100%; /* Full width (cover the whole page) */
+      height: 100%; /* Full height (cover the whole page) */
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: -1;
+    }
+    
+    #overlay {
+      position: fixed; 
+      display: none; 
+      width: 100%; 
+      height: 100%; 
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.8); 
+      z-index: 100; 
+      cursor: pointer;
+    }
+    .astext {
+      background:none;
+      border:none;
+      margin: 5px;
+      padding:0;
+      cursor: pointer;
+      outline:none;
+      user-select: none;
+      -webkit-user-select: none; /* Safari */        
+      -moz-user-select: none; /* Firefox */
+    }
+    
+    #info_button {
+      z-index: 99;
+      text-shadow: 0px 0px 6px #FF6;
+      color: #F86;
+      position: absolute;
+      left: 0px;
+      top: 0px;
+    }
+    
+    #info {
+      text-align: left;
+      vertical-align: middle;
+      position: absolute;
+      width: 80%;
+      height: 100%;
+      left: 10%;
+      font-size: 14px;
+      color: #ccc;
+      line-height: 120%;
+    }
+    
+    .info_ul li {
+      margin-top:  0px;
+      line-height: 95%;
+    }
+    
+    .info_ul li:not(:last-child) {
+      margin-bottom: 0px;
+    }
+    
+    emph {
+      font-weight: bold;
+      font-size: 110%;
+      text-decoration: underline;
+      color: white;
+    }
+    
+    #compassInset {
+      width: 60px;
+      height: 60px;
+      background-color: transparent; /* or transparent; will show through only if renderer alpha: true */
+      border: none; /* or none; */
+      margin: 0;
+      padding: 0px;
+      position: absolute;
+      left: 0px;
+      bottom: 0px;
+      z-index: 100;
+    }
+    
+    </style>
+    
+    
+	</head>
+
+	<body>
+
+    <!-- Status Indicator -->
+    <div class="annotation" id="status_container">Initializing</div>  
+
+    <!-- Make Acknowledgments Panel -->
+    <!-- <button class="astext" id="info_button" onclick="infoOverlayOn()">About</button> -->
+    <div id="overlay" onclick="infoOverlayOff()">
+      <div id="info">
+        <h1>Rover 3D</h1>
+        R. Kinnett, 2021
+        <hr/>
+        An immersive Mars exploration experience featuring NASA's Perseverance rover and its home on Mars, Jezero Crater.<br/>
+        This page leverages public resources provided by NASA and JPL but is not affiliated with NASA or JPL.
+        <hr/>
+        <h3>Controls:</h3>
+        <ul class="info_ul">
+          <li>Mouse:  Left button: rotate, center wheel: zoom, right button: pan</li>
+          <li>Touch:  Single-touch drag: rotate, double-touch drag: pan, double-touch pinch: zoom</li>
+          <li>Double-click or double-tap:  center view over selected position</li>
+          <li>Key "h":  place rover at landing site ("<emph>h</emph>ome")</li>
+          <li>Key "g":  place rover at cursor ("<emph>g</emph>o to")</li>
+          <li>Key "r":  center view over <emph>r</emph>over</li>
+          <li>Key "f":  toggle camera rover-<emph>f</emph>ollow during drive</li>
+          <li>Key "w":  increment drive speed</li>
+          <li>Key "x":  decrement drive speed</li>
+          <li>Key "d":  increment turn angle</li>
+          <li>Key "a":  decrement turn angle</li>
+          <li>Key "q":  straighten steering</li>
+          <li>Key "s":  <emph>s</emph>top driving and <emph>s</emph>traighten wheels</li>
+        </ul>
+        <hr/>
+        <h3>Acknowledgments:</h3>
+        <ul class="info_ul">
+          <li>
+            Base terrain map derived (cropped and scaled) from USGS "<a href="https://astrogeology.usgs.gov/search/map/Mars/Mars2020/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40">Mars 2020 Terrain Relative Navigation HiRISE DTM Mosaic</a>".
+            <ul>
+              <li>
+                Terrain height map derived from <a href="https://astrogeology.usgs.gov/search/map/Mars/Mars2020/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40">MOLA DTM</a> via Mars Reconnaissance Orbiter MOLA, courtesty NASA/JPL-Caltech/GSFC/USGS.
+              </li>
+              <li>
+                Terrain luminance texture derived from <a href="https://astrogeology.usgs.gov/search/map/Mars/Mars2020/JEZ_hirise_soc_006_orthoMosaic_25cm_Eqc_latTs0_lon0_first">Mars 2020 TRN HiRISE mosaic</a> via Mars Reconnaissance Orbiter HiRISE, courtesty NASA/JPL-Caltech/GSFC/USGS.
+              </li>
+            </ul>
+            <li>
+              Terrain texture colorized via <a href="https://www.flickr.com/photos/132160802@N06/50905666446/">Jezero Crater color mosaic</a> by J. Cowart with source images from MRO CTX (NASA/JPL/MSSS) and CRISM (NASA/JPL/JHUAPL), and Mars Express HRSC (ESA/DLR/FU Berlin), re-blended by R. Kinnett.
+            </li>
+          <li>
+            Perseverance <a href="https://mars.nasa.gov/resources/25042/mars-perseverance-rover-3d-model/">rover model</a> courtesy NASA/JPL, heavily modified by R. Kinnett
+          </li>
+          <li>
+            Perseverance <a href="https://mars.nasa.gov/resources/25732/sounds-of-perseverance-mars-rover-driving-sol-16-90-second-highlights/">drive audio</a> (recorded on Mars!) courtesy NASA/JPL-Caltech.
+          </li>
+          <li>
+            This page is built using the <a href="https://threejs.org/">three.js</a> javascript library for WebGL.
+          </li>
+          <li>
+            Thanks to Michael Schlachter ("thrax" in <a href="https://join.slack.com/t/threejs/shared_invite/zt-4m0gnh6d-Rb~KQZHEA72GVsSnm820Eg">three.js slack</a>) for technical advisement!
+          </li>          
+        </ul>  
+        <hr/>
+        View source code at <a href="https://github.com/rkinnett/rkinnett.github.io/tree/master/rover3d">Github</a>.<br/>
+        <b>Comments and suggestions: </b> <a href="https://twitter.com/rover_18">twitter</a> or <a href="https://discord.gg/Eky6AhRSnj">discord</a>
+      </div>
+    </div>
+
+    <!-- Webgl container for Mars scene -->
+    <div id="webgl"></div>
+
+    <!-- Compass inset -->
+		<div id="compassInset"></div>
+
+    
+    <!-- USEFUL REFERENCES:
+      https://www-robotics.jpl.nasa.gov/publications/Mark_Maimone/fulltext.pdf
+      https://pds-imaging.jpl.nasa.gov/documentation/MSL_COORDINATE_FRAMES.PDF 
+    -->
+
+    <script>
+      function infoOverlayOn() {  document.getElementById("overlay").style.display = "block"; }
+      function infoOverlayOff() { document.getElementById("overlay").style.display = "none";  }
+    </script>
+
+    <script src="js/dat.gui.min.js"></script>
+    <script src="js/decode-tiff.min.js"></script>
+    <script src="js/routes.js"></script>
+
+
+
+		<script type="module">
+      import * as THREE from './js/three.module.js';
+			import { OrbitControls, MapControls } from './js/OrbitControls.js';
+			import { GLTFLoader } from './js/GLTFLoader.js';
+      import { GLTFExporter } from './js/GLTFExporter.js';
+			import { Sky } from './js/Sky.js';
+      import { Lensflare, LensflareElement } from './js/LensFlare.js';
+      import { Reflector } from './js/Reflector.js';
+			import { VertexNormalsHelper } from './js/VertexNormalsHelper.js';
+      import { VRButton } from './js/VRButton.js';
+
+      window.THREE = THREE;
+      
+      const { decode } = window.decodeTiff;
+    
+			let camera, scene, renderer, controls, gui;
+      let rover, diffuselight, selected, roverNavCoordFrameAxes;
+      let terrain, terrainMatl, terrainWireframe, terrain2;
+      let mirrorCamera, rmiMirror, insetWidth, insetHeight, mirrorMaterial, mirror, mirrorRendertTarget;
+      let compassInsetContainer, compassInsetScene, compassInsetRenderer, compassInsetCamera, compass;
+			let sky, uniforms;
+      let routes;
+      let ruler;
+      let prevRenderTime;
+      
+      let renderRequested = false;
+      
+      let timeout;
+      let lastTap = 0;
+      
+      let ismobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      console.log("is mobile? " + ismobile);
+      
+      let deg2rad = Math.PI/180;
+      let rad2deg = 180/Math.PI;
+
+      let vecs = {};
+      window.vecs = vecs;
+
+      const clock = new THREE.Clock();
+
+      let parts = {};
+      window.parts = parts;
+      
+      let coordaxes = {};
+      
+      window.render = render;
+    
+      let sun = {
+        pos:  new THREE.Vector3(),
+        directionalLight:  null,
+      }
+      window.sun = sun;
+    
+      let jointGroupNames = ["arm", "rsm", "hga", "mob", "wheels"];
+      let jointGroupLongNames = {arm: "Robotic Arm", rsm: "Remote Sensing Mast", hga: "High-Gain Antenna", mob: "Suspension"};
+    
+      let joints = {
+        arm: {
+          az:     {name: "Azimuth",   model_obj_name: "arm_az",     axis: "z",  dir: 1,  angle: 0.1,  min:-180,  max:180},
+          el:     {name: "Elevation", model_obj_name: "arm_el",     axis: "y",  dir:-1,  angle: 0.1,  min:-180,  max:180},
+          elbow:  {name: "Elbow",     model_obj_name: "arm_elbow",  axis: "y",  dir:-1,  angle: 0.1,  min:-180,  max:180},
+          wrist:  {name: "Wrist",     model_obj_name: "arm_wrist",  axis: "y",  dir:-1,  angle: 0.1,  min:-10,   max:210},
+          turret: {name: "Turret",    model_obj_name: "arm_turret", axis: "z",  dir: 1,  angle: 0.1,  min:-10,   max:370},
+        },
+        
+        rsm: {
+          az:     {name: "Azimuth",   model_obj_name: "rsm_az",     axis: "z",  dir: 1,  angle: 0.1,  min:-185,  max:185 },
+          el:     {name: "Elevation", model_obj_name: "rsm_el",     axis: "y",  dir: 1,  angle: 0.1,  min:-87,   max:91 },
+        },
+
+        hga: {
+          az:     {name: "Azimuth",   model_obj_name: "hga_az",     axis: "z",  dir: 1,  angle: 0.1,  min:-185,  max:185 },
+          el:     {name: "Elevation", model_obj_name: "hga_el",     axis: "y",  dir: 1,  angle: 0.1,  min:0,     max:180 },
+        },
+        
+        mob: {
+          steer_rf:  {name: "Steer Right-Front",   model_obj_name: "suspension_strut_RF",     axis: "z",  dir:-1,  angle: 0.1,  min:-90,  max:90 },
+          steer_rr:  {name: "Steer Right-Rear",    model_obj_name: "suspension_strut_RR",     axis: "z",  dir:-1,  angle: 0.1,  min:-90,  max:90 },
+          steer_lf:  {name: "Steer Left-Front",    model_obj_name: "suspension_strut_LF",     axis: "z",  dir:-1,  angle: 0.1,  min:-90,  max:90 },
+          steer_lr:  {name: "Steer Left-Rear",     model_obj_name: "suspension_strut_LR",     axis: "z",  dir:-1,  angle: 0.1,  min:-90,  max:90 },
+          diff:      {name: "Rocker Differential", model_obj_name: "suspension_diff",         axis: "z",  dir: 1,  angle: 0.1,  min:-8,   max:8  },
+          bogie_left: {name: "Bogie Left",         model_obj_name: "suspension_bogie_left",   axis: "y",  dir: 1,  angle: 0.1,  min:-40,   max:40  },
+          bogie_right: {name: "Bogie Right",       model_obj_name: "suspension_bogie_right",  axis: "y",  dir: 1,  angle: 0.1,  min:-40,   max:40  },
+        },
+        
+        wheels: {
+          lf:   {name: "Wheel Left-Front",   model_obj_name: "wheel_LF",  axis: "y",  dir:-1,  angle: 0,  min:-360,  max:360 },
+          lm:   {name: "Wheel Left-Mid",     model_obj_name: "wheel_LM",  axis: "y",  dir:-1,  angle: 0,  min:-360,  max:360 },
+          lr:   {name: "Wheel Left-Rear",    model_obj_name: "wheel_LR",  axis: "y",  dir:-1,  angle: 0,  min:-360,  max:360 },
+          rf:   {name: "Wheel Right-Front",  model_obj_name: "wheel_RF",  axis: "y",  dir:-1,  angle: 0,  min:-360,  max:360 },
+          rm:   {name: "Wheel Right-Mid",    model_obj_name: "wheel_RM",  axis: "y",  dir:-1,  angle: 0,  min:-360,  max:360 },
+          rr:   {name: "Wheel Right-Rear",   model_obj_name: "wheel_RR",  axis: "y",  dir:-1,  angle: 0,  min:-360,  max:360 },
+        },
+      };
+      window.joints = joints;
+      
+      
+      // factor the joint names:
+      let jointNames = {arm:[], rsm:[], hga:[], mob:[], wheels:[]};
+      window.jointNames = jointNames;
+      jointGroupNames.forEach(function(jointGroupName){
+        for(var jointName in joints[jointGroupName]) { 
+          //console.log(jointNames);
+          jointNames[jointGroupName].push(jointName);
+        }
+      });
+      
+      // Define canonical poses:
+      let poses = {
+        arm: {
+          STOW:          [ 1.5721, -0.2778, -2.8163,  3.1211,  1.5708],
+          READY_OUT:     [ 0.0000, -1.5708,  1.5708,  0.0000,  3.1416],
+          READY_IN:      [-3.1416, -1.5708, -1.5708,  3.1416,  0.0000],
+          DECK_READY:    [-0.1586, -1.1120, -1.2482,  0.7949,  0.0458],
+          BIT_BOX:       [-1.4525, -1.9292, -1.3844,  0.1139,  1.2716],
+          DRILL_SIEUWU:  [-2.4740, -2.3378, -2.1335,  2.9149,  0.0000],
+          DRILL_SOEUWU:  [ 0.3863, -0.7034,  2.2250,  3.1873, -0.0405],
+          DRILL_SOEUWD:  [ 0.3863, -0.4309,  2.0207,  0.0000,  3.1180],
+          PIXL_SIEUWU:   [-2.4740, -2.3378, -2.4059,  3.1873,  4.6995],
+          PIXL_SOEUWD:   [ 0.0458, -0.2266,  1.8164,  0.0000,  1.6084],
+          ZERO:          [ 0, 0, 0, 0, 0],
+        },
+        rsm: {
+          STOW:          [-2.09, -1],
+          STRAIGHT:      [0, 0],
+          WORKSPACE:     [-0.5, -0.8],
+          DRIVE_FWD:     [ 0.0, -0.6],
+          DRIVE_STBD:    [ 0.7, -0.6],
+        },
+        hga: {
+          STOW:          [-1.05, 1.5708],
+          READY:         [0, 0.5],
+        },
+        mob: {
+          STRAIGHT:       [0, 0, 0, 0,    0, 0, 0, 0, 0],
+          TURN_IN_PLACE:  [0.785, -0.785, -0.785, 0.785,    0, 0, 0, 0, 0],
+          TURN_RIGHT:     [-0.785, 0.785, -0.785, 0.785,    0, 0, 0, 0, 0],
+          TURN_LEFT:      [0.785, -0.785, 0.785, -0.785,    0, 0, 0, 0, 0],
+        },
+      };
+            
+      // factor the poses:
+      let poseNames = {arm:[], rsm:[], hga:[], mob:[]};
+      jointGroupNames.forEach(function(jointGroupName){
+        for(var poseName in poses[jointGroupName]) { poseNames[jointGroupName].push(poseName); }
+      });
+
+      let options = {
+        tools: {
+          ruler: false,
+          showCompass:  true,
+          showWireframe:  false,
+          wireframeColor: 0x090909,
+          showRnavCoordFrame: false,
+          showStrategicRoute: true,
+        },
+        scene: {
+          surfaceColor:  0xaf9681,
+          showHaze:   true,
+          fogDist:    12000,
+          fogColor:   0xa7886e,
+          //terrainTextureResolution: (ismobile?'2m':'1m'),
+          terrainTextureResolution: '2m',
+          terrainHscale: 8,    //m/px, horizontal grid spacing of terrain height map
+          terrainVscale: 0.02, //m/dn, vertical scale of terrain height map
+        },
+        camera: {
+          fov: 50,        //deg
+          exposure: 0.75, //0-1
+          followRover: false,
+        },
+        pose: {
+          arm: "STOW",
+          hga: "READY",
+          rsm: "STRAIGHT",
+          mob: "STRAIGHT",
+        },
+        attitude: {
+          roll: 0,
+          pitch: 0,
+          yaw: 0,
+          height: -0.01,
+        },
+        sky: {
+					turbidity:          1.0,
+					rayleigh:           0.01,
+					mieCoefficient:     0.0003,
+					mieDirectionalG:    0.9,
+          diffuseLightColor:  0xffe7d3,
+          initialDiffuseLightIntensity: 0.5,
+        },
+        sun: {
+          az: -90, 
+          el: 45, 
+          dist: 20000, 
+          x:0, 
+          y:0, 
+          z:0, 
+          intensity:     0.75,
+          lightColor:    0xffe2b7,
+          maxIntensity:  1.0,
+          minLightFraction: 0.01,  //light intensity with sun at zero el
+          maxElQuadraticLight: 15, //deg below which light falls off quadratically
+        }
+      };
+      window.options = options;
+        
+      var raycaster = new THREE.Raycaster(new THREE.Vector3(0,0,0), new THREE.Vector3(1,0,0), 0.1, 12000);
+      var mouse = new THREE.Vector2();
+      var clicked = new THREE.Vector2();
+      
+      let touch = {
+        current: {
+          moved: false,
+          startTime: new Date().getTime(),
+          nFingers: 0,
+          singleFingerTap: false,
+        }
+      };
+      touch.prev = JSON.parse(JSON.stringify(touch.current));
+      
+      const terrainTextureResolutions = [
+        '50cm',
+        '1m',
+        '2m',
+      ];
+      
+      
+      let wheels = {
+        lf: {x:  1.18,  y: -1.06},
+        lm: {x:  0.00,  y: -1.18},
+        lr: {x: -1.08,  y: -1.06},
+        rf: {x:  1.18,  y:  1.06},
+        rm: {x:  0.00,  y:  1.18},
+        rr: {x: -1.08,  y:  1.06},
+      }
+      
+      let drive = {
+        driving:         false,
+        rnavSpeed:       0,
+        rnavSpeedRatio:  1,
+        maxSpeed:        0.042, //m/sec
+        maxSpeedRatio:   30,    // x actual max rover speed (maxSpeed)
+        speedRatioIncr:  2,     // x actual rover speed
+        speedRatio:      0,
+        headingRate:     0,     //deg/sec
+        headingChange:   0,
+        arcLength:       0,
+        turnRadius:      0,
+        turnRate:        0,     //deg/m
+        turnRateIncr:    20,    //deg/m
+        wheelSpeed:      {lf: 0, lm: 0, lr: 0, rf: 0, rm: 0, rr: 0}, //rad/sec
+        wheelSpeedRatio: {lf: 1, lm: 1, lr: 1, rf: 1, rm: 1, rr: 1},
+        nextPosRnav:     new THREE.Vector3(0,0,0),
+        nextPos:         new THREE.Vector3(0,0,0),
+      }
+      window.drive = drive;
+      
+      
+      let armMotion = {
+        moving: false,
+        goal:   [0, 0, 0, 0, 0],  //rad
+        rate:   [0, 0, 0, 0, 0],  //rad/sec
+        dir:    [0, 0, 0, 0, 0],  //sign (1, -1)
+        initialPos: [],
+        maxRate: 20, //deg/sec
+        sequence: [],
+        stowed:  true,
+      }
+      window.armMotion = armMotion;
+      
+      
+      let audio = {
+        listener:   null,
+        maxVol:     1,
+        fadeGain:   0,
+        fadeRate:   5, //per sec
+        drive:      null,
+        armBrake:   null,
+        arm:        null,
+        refDist:    2,  //m
+        maxDist:    20, //m
+        started:    false,
+        loaded: {
+          arm:      false,
+          armBrake: false,
+          drive:    false,
+        }
+      }
+      window.audio = audio;
+      
+      
+      startLoadingManager();
+			//init();
+      
+      init();
+      
+      //animate();
+
+			function init() {
+
+        const container = document.getElementById('webgl');
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } )
+        renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+        renderer.shadowMap.enabled = true; 
+        //renderer.shadowMapSoft = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+				//renderer.autoClear = false;
+        renderer.alpha = false;
+        //renderer.preserveDrawingBuffer = true;
+				renderer.outputEncoding = THREE.sRGBEncoding;
+				renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.physicallyCorrectLights = true;
+        renderer.toneMappingExposure = options["camera"].exposure; 
+        window.renderer = renderer;
+				container.appendChild( renderer.domElement );
+
+        renderer.domElement.addEventListener('webglcontextlost', (event) => {
+          alert("webgl error");
+        });
+
+
+        document.body.appendChild( VRButton.createButton( renderer ) );
+        renderer.xr.enabled = true;
+        renderer.setAnimationLoop(render);
+
+
+				scene = new THREE.Scene();
+        window.scene = scene;
+        scene.fog = new THREE.Fog(options["scene"].fogColor, 0.1, options["scene"].showHaze ? options["scene"].fogDist : 0 );
+        //scene.background = new THREE.Color( options.skyColor );
+
+
+				camera = new THREE.PerspectiveCamera( options["camera"].fov, window.innerWidth / window.innerHeight, 0.1, 20000 );
+        camera.up.set( 0, 0, -1 );
+        camera.lookAt(0,0,-1.5);
+				//camera.position.set( 3.6, -0.1, -0.65 );
+        //camera.position.set( 3.6, 0, -0.65 );
+        //camera.position.set( 4, 2, -1.4 );
+        camera.position.set( -2, 10, -4 );
+        window.camera = camera;
+                        
+                
+        // Make Controls:
+        //controls = new MapControls( camera, renderer.domElement );
+				controls = new OrbitControls( camera, renderer.domElement );
+				//controls.addEventListener( 'change', requestRenderIfNotRequested ); // use if there is no animation loop
+        //controls.mouseButtons = { ORBIT: THREE.MOUSE.LEFT, ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
+        //controls.mouseButtons = { ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
+        controls.mouseButtons = {LEFT: 0, MIDDLE: 1, RIGHT: 2};
+        //controls.enableKeys = true;
+        controls.enableKeys = false;
+        //controls.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
+        controls.keys = { LEFT: 0, RIGHT: 0, UP: 0, BOTTOM: 0 }; //disables keys
+        controls.touches = {ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN};
+				controls.minDistance = 0.1;
+				controls.listenToKeyEvents( window );
+				controls.maxDistance = 8000;
+        controls.screenSpacePanning = true;
+        controls.enableDamping = false;
+				controls.target.set( 0, 0, -1 );
+        window.controls = controls;
+        
+        
+        // make compass inset:
+        makeCompass();
+        compass.visible = options["tools"].showCompass;
+
+
+
+
+        // Make RMI mirror:
+        // to-do:  vertically invert the reflection
+        mirrorCamera = new THREE.PerspectiveCamera( 8, window.innerWidth / window.innerHeight, 0.1, 1000 );
+        window.mirrorCamera = mirrorCamera;
+        mirrorCamera.rotation.y = -1*Math.PI/2;
+        scene.add( mirrorCamera );
+        //const helper = new THREE.CameraHelper( mirrorCamera );  //handy for debugging
+        //scene.add( helper );
+        var mirrorGeom = new THREE.CircleGeometry( 0.07, 32 );
+				mirror = new Reflector( mirrorGeom, {
+					clipBias: 0.003,
+					textureWidth: window.innerWidth * window.devicePixelRatio,
+					textureHeight: window.innerHeight * window.devicePixelRatio,
+					color: 0xaaaa66,
+				} );
+        mirror.rotation.y = -1*Math.PI/2;
+        
+
+				// Add Sky
+				sky = new Sky();
+				sky.scale.setScalar( 45000 );
+        uniforms = sky.material.uniforms;
+        uniforms.turbidity.value        = options.sky.turbidity;
+        uniforms.rayleigh.value         = options.sky.rayleigh;
+        uniforms.mieCoefficient.value   = options.sky.mieCoefficient;
+        uniforms.mieDirectionalG.value  = options.sky.mieDirectionalG;
+        uniforms.up.value               = new THREE.Vector3(0, 0, -1);
+				scene.add( sky );
+
+
+        // Make lighting:
+        diffuselight = new THREE.AmbientLight( options["sky"].diffuseLightColor );
+        diffuselight.intensity = options["sky"].initialDiffuseLightIntensity;
+        //diffuselight = new THREE.HemisphereLight( options["sky"].diffuseLightColor, options.surfaceColor, options["sky"].initialDiffuseLightIntensity );
+        scene.add( diffuselight );
+        
+        // Define 2 directional lights with different shadow map scales
+        sun.lights = new THREE.Group();
+        sun.lights.name = "lights";
+        scene.add(sun.lights);
+
+        // Light1 with narrow shadow map:
+        sun.light1 = new THREE.DirectionalLight( options["sun"].lightColor, options["sun"].intensity);
+        sun.light1.castShadow = true;
+        sun.light1.shadow.camera.near = 1000;
+        sun.light1.shadow.camera.far = (options["sun"].dist + 8192)*1.2; //
+        sun.light1.shadow.mapSize.width = 1024;
+        sun.light1.shadow.mapSize.height = 1024;
+        sun.lights.add( sun.light1 );
+
+        // Light2 with broad shadow map:
+        sun.light2 = sun.light1.clone();
+        sun.light2.shadow.mapSize.width = 1024;
+        sun.light2.shadow.mapSize.height = 1024;
+        sun.light2.shadow.camera.top = 4000;
+        sun.light2.shadow.camera.bottom = -4000;
+        sun.light2.shadow.camera.left = -4000;
+        sun.light2.shadow.camera.right = 4000;
+        if(!ismobile) sun.lights.add( sun.light2 );
+        
+        //Create a helper for the shadow camera
+        //const helper = new THREE.CameraHelper( sun.light1.shadow.camera );
+        //scene.add( helper );
+        
+        // Define coefficients for sunset darkening
+        sun.extinctionCoeffs = [
+          (options["sun"].minLightFraction-1)/(options["sun"].maxElQuadraticLight*options["sun"].maxElQuadraticLight),
+          -2*(options["sun"].minLightFraction-1)/options["sun"].maxElQuadraticLight,
+          options["sun"].minLightFraction
+        ];
+        
+        placeSun();
+        
+        // Make lens flares:
+        const textureLoader = new THREE.TextureLoader();
+        const textureFlare0 = textureLoader.load( "./images/lensflare0.png" );
+        const textureFlare1 = textureLoader.load( "./images/lensflare2.png" );
+        const textureFlare2 = textureLoader.load( "./images/lensflare3.png" );
+        const lensflare = new Lensflare();
+        //lensflare.addElement( new LensflareElement( textureFlare0, 88, 0 ) );
+        //lensflare.addElement( new LensflareElement( textureFlare1, 120, 0 ) );
+        lensflare.addElement( new LensflareElement( textureFlare2, 80,  0 ) );
+        lensflare.addElement( new LensflareElement( textureFlare2, 200, 0.1 ) );
+        lensflare.addElement( new LensflareElement( textureFlare2, 120, 0.15 ) );
+        //sun.lights.add( lensflare );
+
+
+
+        terrainMatl = new THREE.MeshPhongMaterial({
+          color: options["scene"].surfaceColor,
+          shininess: 2,
+        });
+
+
+        // Build high-res terrain, initially as monolithic mesh, then break it up into chunks:
+        makeTerrain({
+          //urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h8m.tif',  // must be 16-bit grayscale tif
+          urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h' + options["scene"].terrainHscale + 'm.tif',  // must be 16-bit grayscale tif
+          hscale:   options["scene"].terrainHscale,    // m/px
+          vscale:   options["scene"].terrainVscale,  // m/px
+          offset:   new THREE.Vector3(875, -1165, 240.14),
+          rotation: new THREE.Vector3(-1*Math.PI, 0, -1*Math.PI/2),
+          onload: function(mastermesh){
+            mastermesh.material = terrainMatl;
+            setTerrainTexture(options["scene"].terrainTextureResolution, function(){
+              //scene.add(terrain);
+              //requestRenderIfNotRequested();
+              
+              createTerrainChunks(mastermesh, 32, 32, function(chunks){
+                scene.add(chunks);
+                console.log("loaded terrain");
+                terrain = chunks;
+                sun.light2.target = terrain;
+                window.terrain = terrain;
+                if(rover) projectRoverToSurface();
+              });
+              //var vnh = new VertexNormalsHelper( terrain, 1 );
+              //scene.add( vnh );
+            });
+          }
+        });
+        
+        
+        // Build low-res terrain:
+        makeTerrain({
+          urlHeightMap: 'images/JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_rescale60m.tif',  // must be 16-bit grayscale tif
+          hscale:   60*0.96,    // m/px
+          vscale:   6,  // m/dn
+          offset:   new THREE.Vector3(1300, -1300, 250),
+          rotation: new THREE.Vector3(-1*Math.PI, 0, -1*Math.PI/2),
+          color:    options["scene"].surfaceColor,
+          onload: function(mesh){
+            console.log("loaded low-res terrain");
+            terrain2 = mesh;
+            window.terrain2 = mesh;
+            mesh.name = "low-res terrain";
+            mesh.material = new THREE.MeshBasicMaterial({
+              color: options["scene"].surfaceColor,
+              shininess: 2,
+              map:  new THREE.TextureLoader().load('images/JCowart_color_mosaic.jpg', function(){
+                console.log("done loading low-res terrain texture");
+                scene.add(mesh);
+                //requestRenderIfNotRequested();
+                //var vnh = new VertexNormalsHelper(mesh, 1 );
+                //scene.add( vnh );              
+              })
+            });
+          }
+        });
+        
+        
+
+        // Make coordinate frame axes:
+        roverNavCoordFrameAxes = createCoordAxes(scene, 0.5, "rnav");
+        roverNavCoordFrameAxes.visible = options["tools"].showRnavCoordFrame;
+        
+        // Make ruler:
+        let rulerGroup = new THREE.Group();
+        rulerGroup.name = "ruler";
+        ruler = {
+          pos0: new THREE.Vector3(0,0,0),
+          pos1: new THREE.Vector3(0,0,0),
+          pin0: makePin(new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1), 0.25, 0.01, 0x00ffff, function(pin){rulerGroup.add(pin)}),
+          pin1: makePin(new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1), 0.25, 0.01, 0x00ffff, function(pin){rulerGroup.add(pin)}),
+          line: new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color: 0x66ddff}) ),
+          measurement: {
+            length: "m",
+            vertical: "m",
+            horizontal:  "m",
+            bearing:  "deg",
+          }
+        }        
+        ruler.pin0.visible = false;
+        ruler.pin1.visible = false;
+        ruler.line.visible = false;
+        ruler.line.frustumCulled = false;
+        ruler.line.material.depthTest = false;
+        rulerGroup.add(ruler.line);
+        scene.add(rulerGroup);
+        window.ruler = ruler;
+
+        routes = new THREE.Group();
+        routes.name = "routes";
+        makeRoute(route[0], 0x66ddff);
+        makeRoute(route[1], 0x0000ff);
+        makeRoute(route[2], 0xffff00);
+        routes.position.set(0,0,-1);
+        routes.visible = options["tools"].showStrategicRoute;
+        scene.add(routes);
+
+
+        makeGUI();
+        
+
+        loadRover(function(){
+          rover.attach(roverNavCoordFrameAxes);
+          if(terrain) projectRoverToSurface(); // repositions rover onto terrain
+          tiltRover(); //matches rover tilt to local terrain
+          sun.light1.target = rover; //attach narrow sunlight to rover for fine scale shadows
+          
+          // Go to initial poses:
+          ["arm", "rsm", "hga", "mob"].forEach(function(jointGroupName){     
+            goToPose(jointGroupName, options["pose"][jointGroupName]);
+          });
+
+          scene.add(rover);
+          //requestRenderIfNotRequested();
+        });
+
+
+				controls.update();
+
+				window.addEventListener('resize', onWindowResize );
+        //renderer.domElement.addEventListener('mousedown', handleMouseDown, false );
+        //renderer.domElement.addEventListener('mouseup', handleMouseUp, false );
+        renderer.domElement.addEventListener('click', singleClickHandler, false );
+        window.addEventListener('keypress', checkKeypress, false );
+        renderer.domElement.addEventListener('dblclick', doubleClickHandler, false);
+
+        document.addEventListener('mousemove', function(e){mouse.x = e.clientX; mouse.y = e.clientY;}, false); // cache mouse pos
+        window.mouse = mouse;
+        
+        renderer.domElement.addEventListener('touchstart', onTouchStart);
+        renderer.domElement.addEventListener('touchend', onTouchEnd);
+        renderer.domElement.addEventListener('touchmove', onTouchMove);
+
+        
+        /* The following prevents browsers from interpreting pinch gestures as global zoom */
+        //document.addEventListener('gesturestart',  function(e) { dontZoomWindow(e) });
+        //document.addEventListener('gesturechange', function(e) { dontZoomWindow(e) });
+        //document.addEventListener('gestureend',    function(e) { dontZoomWindow(e) });
+			}
+
+      function singleClickHandler(e){
+        checkWhatWasClicked(e, scene.children);
+        if(!audio.started) loadAudio();
+      }
+
+
+      function dontZoomWindow(event){
+        e.preventDefault();
+        document.body.style.zoom = 0.99;
+      }
+
+
+      function onTouchStart(event){
+        touch.current.moved = false;
+        touch.current.startTime = new Date().getTime();
+        touch.current.nFingers = event.touches.length;
+        if(!audio.started) loadAudio();
+      }
+
+      function onTouchEnd(event){
+        touch.current.endTime = new Date().getTime();
+        touch.current.duration = touch.current.endTime - touch.current.startTime;
+        touch.current.singleFingerTap = (touch.current.duration<200 && touch.current.nFingers==1 && !touch.current.moved);
+        console.log(touch);
+        var timeBetween = touch.current.startTime - touch.prev.endTime;
+        console.log(timeBetween + " ms");
+        if(touch.current.singleFingerTap && touch.prev.singleFingerTap && timeBetween<500){
+          //alert("double tap " + event.touches.length);
+          doubleClickHandler(event.changedTouches[0]);
+          //event.preventDefault();
+        }        
+        touch.prev = JSON.parse(JSON.stringify(touch.current));
+      }
+
+      function onTouchMove(event){
+        touch.current.moved = true;
+        if(!audio.started) loadAudio();
+      }
+
+
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+        
+				mirror.getRenderTarget().setSize(
+					window.innerWidth * window.devicePixelRatio,
+					window.innerHeight * window.devicePixelRatio
+				);
+				render();
+			}
+
+			function render() {     
+        renderRequested = false;
+        updateCompass();
+        renderer.render( scene, camera );
+        
+        const secondsElepased = clock.getDelta();
+        if(drive.driving){
+          updateDrive(secondsElepased);
+          //updateAudio(secondsElepased);
+          //requestRenderIfNotRequested();
+        }
+
+        if(armMotion.moving){
+          updateArm(secondsElepased);
+          //updateAudio(secondsElepased);
+          //requestRenderIfNotRequested();
+        }
+
+        if(audio.started && (audio.arm.state!="stopped" || audio.drive.state!="stopped")){
+          updateAudio(secondsElepased);
+          //requestRenderIfNotRequested();
+        }
+      }
+      
+      
+      function requestRenderIfNotRequested() {
+        if (!renderRequested) {
+          renderRequested = true;
+          requestAnimationFrame(render);
+        }
+      }
+
+
+      function loadAudio(){
+        // Set up audio listener (this is like a virtual microphone in the scene):
+        audio.listener = new THREE.AudioListener(),
+        audio.fadeGain = audio.listener.context.createGain();  // additional gain control for smoothly starting/stopping
+        camera.add(audio.listener);
+        audio.started = true;
+        
+        console.log("loading audio files");
+        const audioloader = new THREE.AudioLoader();
+
+        audio.drive = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(true);
+        audioloader.load( 'data/45857_FILTERED_HIGHLIGHTS_-_Sol16RoverDriveHighlights.mp3', function ( buffer ) {
+          audio.drive.setBuffer( buffer );
+          audio.loaded.drive = true;
+          audio.drive.state = "stopped";
+          if(rover) rover.add(audio.drive);
+        });
+
+        audio.armBrake = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(false);
+        audioloader.load( 'data/brake_release.mp3', function ( buffer ) {
+          audio.armBrake.setBuffer( buffer );
+          audio.loaded.armBrake = true;
+          audio.armBrake.state = "stopped";
+          if(rover) joints["arm"].elbow.obj.add(audio.armBrake);
+        });
+
+        audio.arm = new THREE.PositionalAudio( audio.listener ).setRefDistance( audio.refDist ).setMaxDistance( audio.maxDist ).setLoop(true);
+        audioloader.load( 'data/arm_motors.mp3', function ( buffer ) {
+          audio.arm.setBuffer( buffer );
+          audio.loaded.arm = true;
+          audio.arm.state = "stopped";
+          if(rover) joints["arm"].elbow.obj.add(audio.arm);
+        });
+      }        
+      
+      
+      function updateAudio(timeElapsed){
+        if(!audio.started) {
+          loadAudio();
+        } else {
+        /*
+          if(rover && rover.position) {
+            audio.drive.panner.setPosition(rover.position.x, rover.position.y, rover.position.z);
+            audio.armBrake.panner.setPosition(rover.position.x, rover.position.y, rover.position.z);
+            audio.arm.panner.setPosition(rover.position.x, rover.position.y, rover.position.z);
+          }
+          */
+        
+          //console.log("updating audio " + audio.drive.state + " " + audio.arm.state);
+        
+          if(audio.drive.state=="starting"){
+            if(!audio.drive.isPlaying) {
+              audio.fadeGain.gain.value = 0;
+              console.log("resuming drive audio");
+              audio.drive.play();
+              //requestRenderIfNotRequested();
+            } else {
+              audio.fadeGain.gain.value = Math.min(1, audio.fadeGain.gain.value + audio.fadeRate * timeElapsed);
+              if(audio.fadeGain.gain.value==1) {
+                console.log("drive audio playing");
+                audio.drive.state = "playing";
+              }
+            }
+            
+          } else if(audio.drive.state=="stopping"){
+            console.log("drive audio stopping " + audio.fadeGain.gain.value + " " + audio.fadeRate + " " + timeElapsed);
+            audio.fadeGain.gain.value = Math.max(0, audio.fadeGain.gain.value - audio.fadeRate * timeElapsed);
+            if(audio.fadeGain.gain.value==0) {
+              audio.drive.state = "stopped";
+              if(audio.drive.isPlaying) {
+                console.log("pausing drive audio");
+                audio.drive.pause();
+              }
+            } //else requestRenderIfNotRequested();
+          } 
+          
+          if(audio.arm.state=="starting"){
+            if(!audio.arm.isPlaying) {
+              audio.fadeGain.gain.value = 0;
+              console.log("resuming arm audio");
+              audio.arm.play();
+              //requestRenderIfNotRequested();
+            } else {
+              audio.fadeGain.gain.value = Math.min(1, audio.fadeGain.gain.value + audio.fadeRate * timeElapsed);
+              if(audio.fadeGain.gain.value==1) {
+                console.log("playing arm audio " + audio.fadeGain.gain.value);
+                console.log("arm audio reached full gain");
+                audio.arm.state = "playing";
+                updateAudio(0);
+              }
+            }
+            
+          } else if(audio.arm.state=="stopping"){
+            audio.fadeGain.gain.value = Math.max(0, audio.fadeGain.gain.value - audio.fadeRate * timeElapsed);
+            if(audio.fadeGain.gain.value==0) {
+              audio.arm.state = "stopped";
+              if(audio.arm.isPlaying) {
+                console.log("pausing arm audio");
+                audio.arm.pause();
+              }
+            } //else requestRenderIfNotRequested();
+          }
+        }
+      }
+      
+      
+      function updateCompass(){
+				//copy position of the camera into inset
+				compassInsetCamera.position.copy(controls.target.clone().sub(camera.position));
+				compassInsetCamera.position.setLength(2);
+				compassInsetCamera.lookAt(compassInsetScene.position);
+				compassInsetRenderer.render(compassInsetScene, compassInsetCamera);
+      }
+
+
+      
+      function rulerLineFollowCursor(event){
+        var pos = movePinToCursor(event, ruler.pin1);
+        if(pos){
+          var points = [ruler.pos0, pos];
+          ruler.line.geometry.setFromPoints(points);
+          var from0to1 = pos.clone().sub(ruler.pos0);
+          ruler.measurement.length = from0to1.length().toPrecision(4) + " m";
+          ruler.measurement.vertical = from0to1.z.toPrecision(4) + " m";
+          ruler.measurement.horizontal = Math.sqrt(from0to1.x*from0to1.x + from0to1.y*from0to1.y).toPrecision(4) + " m";
+          ruler.measurement.bearing = (Math.atan2(from0to1.y, from0to1.x)*rad2deg).toFixed(1) + " deg";
+          //requestRenderIfNotRequested();
+        }
+      }
+
+      function movePinToCursor(event, pin){
+        mouse.x = ( event.clientX / renderer.domElement.clientWidth ) * 2 - 1;
+        mouse.y = - ( event.clientY / renderer.domElement.clientHeight ) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera );
+        var intersects = raycaster.intersectObjects(terrain.children);
+        if(intersects && intersects[0]) {
+          pin.position.copy(intersects[0].point);
+          pin.position.z -= 0.01;
+          return pin.position;
+        }
+      }
+
+      function clearRuler(){
+        ruler.pos0 = undefined;
+        ruler.pos1 = undefined;
+        ruler.pin0.visible = false;
+        ruler.pin1.visible = false;
+        ruler.line.visible = false;
+        ruler.measurement.length = "m";
+        ruler.measurement.horizontal = "m";
+        ruler.measurement.vertical = "m";
+        ruler.measurement.bearing = "deg";
+        //requestRenderIfNotRequested();
+      }
+
+
+      function drawMeasurementLine(){
+        //show instruction hint
+        //stop controls
+        controls.enabled = false;
+        
+        // reset markers and line
+        clearRuler();
+
+        //on click, drop first marker        
+        renderer.domElement.addEventListener('click', function(event1){
+          ruler.pos0 = movePinToCursor(event1, ruler.pin0);
+          ruler.pin0.visible = true;
+          console.log("setting first pin to pos: " + ruler.pos0.x.toPrecision(4) + ", " + ruler.pos0.y.toPrecision(4) + ", " + ruler.pos0.z.toPrecision(4));
+          //requestRenderIfNotRequested();
+          
+          //then continuously draw/update connecting line from first marker to cursor
+          ruler.line.visible = true;
+          renderer.domElement.addEventListener('mousemove', rulerLineFollowCursor, false);
+          
+          //until second click
+          renderer.domElement.addEventListener('click', function(event2){
+            renderer.domElement.removeEventListener('mousemove', rulerLineFollowCursor); //cancel mouse move listener
+            ruler.pos1 = movePinToCursor(event2, ruler.pin1);
+            ruler.pin1.visible = true;
+            console.log("setting second pin to pos: " + ruler.pos1.x.toPrecision(4) + ", " + ruler.pos1.y.toPrecision(4) + ", " + ruler.pos1.z.toPrecision(4));
+            //requestRenderIfNotRequested();
+
+            var from0to1 = ruler.pos1.clone().sub(ruler.pos0);
+            ruler.measurement.length = from0to1.length().toPrecision(4) + " m";
+            ruler.measurement.vertical = from0to1.z.toPrecision(4) + " m";
+            ruler.measurement.horizontal = Math.sqrt(from0to1.x*from0to1.x + from0to1.y*from0to1.y).toPrecision(4) + " m";
+            ruler.measurement.bearing = (Math.atan2(from0to1.y, from0to1.x)*rad2deg).toFixed(1) + " deg";
+
+            console.log("resuming controls");
+            controls.enabled = true;
+            controls.update();
+            
+          }, {once: true});
+        }, {once: true});
+      }
+
+
+      function makeRoute(thisRoute, routeColor){
+        const pathGeometry = new THREE.BufferGeometry().setFromPoints(thisRoute.points);
+        const pathMaterial = new THREE.MeshBasicMaterial({color: routeColor, wireframeLinewidth:2, opacity:0.5, transparent: true});
+        //pathMaterial.depthTest = false;
+        var line = new THREE.Line(pathGeometry, pathMaterial);
+        line.frustumCulled = false;
+        routes.add(line);
+      }
+      window.makeRoute = makeRoute;
+
+      // Use this function to import image x/y coords from a json file,
+      // convert to world x/y/z coords, then print a route data structure
+      // to console for manual incorporation into the ruotes.js file.
+      // pathscale is m/px scale of the source image
+      function makeRouteFromImageCoords(routeFile, pathscale, onload){
+        loadJson(routeFile, function(pathImageCoords){
+          terrain.geometry.computeBoundingBox();
+          var terrainwidth = terrain.geometry.boundingBox.max.x - terrain.geometry.boundingBox.min.x; //m
+          
+          console.log("path data:");
+          console.log(pathImageCoords);
+
+          if(!pathImageCoords || !pathImageCoords[0]){
+            console.log("error, invalid path data");
+            return;
+          }
+          
+          //var arrow = new THREE.ArrowHelper();
+          //scene.add(arrow);
+          
+          var pathData = [];
+          
+          // If json file contains coordinate pairs then raycast to get z:
+          if(pathImageCoords[0].length==2){
+            terrain.updateMatrixWorld(); 
+            var intersects;
+            var nadir = new THREE.Vector3(0,0,1);
+            var terraincenter = terrainwidth/2;  //m
+            var terrainoffset = terrain.position.clone();
+            pathImageCoords.forEach(function(point){
+              console.log(point);
+              // image space is:  origin top left, x: right, y: down;
+              // therefore image-X maps to world-Y and vise-versa, with scaling and offsets:
+              var flatmapPoint = new THREE.Vector3(
+                terrainoffset.x - point[1]*pathscale + terraincenter, 
+                terrainoffset.y + point[0]*pathscale - terraincenter, 
+                -2000
+              );
+              console.log(flatmapPoint);
+              raycaster.set(flatmapPoint, nadir);
+              var intersects = raycaster.intersectObjects(terrain.children);
+              console.log(intersects);
+              if(intersects){
+                pathData.push(intersects[0].point);
+              }
+            });
+          }
+          
+          var route = {name: "NAME", points: pathData};
+          console.log(JSON.stringify(route,null,'\t'));
+          
+          if(onload) onload(pathData);
+          return pathData;
+        });
+      }
+      window.makeRoute = makeRoute;
+
+
+      function loadJson(jsonFile, onload){
+        var request = new XMLHttpRequest();
+        request.open('GET', jsonFile, true);
+        request.onload = function() {
+          if (request.status >= 200 && request.status < 400) {
+            // Success!
+            var data = JSON.parse(request.responseText);
+            if(onload) onload(data);
+            return data;
+          } else {
+            console.log("Error, return status: " + this.status);
+            console.log(e);
+          }
+        };
+        request.onerror = function(e) {
+          alert("Error Status: " + e.target.status);
+        };
+        request.send();
+        return null;
+      }
+
+
+			function makeCompass() {
+        const radius = 0.75;
+      
+        // based on: https://threejs.org/examples/#webgl_loader_nrrd
+				const compassInsetWidth = 60, compassInsetHeight = 60;
+				compassInsetContainer = document.getElementById('compassInset');
+				compassInsetContainer.width = compassInsetWidth;
+				compassInsetContainer.height = compassInsetHeight;
+				compassInsetRenderer = new THREE.WebGLRenderer({alpha: true, antialias: true});
+				compassInsetRenderer.setClearColor( 0x000000, 0 );
+				compassInsetRenderer.setSize( compassInsetWidth, compassInsetHeight );
+				compassInsetContainer.appendChild( compassInsetRenderer.domElement );
+				compassInsetScene = new THREE.Scene();
+        compassInsetCamera = new THREE.OrthographicCamera( 1, -1, 1, -1, 0, 4 );
+				compassInsetCamera.up = camera.up; // important!
+        compass = new THREE.Group();
+        compass.name = "compass";
+        
+        const northArrow = new THREE.ArrowHelper(
+          new THREE.Vector3(1, 0, 0), //direction
+          new THREE.Vector3(-radius, 0, 0), //origin
+          2*radius, //length
+          0xff0000, //color
+          0.2, //head length
+          0.2, //head width
+        );
+        northArrow.line.material.linewidth = 2;
+        compass.add(northArrow);
+        
+        const eastArrow = new THREE.ArrowHelper(
+          new THREE.Vector3(0, 1, 0), //direction
+          new THREE.Vector3(0, -radius, 0), //origin
+          2*radius, //length
+          0x00aaff, //color
+          0.2, //head length
+          0.2, //head width
+        );
+        eastArrow.line.material.linewidth = 2;
+        compass.add(eastArrow);
+
+        // Make Circles:
+        var points = [];
+        for(let i=0; i<=360; i+=15){
+          points.push(new THREE.Vector3(Math.sin(i*(Math.PI/180))*radius, Math.cos(i*(Math.PI/180))*radius, 0));
+        }
+        var circleGeometry = new THREE.BufferGeometry().setFromPoints(points);
+        const circleMaterial = new THREE.MeshBasicMaterial({color: 0x44aaaa, wireframeLinewidth:1, opacity:0.3, transparent: true});
+        const circleXY = new THREE.Line(circleGeometry, circleMaterial);
+        compass.add( circleXY );
+        
+        const circleXZ = circleXY.clone();
+        circleXZ.rotation.x = Math.PI/2;
+        compass.add( circleXZ );
+        
+        const circleYZ = circleXY.clone();
+        circleYZ.rotation.y = Math.PI/2;
+        compass.add( circleYZ );
+        
+        /*
+        const eastWestLinePoints = [new THREE.Vector3(0,-radius,0), new THREE.Vector3(0,radius,0)];
+        const eastWestLineGeometry = new THREE.BufferGeometry().setFromPoints(eastWestLinePoints);
+        const eastWestLineMaterial = new THREE.MeshBasicMaterial({color: 0x004444, linewidth:1, opacity:0.02});
+        const eastWestLine = new THREE.Line(eastWestLineGeometry, eastWestLineMaterial);
+        compass.add( eastWestLine );
+        */
+				compassInsetScene.add( compass );
+        window.compass = compass;
+			}
+
+
+      function loadRover(onload){
+        const loader = new GLTFLoader().setPath( 'model/' );        
+        loader.load( 'Perseverance.glb', function ( gltf ) {
+          rover = gltf.scene;
+          rover.name = "Rover";
+          window.rover = rover;
+          
+          rover.traverse( function ( child ) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            parts[child.name] = child;
+         
+            // Check if this is a named joint:
+            for(var jointGroupName of jointGroupNames){
+              for(var jointName of jointNames[jointGroupName]){
+                if(child.name == joints[jointGroupName][jointName].model_obj_name){
+                  //console.log("found " + child.name);
+                  //console.log(child);
+                  joints[jointGroupName][jointName].obj = child;
+                  break;
+                }
+              }
+            }
+             
+            // Make single-sided to avoid rendering artifacts:
+            if ( child.isMesh ) {
+              child.material.side = THREE.FrontSide;
+              if(child.material.map){
+                child.material.minFilter = THREE.NearestMipmapLinearFilter;
+              }
+              child.material.needsUpdate = true;
+            }
+          } );
+            
+          // Replace RMI mirror with mirror object
+          rover.getObjectByName("rmi_lens").add( mirrorCamera );
+          rmiMirror = rover.getObjectByName("rmi_mirror");
+          rmiMirror.material.opacity = 0;
+          var mirrorPos = new THREE.Vector3();
+          rmiMirror.getWorldPosition(mirrorPos);
+          mirror.position.copy(mirrorPos);
+          rmiMirror.attach(mirror);
+          
+          console.log(rover);
+          
+          if(onload) onload();
+
+        } );
+      }
+
+
+      function createTerrainChunks(mastermesh, nChunksX, nChunksY, onload){
+        //assumes master terrain is oriented Z vertical
+      
+        const chunks = new THREE.Group();
+        chunks.name = "chunked terrain";
+      
+        const masterWidthVertices   = mastermesh.geometry.parameters.widthSegments + 1;
+        const masterHeightVertices  = mastermesh.geometry.parameters.heightSegments + 1;
+        const chunkWidthVertices    = Math.floor(masterWidthVertices/nChunksX) +1;  //+1 for overlap
+        const chunkHeightVertices   = Math.floor(masterHeightVertices/nChunksY) +1;
+        const hscale                = mastermesh.geometry.parameters.width / masterWidthVertices;
+
+        const masterVertices        = mastermesh.geometry.attributes.position;
+        const masterNormals         = mastermesh.geometry.attributes.normal;
+        const masterUVs             = mastermesh.geometry.attributes.uv;
+
+        const chunkMatl = terrainMatl;
+        
+
+        // Loop through each chunk:
+        for(var chunkIdxY=0; chunkIdxY<nChunksY; chunkIdxY++){
+          for(var chunkIdxX=0; chunkIdxX<nChunksX; chunkIdxX++){
+            // if this is the last chunk in this row or col then reduce the corresponding dimension by 1
+            const thisChunkWidthVerts  = (chunkIdxX < nChunksX-1) ? chunkWidthVertices  : chunkWidthVertices -1;
+            const thisChunkHeightVerts = (chunkIdxY < nChunksY-1) ? chunkHeightVertices : chunkHeightVertices -1;
+            const chunkGeom = new THREE.PlaneBufferGeometry(
+              thisChunkWidthVerts * hscale, 
+              thisChunkHeightVerts * hscale, 
+              thisChunkWidthVerts -1, 
+              thisChunkHeightVerts -1
+            );
+            const chunkVertices = chunkGeom.attributes.position;
+            const chunkNormals  = chunkGeom.attributes.normal;
+            const chunkUVs      = chunkGeom.attributes.uv;
+                        
+            // Loop through each vertex in this chunk:
+            for(  var chunkVertexIdxY=0; chunkVertexIdxY<thisChunkHeightVerts; chunkVertexIdxY++ ) {
+              for(var chunkVertexIdxX=0; chunkVertexIdxX<thisChunkWidthVerts;  chunkVertexIdxX++ ) {
+                const chunkVertexIdx = chunkVertexIdxY*thisChunkWidthVerts + chunkVertexIdxX;
+                const masterVertexIdxX = chunkIdxX*(chunkWidthVertices-1) + chunkVertexIdxX;
+                const masterVertexIdxY = chunkIdxY*(chunkHeightVertices-1) + chunkVertexIdxY;
+                const masterVertexIdx = masterVertexIdxY*masterWidthVertices + masterVertexIdxX;
+                
+                chunkVertices.setX(chunkVertexIdx, masterVertices.getX(masterVertexIdx));
+                chunkVertices.setY(chunkVertexIdx, masterVertices.getY(masterVertexIdx));
+                chunkVertices.setZ(chunkVertexIdx, masterVertices.getZ(masterVertexIdx));
+                
+                chunkNormals.setX( chunkVertexIdx, masterNormals.getX(masterVertexIdx));
+                chunkNormals.setY( chunkVertexIdx, masterNormals.getY(masterVertexIdx));
+                chunkNormals.setZ( chunkVertexIdx, masterNormals.getZ(masterVertexIdx));
+                
+                chunkUVs.setX( chunkVertexIdx, masterUVs.getX(masterVertexIdx));
+                chunkUVs.setY( chunkVertexIdx, masterUVs.getY(masterVertexIdx));
+                chunkUVs.setZ( chunkVertexIdx, masterUVs.getZ(masterVertexIdx));
+                
+              }
+            }            
+            const chunk = new THREE.Mesh(chunkGeom, chunkMatl);
+            chunk.geometry.computeBoundingBox();
+            chunk.castShadow = true;
+            chunk.receiveShadow = true;
+            chunks.add(chunk);
+          }
+        }
+        
+        chunks.rotation.copy(mastermesh.rotation);
+        chunks.position.copy(mastermesh.position);
+        
+        renderer.shadowMap.needsUpdate = true;
+        
+        if(onload!==undefined) onload(chunks);
+        return chunks;
+      }
+      window.createTerrainChunks = createTerrainChunks;
+
+
+
+      function makeTerrain(params){
+        if(params.urlHeightMap==undefined) {
+          console.log("makeTerrain error: expected urlHeightMap in parameters array");
+          return;
+        }
+        var hscale = (params.hscale==undefined) ? 1 : params.hscale;
+        var vscale = (params.vscale==undefined) ? 1 : params.vscale;
+        var offset = (params.offset==undefined) ? new THREE.Vector3(0,0,0) : params.offset;
+        var rotation = (params.rotation==undefined) ? new THREE.Vector3(0,0,0) : params.rotation;
+
+        console.log("loading terrain");
+        const terrainMesh = new THREE.Mesh();
+
+        terrainMesh.hscale = hscale; // not used by 3js; just note for general use elsewhere
+        terrainMesh.vscale = vscale; // not used by 3js; just note for general use elsewhere 
+        
+        console.log("loading height map");
+        readTiff(params.urlHeightMap, function(heightMap){
+
+          terrainMesh.geometry = new THREE.PlaneBufferGeometry(heightMap.width*hscale, heightMap.height*hscale, heightMap.width-1, heightMap.height-1);
+          
+          //set height of vertices:
+          const vertices = terrainMesh.geometry.attributes.position;
+          for(var i=0; i<vertices.count; i++ ) {
+            vertices.setZ(i, heightMap.data[i]*vscale);
+          }
+
+          terrainMesh.position.copy(offset);
+          terrainMesh.rotation.setFromVector3(rotation, 'XYZ');
+
+          terrainMesh.geometry.computeFaceNormals();          
+          terrainMesh.geometry.computeVertexNormals();
+          terrainMesh.castShadow = true;
+          terrainMesh.receiveShadow = true;
+          renderer.shadowMap.needsUpdate = true;
+
+          //terrainMesh.matrixAutoUpdate = false;;
+
+          //render();
+          console.log("done loading terrain hieght map");
+          
+          //render();
+
+          if(params.onload!==undefined) params.onload(terrainMesh);
+          
+          if(params.urlNormalsMap!==undefined){
+            terrainMesh.material.normalMap = new THREE.TextureLoader().load(params.urlNormalsMap);
+          }
+          
+          // Make terrain wireframe:
+          terrainWireframe = new THREE.Mesh();
+          terrainWireframe.name = "Terrain wireframe";
+          terrainWireframe.visible = options["tools"].showWireframe;
+          terrainWireframe.material = new THREE.MeshBasicMaterial({
+            color: 0x111111,
+            wireframe: true,
+          });
+          terrainWireframe.geometry = terrainMesh.geometry;
+          terrainWireframe.rotation.copy(terrainMesh.rotation);
+          terrainWireframe.position.copy(terrainMesh.position);
+          terrainWireframe.position.z += -0.02;
+          terrainMesh.attach(terrainWireframe);
+
+        });
+      }
+      window.makeTerrain = makeTerrain;
+
+
+      function setTerrainTexture(resolution, onload){
+        if( /^[0-9]+c?m$/.test(resolution) ){
+          drive.speedRatio=0; // stop driving
+          setSpeed();
+          const urlTextureMap = 'images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale' + resolution + '_color.jpg';
+          console.log("loading terrain texture: " + urlTextureMap);
+          terrainMatl.map = new THREE.TextureLoader().load(urlTextureMap, function(){
+            console.log("done loading terrain texture");
+            if(onload) onload();
+          });
+        }
+      }
+
+
+      function goToPose(jointGroup, poseName){
+        //console.log("Go to " + jointGroup + " pose: " + poseName);
+        var joints = poses[jointGroup][poseName].map(function(angle){return angle*rad2deg});
+        //console.log("joints: " + joints);
+        setJoints(jointGroup, joints);
+        if(jointGroup == "mob") mobSetRockers(0);
+      }
+
+      function setJoints(jointGroup, jointAngles){
+        //console.log("joint group " + jointGroup);
+        var n = 0;
+        //console.log(jointNames);
+        jointNames[jointGroup].forEach(function(jointName){
+          setJoint(jointGroup, jointName, jointAngles[n++]);
+        });
+        //requestRenderIfNotRequested();
+      }
+   
+      
+      function planArmSequence(){
+        var toPose = options["pose"].arm;        
+        const fromPoseShoulderState = joints["arm"]["az"].angle>-90? "OUT" : "IN";
+        const toPoseShoulderState = /(STOW)|(READY_OUT)|(DECK_READY)|(.*_SO)|(ZERO)/.test(toPose) ? "OUT" : "IN";
+
+        armMotion.sequence = [];
+
+        if(armMotion.stowed){
+          armMotion.sequence.push("ONEJOINT:5:105");  // just a guess
+          armMotion.sequence.push("ONEJOINT:3:-155");
+          armMotion.sequence.push("ONEJOINT:1:75");
+          armMotion.sequence.push("READY_OUT");
+        }
+        
+        // If the shoulder state of the goal pose is opposite of initial shoulder state,
+        // then move to READY_* corresponding to the initial pose, then flip.
+        console.log([toPose, fromPoseShoulderState, toPoseShoulderState]);
+        if(fromPoseShoulderState=="OUT" && toPoseShoulderState=="IN"){
+          armMotion.sequence.push("READY_OUT");
+          armMotion.sequence.push("READY_IN");
+        } else if(fromPoseShoulderState=="IN" && toPoseShoulderState=="OUT"){
+          armMotion.sequence.push("READY_IN");
+          armMotion.sequence.push("READY_OUT");
+        }
+
+        if(toPose=="STOW"){
+          armMotion.sequence.push("READY_OUT");
+          armMotion.sequence.push("JOINTS:75,-16,-155,180,105");
+          armMotion.sequence.push("ONEJOINT:1:90");
+          armMotion.sequence.push("ONEJOINT:3:-161");
+          armMotion.sequence.push("ONEJOINT:5:90");
+          armMotion.sequence.push("STOW");
+        }
+
+        if(armMotion.sequence[armMotion.sequence.length]!=toPose){ 
+          armMotion.sequence.push(toPose);
+        }
+        console.log(armMotion.sequence);
+        
+        if(armMotion.sequence.length){
+          updateArmJointGoals();
+          if(!armMotion.moving){
+            console.log("starting arm motion");
+            drive.speedRatio=0;
+            setSpeed(); // stop driving
+  
+            setTimeout(function(){
+              if(audio.armBrake && !audio.armBrake.isPlaying) audio.armBrake.play();
+              
+              setTimeout(function(){
+                if(!audio.arm.isPlaying) audio.arm.state="starting";
+                clock.getDelta();  // update clock since previous frame may have been a long time ago
+                armMotion.moving = true;
+                //requestRenderIfNotRequested();
+              }, 500); //delay milliseconds
+            }, 200);
+          }
+        }
+      }
+
+
+      function updateArmJointGoals(){
+        if(armMotion.sequence.length==0){
+          armMotion.moving = false;
+          return;
+        }
+                
+        const armCmd = armMotion.sequence[0].split(/[:,]/);
+        console.log("Arm command: " + armCmd);
+        
+        for(var j=0; j<5; j++){
+          armMotion.initialPos[j] = joints["arm"][jointNames["arm"][j]].angle*1;
+        }
+        
+        switch(armCmd[0]){
+          case "ONEJOINT":
+            const jntIndex = armCmd[1]*1 - 1;  // convert from 1-index to 0-index
+            console.log("updating arm goal, joint " + armCmd[1] + '(' + jntIndex + ') to ' + armCmd[2]);
+            const goalPos = armCmd[2]*1;
+            const distToGoal = goalPos - armMotion.initialPos[jntIndex]*1;
+            const dir = Math.sign(distToGoal);
+            for(var j=0; j<5; j++){
+              armMotion.goal[j] = (jntIndex==j) ? goalPos : armMotion.initialPos[j]*1;
+              armMotion.rate[j] = (jntIndex==j) ? dir*armMotion.maxRate : 0;
+              armMotion.dir[j]  = (jntIndex==j) ? dir : 0;
+            }
+            break;
+            
+          case "JOINTS":
+            console.log("updating arm goal, all joints");
+            for(var j=0; j<5; j++){
+              armMotion.goal[j] = armCmd[1+j];
+            }
+            break;
+            
+          default:
+            if(poses["arm"][armCmd[0]]){
+              armMotion.goal = poses["arm"][armCmd[0]].map(function(angle){return angle*rad2deg});
+              console.log("updating arm goal to pose " + armCmd[0]);
+
+            } else {
+              console.log('updateArmJointGoals:  unrecongnized command: "' + armMotion.sequence[0] + '"');
+              return;
+            }
+        }
+        
+        if(armCmd[0]!="ONEJOINT"){
+          // Check which joint has the furthest to go to get to its goal:
+          // That joint will move at full speed while other joints move proportional to their distance to goal relative to the longest move.
+          var longestDistToGoal = 0;
+          var distToGoal = [];
+          for(var j=0; j<5; j++){
+            distToGoal[j] = armMotion.goal[j] - armMotion.initialPos[j];
+            if(distToGoal[j]) console.log("joint " + j + " distance to goal: " + distToGoal[j]);
+            //console.log([distToGoal[j], armMotion.goal[j], armMotion.initialPos[j]]);
+            if(Math.abs(distToGoal[j])>longestDistToGoal) longestDistToGoal = Math.abs(distToGoal[j]);
+          }
+          console.log([distToGoal, longestDistToGoal, armMotion.maxRate]);
+          for(var j=0; j<5; j++){
+            armMotion.rate[j] = distToGoal[j]/longestDistToGoal * armMotion.maxRate;
+            armMotion.dir[j] = Math.sign(armMotion.rate[j]);
+          }
+        }
+        console.log(JSON.parse(JSON.stringify(armMotion)));
+      }
+
+
+      function updateArm(timeDelta){
+        if(armMotion.sequence.length==0){
+          armMotion.moving = false;
+          return;
+        }
+                
+        var nJointsReachedGoal = 0;
+        const armCmd = armMotion.sequence[0];
+        
+        for(var j=0; j<5; j++){
+          if(armMotion.rate[j]){
+            const jointName = jointNames["arm"][j];
+            const currentPos = joints["arm"][jointName].angle*1;
+            var nextPos = currentPos + armMotion.rate[j]*timeDelta;
+            //console.log([j, armMotion.dir[j], nextPos, armMotion.goal[j], nJointsReachedGoal]);
+            if( (armMotion.dir[j]==1 && nextPos>armMotion.goal[j])  ||  (armMotion.dir[j]==-1 && nextPos<armMotion.goal[j])  ){
+              nextPos = armMotion.goal[j];
+              nJointsReachedGoal++;
+              armMotion.rate[j] = 0;
+            }
+            joints["arm"][jointName].angle = nextPos;
+            setJoint("arm", jointName, nextPos);
+          } else nJointsReachedGoal++;
+        }
+        
+        if(nJointsReachedGoal==5){
+          console.log("Arm reached sequence goal");
+          armMotion.sequence.shift();
+          console.log(JSON.parse(JSON.stringify(armMotion)));
+          armMotion.moving = !(armMotion.sequence.length==0);
+          if(!armMotion.moving){
+            console.log("stopping arm motion");
+            armMotion.stowed = (armCmd=="STOW");
+            setTimeout(function(){
+              if(audio.arm.isPlaying) audio.arm.pause();
+              setTimeout(function(){
+                if(!audio.armBrake.isPlaying) audio.armBrake.play();
+              }, 200);
+            }, 300);
+          } else {
+            updateArmJointGoals();
+          }
+        }
+      }
+
+
+
+
+      function setJoint(jointGroupName, jointName, angle){
+        //console.log(jointGroupName + ", joint " + jointName + ", angle " + angle);
+        var joint = joints[jointGroupName][jointName];
+        //console.log(joint);
+        joint.angle = angle;
+        joint.obj.rotation[joint.axis] = joint.dir*angle*deg2rad;
+      }
+
+
+      function mobSetRockers(diffAngle){
+        setJoint("mob", "diff", diffAngle); 
+        var rocker_angle = diffAngle*2.2 * deg2rad;
+        parts["suspension_rocker_right"].rotation.y = rocker_angle;
+        parts["suspension_rocker_left"].rotation.y = -1*rocker_angle;
+        parts["suspension_diff_link_right"].rotation.y = -1*rocker_angle;
+        parts["suspension_diff_link_left"].rotation.y = rocker_angle;
+        //requestRenderIfNotRequested();
+      }
+
+
+      function placeSun(){
+        const minEl = -2;
+        var sunX = options["sun"].dist * Math.cos(options["sun"].el * deg2rad) * Math.cos(options["sun"].az * deg2rad) ;
+        var sunY = options["sun"].dist * Math.cos(options["sun"].el * deg2rad) * Math.sin(options["sun"].az * deg2rad);
+        var sunZ = -1 * options["sun"].dist * Math.sin(Math.max(minEl,options["sun"].el) * deg2rad);
+        sun.pos.set(sunX, sunY, sunZ);
+        sun.lights.position.set(sunX, sunY, sunZ);
+				sky.material.uniforms[ "sunDirection" ].value.copy( sun.pos.normalize() );
+        var intensityMultiplier = 1;
+        var sunEl = Math.max(0, options["sun"].el<90? options["sun"].el : 180-options["sun"].el);
+        if(sunEl<options["sun"].maxElQuadraticLight){
+          // Quadratic extinction
+          intensityMultiplier = sun.extinctionCoeffs[0]*sunEl*sunEl + sun.extinctionCoeffs[1]*sunEl + sun.extinctionCoeffs[2];
+        }
+        //console.log("intensityMultiplier: " + intensityMultiplier);
+        diffuselight.intensity = options["sky"].initialDiffuseLightIntensity * intensityMultiplier * intensityMultiplier;
+        options["sun"].intensity = options["sun"].maxIntensity * intensityMultiplier;
+        sun.light1.intensity = options["sun"].intensity;
+        sun.light2.intensity = options["sun"].intensity;
+        
+        //Update fog:
+        options["scene"].fogColor = interpHex(options["scene"].surfaceColor, options["sky"].diffuseLightColor, 0.65);  // blend of terrain and diffuse light color
+        scene.fog.color = new THREE.Color(options["scene"].fogColor).multiplyScalar(intensityMultiplier*intensityMultiplier*0.5);
+        //requestRenderIfNotRequested();
+      }
+
+
+      function tiltRover(){
+        var newAttitude = new THREE.Vector3(
+          options["attitude"].roll*deg2rad,
+          options["attitude"].pitch*deg2rad, 
+          options["attitude"].yaw*deg2rad, 
+        );
+        //console.log(newAttitude);
+        rover.rotation.setFromVector3(newAttitude, 'ZYX');
+        //requestRenderIfNotRequested();
+      }
+      
+      function changeHeading(){
+        var matrix = new THREE.Matrix4();
+        matrix.extractRotation( rover.matrix );
+        var roverZ = new THREE.Vector3(0,0,1).transformDirection(matrix);
+        settleRover(roverZ.multiplyScalar(-1));
+      }
+      
+      function liftRover(){
+        rover.position.z = -1*options["attitude"].height;
+        //requestRenderIfNotRequested();
+      }
+
+
+      function interpHex(hex1, hex2, ratio){
+        const rgb1 = hex1.toString(16).padStart(6, '0').match(/.{1,2}/g);
+        const rgb2 = hex2.toString(16).padStart(6, '0').match(/.{1,2}/g);
+        var hex = [];
+        for(var i=0; i<3; i++){
+          hex[i] = Math.ceil(parseInt(rgb1[i],16)*(1-ratio) + parseInt(rgb2[i],16)*ratio).toString(16).padStart(2, '0');
+        }
+        console.log([rgb1, rgb2, hex])
+        return parseInt('' + hex[0] + hex[1] + hex[2], 16);
+      }
+
+
+      function createCoordAxes(parent, vector_length, frame_name){ 
+        const coord_axes = new THREE.Group();
+        coord_axes.name = frame_name || "coord frame";
+
+        var geom = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(0,0,0), new THREE.Vector3(vector_length,0,0)] );
+        var matl = new THREE.LineBasicMaterial({color: 0xff0000, opacity: 0.2});
+        var coord_axis = new THREE.Line( geom, matl );
+        coord_axes.add(coord_axis);
+
+        var geom = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(0,0,0), new THREE.Vector3(0,vector_length,0)] );
+        var matl = new THREE.LineBasicMaterial({ 	color: 0x00ff00, opacity: 0.2 });
+        var coord_axis = new THREE.Line( geom, matl );
+        coord_axes.add(coord_axis);
+        
+        var geom = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,vector_length)] );
+        var matl = new THREE.LineBasicMaterial({ 	color: 0x0000ff, opacity: 0.2 });
+        var coord_axis = new THREE.Line( geom, matl );
+        coord_axes.add(coord_axis);
+
+        parent.add(coord_axes);
+        console.log(coord_axes);
+        return coord_axes;
+      }
+      window.createCoordAxes = createCoordAxes;
+
+      function doubleClickHandler(event){
+        console.log("double clicked");
+        console.log(event);
+        var intersects = checkWhatWasClicked(event, [terrain, rover]);
+        if(intersects && intersects[0] && intersects[0].point){
+          console.log(intersects[0].point);
+          //camera.position.set(intersects[0].point);
+          //camera.translate(0,0, -1*camera.position.distanceTo(intersects[0].point));
+          moveCameraToViewTarget(intersects[0].point);
+        }
+      }
+
+      function moveCameraToViewTarget(newTargetPosition){
+        var oldCamPos = camera.position.clone();
+        var oldTargetPosition = controls.target.clone();
+        var vecOldTargetToNewTarget = newTargetPosition.clone().sub(oldTargetPosition);
+        /*
+        // Animate camera transition (doesn't work)
+        var nTransitionFrames = 10;
+        for(var i=1; i<=nTransitionFrames; i++){
+          camera.position.copy(oldCamPos.clone().add(vecOldTargetToNewTarget.clone().multiplyScalar(i/nTransitionFrames)));
+          console.log(camera.position);
+          //camera.lookAt(oldTargetPosition.clone().add(vecOldTargetToNewTarget.clone().multiplyScalar(i/nTransitionFrames)));
+          controls.target.copy(oldTargetPosition.clone().add(vecOldTargetToNewTarget.clone().multiplyScalar(i/nTransitionFrames)));
+          controls.update();
+          requestAnimationFrame(render);
+          render();
+        }
+        */
+        camera.position.copy(oldCamPos.clone().add(vecOldTargetToNewTarget));
+        controls.target.copy(newTargetPosition);
+        controls.update();
+        //requestRenderIfNotRequested();
+      }
+
+
+      function checkKeypress(event){
+        var keyAscii = String.fromCharCode(event.keyCode);
+        console.log('key pressed: "' + keyAscii + '" [' + event.keyCode + ']');
+        console.log(event);
+        
+        if(!audio.started) loadAudio();
+        
+        //controls.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
+        
+        var mouseNow = new THREE.Vector2().copy(mouse);
+        console.log(mouseNow);
+        if(event.key == "Enter") {
+          //
+        } else if(keyAscii) {
+          switch (keyAscii) {
+            case "g":  console.log("PLACE");     placeRover(mouseNow);  break;
+            case "h":  console.log("PLACE");     rover.position.set(0,0,0);  settleRover(new THREE.Vector3(0,0,-1)); /*requestRenderIfNotRequested();*/ break;
+            case "r":  console.log("ROVER");     moveCameraToViewTarget(rover.position); break;
+            case "t":  console.log("TOP");       break;
+            case "f":  console.log("FOLLOW");    options["camera"].followRover = !options["camera"].followRover; break;
+            case "w":  console.log("SPEEDUP");   drive.speedRatio+=drive.speedRatioIncr; setSpeed(); break;
+            case "x":  console.log("SPEEDDN");   drive.speedRatio-=drive.speedRatioIncr; setSpeed(); break;
+            case "s":  console.log("DRIVESTOP"); drive.speedRatio=0;  drive.turnRate=0;  setSteering();  break;
+            case "q":  console.log("STRAIGHT");  drive.turnRate=0;  setSteering();  break;
+            case "a":  console.log("TURNLEFT");  drive.turnRate-=drive.turnRateIncr;  setSteering(); break;
+            case "d":  console.log("TURNRIGHT"); drive.turnRate+=drive.turnRateIncr;  setSteering(); break;
+            default:   console.log("unhandled key"); 
+          }
+        } else {
+          console.log("unhandled key"); 
+        }
+      }
+      
+      
+      
+      
+      function placeRover( mousecoords ) {
+        //var intersects = checkWhatWasClicked(event);
+        //console.log(intersects[0].point);
+        var mouseCameraCoords = new THREE.Vector2();
+        mouseCameraCoords.x = ( mousecoords.x / renderer.domElement.clientWidth ) * 2 - 1;
+        mouseCameraCoords.y = - ( mousecoords.y / renderer.domElement.clientHeight ) * 2 + 1;
+        raycaster.setFromCamera(mouseCameraCoords, camera);
+				var intersects = raycaster.intersectObjects(terrain.children);
+				if(intersects.length==0) return;
+        console.log(intersects[0]);        
+        vecs.pos = intersects[0].point;
+        rover.position.copy(intersects[0].point);
+        
+        const normalMatrix = new THREE.Matrix3().getNormalMatrix( intersects[0].object.matrixWorld );        
+        vecs.n = intersects[0].face.normal.clone().applyMatrix3( normalMatrix ).normalize();  // normal vector to local terrain
+        settleRover(vecs.n);
+      }
+
+      
+      function settleRover(roverUpVec){
+        // Rotate rover to match local normal vector, preserving heading.
+        // Start by calculating local-level heading vector via basic trig in local-level xy plane.
+        // There exists a unique vertical plane which contains both our heading vector and the nadir vector,
+        // and also the new x vector which we're solving for.  Describe this plane via its normal vector 
+        // which we solve for as the cross-product between local-level heading vector and nadir vector.
+        // The new X vector must simultaneously exist in the plane orthogonal to the terrain normal vector.
+        // Therefore the cross product between the normal vectors defining these two planes describes the
+        // intersection of the two planes which includes the new x vector.
+        
+        var hdg = options["attitude"].yaw*deg2rad;
+        vecs.h = new THREE.Vector3(Math.cos(hdg), Math.sin(hdg), 0);  // heading vector in global xy plane
+        vecs.nadir = new THREE.Vector3(0, 0, 1);                     // nadir direction (down)
+        vecs.nhz  = new THREE.Vector3().crossVectors(vecs.h, vecs.nadir).normalize();  // normal to heading vec and nadir
+        vecs.newz = roverUpVec.clone().multiplyScalar(-1);
+        vecs.newx = new THREE.Vector3().crossVectors(vecs.newz, vecs.nhz).normalize(); 
+        vecs.newy = new THREE.Vector3().crossVectors(vecs.newz, vecs.newx).normalize();
+        vecs.zzr  = new THREE.Vector3().crossVectors(vecs.nhz, vecs.newx).normalize(); // where newz would be if zero roll
+        var rollsign = vecs.nhz.dot(vecs.newz)>0? 1 : -1;
+        var roll = Math.acos(vecs.zzr.clone().dot(vecs.newz))*rollsign;
+        //console.log("roll: " + roll);
+        //console.log(vecs);
+        
+        var pitch = Math.asin(vecs.newx.z*-1);
+        //console.log("pitch: " + pitch);
+        options["attitude"].roll = roll*rad2deg;
+        options["attitude"].pitch = pitch*rad2deg;
+        tiltRover();
+      }
+
+
+
+      function checkWhatWasClicked( event, parent ) {
+        window.selected = null;
+        //event.preventDefault();        
+        clicked.x = ( event.clientX / renderer.domElement.clientWidth ) * 2 - 1;
+        clicked.y = - ( event.clientY / renderer.domElement.clientHeight ) * 2 + 1;
+        raycaster.setFromCamera(clicked, camera );
+        var intersects = raycaster.intersectObjects(parent, true );
+        if(intersects && intersects[0]) {
+          console.log("clicked:");
+          if(intersects[0].object.name) console.log(intersects[0].object.name);
+          console.log(intersects[0].object);
+          window.selected = intersects[0];
+          console.log(intersects[0].point);
+        }
+        return intersects;
+        /*
+        // The following are useful when trying to identify specific rover part
+        console.log("ancestors:");
+        intersects[0].object.traverseAncestors( function ( ancestor ) {
+          console.log(ancestor.name);
+        });
+        console.log("descendents:");
+        intersects[0].object.traverse(function(child){
+          console.log(child.name);
+        });
+        */
+      }
+
+      function show(object, includeDescendents, doShow){
+        object.visible = doShow;
+        if(includeDescendents){
+          object.traverse(function(child){
+            console.log(child.name);
+            child.visible = doShow;
+          });
+        }
+        //requestRenderIfNotRequested();
+      }
+      window.show = show;
+
+
+      function readTiff(url, onload) {
+        var xhr = new XMLHttpRequest();
+        console.log("getting tiff file: " + url);
+        xhr.open("GET", url);
+        //xhr.responseType = "blob";
+        xhr.responseType = 'arraybuffer';
+
+        xhr.onload = function (e) {
+          if (this.status == 200) {
+            console.log(xhr.response);
+            console.log("Reading tiff file");
+            //var blob = new Blob([xhr.response], {type: "image/tiff"});
+            const { width, height, data, ifdEntries } = decode(xhr.response, {singlePage: true, normalizeStripData: false} );
+            const metadata = JSON.stringify({ width, height, ifdEntries }, null, 2);
+            //console.log(metadata);
+            if(onload!==undefined) onload({width: width, height: height, data: data});
+            return {width: width, height: height, data: data};
+          } else {
+            console.log("Error, return status: " + this.status);
+            console.log(e);
+          }
+        };
+        xhr.onerror = function(e) {
+          alert("Error Status: " + e.target.status);
+        };
+        xhr.send();
+      }
+  
+      function setCameraFOV(fov){
+        camera.fov = fov;
+        camera.updateProjectionMatrix();
+        //requestRenderIfNotRequested();
+      }
+    
+  
+      function straightenWheels(){
+        drive.turnRadius = Infinity;
+        setJoint("mob", "steer_lf", 0);
+        setJoint("mob", "steer_rf", 0);
+        setJoint("mob", "steer_lr", 0);
+        setJoint("mob", "steer_rr", 0);
+        for(var wheel in wheels){
+          drive.wheelSpeedRatio[wheel] = 1;
+        }
+        drive.rnavSpeedRatio = 1;
+        setSpeed();
+      }
+  
+  
+      function setSteering(){      
+        // force turn rate to follow increments between allowable range:
+        const turnRate = Math.max(-180, Math.min(180, Math.round(drive.turnRate/drive.turnRateIncr)*drive.turnRateIncr ));
+        drive.turnRate = turnRate;
+        
+        // play sound for 0.25 sec
+        if(!drive.driving) {
+          if(audio.started && !audio.drive.isPlaying) {
+            audio.drive.state="starting";
+            //requestRenderIfNotRequested();
+          }
+          setTimeout(function(){
+            if(!drive.driving && audio.drive.isPlaying) {
+              audio.drive.state="stopping";
+            }
+          },250);
+        }
+        
+        if(turnRate==0){
+          straightenWheels();
+          return;
+        }
+
+        drive.turnRadius = 1/turnRate/deg2rad;
+        
+        //Ackerman steering
+        const dxFront = 1.18; //m
+        const dxRear  = 1.08; //m
+        const dySteer = 1.06; //m
+        setJoint("mob", "steer_lf", Math.atan2(-1*dxFront, dySteer + drive.turnRadius) *rad2deg + (drive.turnRadius<=-dySteer ? -180 : 0));
+        setJoint("mob", "steer_rf", Math.atan2(   dxFront, dySteer - drive.turnRadius) *rad2deg + (drive.turnRadius>=dySteer ? -180 : 0));
+        setJoint("mob", "steer_lr", Math.atan2(   dxFront, dySteer + drive.turnRadius) *rad2deg + (drive.turnRadius<=-dySteer ? -180 : 0));
+        setJoint("mob", "steer_rr", Math.atan2(-1*dxFront, dySteer - drive.turnRadius) *rad2deg + (drive.turnRadius>=dySteer ? -180 : 0));
+        
+        //Figure out which wheel has the longest path length.
+        //That wheel gets to turn full speed.
+        //All others turn proportional to path length relative to the longest path length
+        var maxWheelPathRadius = 0;
+        for(var wheel in wheels){
+          wheels[wheel].pathRadius = Math.sqrt(wheels[wheel].x*wheels[wheel].x + (drive.turnRadius-wheels[wheel].y)*(drive.turnRadius-wheels[wheel].y));
+          if(wheels[wheel].pathRadius>maxWheelPathRadius) maxWheelPathRadius = wheels[wheel].pathRadius;
+        }
+        for(var wheel in wheels){
+          drive.wheelSpeedRatio[wheel] = wheels[wheel].pathRadius/maxWheelPathRadius;
+          //invert wheel drive direction if center of turn is between rover centerline and this wheel:
+          if( Math.sign(drive.turnRadius)==Math.sign(wheels[wheel].y)  &&  Math.abs(drive.turnRadius)<Math.abs(wheels[wheel].y) ) drive.wheelSpeedRatio[wheel]*=-1;
+        }
+        drive.rnavSpeedRatio  = Math.abs(drive.turnRadius)/maxWheelPathRadius;
+        setSpeed();
+      }
+    
+    
+      function setSpeed(){
+        drive.speedRatio = Math.min(drive.maxSpeedRatio, Math.max(-1*drive.maxSpeedRatio, Math.round(drive.speedRatio/drive.speedRatioIncr)*drive.speedRatioIncr ));
+        const prevDriving = drive.driving;
+        drive.driving = (drive.speedRatio!=0);
+        if(drive.driving && !prevDriving) {
+          clock.getDelta();  // update clock since previous frame may have been a long time ago
+          console.log("Starting drive");
+          drive.prevStepTime = new Date().getTime();
+          if(!audio.drive.isPlaying) audio.drive.state="starting";
+          //requestRenderIfNotRequested();
+        }
+        if(!drive.driving && prevDriving){
+          console.log("Stopping drive");
+          if(audio.started && audio.drive.isPlaying) audio.drive.state="stopping";
+        }
+
+        const wheelRadius = 0.25; //m
+        for(var wheel in drive.wheelSpeed){
+          drive.wheelSpeed[wheel] = drive.speedRatio * drive.wheelSpeedRatio[wheel] * drive.maxSpeed / wheelRadius * rad2deg;  //deg/sec
+        }
+        drive.rnavSpeed       = drive.rnavSpeedRatio * drive.speedRatio * drive.maxSpeed;
+        drive.headingRate     = drive.turnRate * drive.rnavSpeed;  // (deg/s) = (deg/m)*(m/s)
+        console.log(drive);
+        //requestRenderIfNotRequested();
+      }
+
+      
+      function updateDrive(secondsElepased) {
+        if(!audio.loaded["drive"])  loadAudio();
+        if(audio.drive.state=="stopped") {
+          audio.drive.state="starting";
+          updateAudio();
+        }
+      
+        // Turn wheels:
+        for(var wheel in wheels){
+          var jointAngle = joints["wheels"][wheel].angle;
+          jointAngle += ((drive.wheelSpeed[wheel]*secondsElepased) % 360);
+          setJoint("wheels", wheel, jointAngle);
+        }
+
+        // Update rover position:
+        if(drive.turnRate==0){
+          drive.nextPosRnav.set(drive.rnavSpeed*secondsElepased, 0, 0);
+        } else {
+          drive.headingChange = drive.headingRate*secondsElepased;  //deg        
+          drive.nextPosRnav.set(drive.turnRadius*Math.sin(drive.headingChange*deg2rad), drive.turnRadius*(1-Math.cos(drive.headingChange*deg2rad)), 0);
+          const newHeading = (options["attitude"].yaw + drive.headingChange) %360;
+          options["attitude"].yaw = newHeading;
+          rover.updateMatrixWorld();
+        }
+        var rot = new THREE.Matrix4();
+        rot.extractRotation( rover.matrix );
+        const deltaPos = drive.nextPosRnav.clone().applyMatrix4(rot);
+        drive.nextPos.copy( rover.position.clone().add( deltaPos ));
+        rover.position.copy(drive.nextPos);
+        if(terrain) projectRoverToSurface();
+        if(drive.turnRate!=0) changeHeading();
+        
+        const rnavRoverUp = new THREE.Vector3(0,0,-1);
+        const worldRoverUp = rnavRoverUp.clone().applyMatrix4(rot);
+
+        if(options["camera"].followRover) {
+          //camera.position.add(deltaPos);
+          moveCameraToViewTarget(rover.position.clone().add(worldRoverUp.multiplyScalar(3)));
+        }
+      }
+      
+
+      function projectRoverToSurface(){
+        if(terrain){
+          const rnavRoverUp = new THREE.Vector3(0,0,-1);
+          const rnavRoverDown = new THREE.Vector3(0,0,1);
+          const rot = new THREE.Matrix4().extractRotation( rover.matrix ); // get rover rotation matrix
+          const worldRoverUp = rnavRoverUp.clone().applyMatrix4(rot);
+          const worldRoverDown = rnavRoverDown.clone().applyMatrix4(rot);
+          //Starting from rover position, define a vector some distance "above the rover" (-rnavZ), then 
+          //project a ray through the surface to get intersection, then place rover at intersection.
+          //console.log(rot);
+          //console.log(worldRoverUp);
+          const worldPointAboveRover = rover.position.clone().add( worldRoverUp.clone().multiplyScalar(1000) );
+          raycaster.set(worldPointAboveRover, worldRoverDown);
+          var intersects = raycaster.intersectObjects(terrain.children);
+          //console.log(intersects);
+          if(intersects && intersects[0] && intersects[0].point){
+            rover.position.copy(intersects[0].point);
+            const normalMatrix = new THREE.Matrix3().getNormalMatrix( intersects[0].object.matrixWorld );        
+            vecs.n = intersects[0].face.normal.clone().applyMatrix3( normalMatrix ).normalize();  // normal vector to local terrain
+            settleRover(vecs.n);
+          }
+        }
+      }
+      window.projectRoverToSurface = projectRoverToSurface;
+      
+    
+    
+      function makeGUI(){
+        gui = new dat.GUI({hideable: false});
+        window.gui = gui;
+        var folder = {};
+  
+        var drawMeasurementLineFcnWrapper = { add:function(){ drawMeasurementLine() }};
+        var clearRulerFcnWrapper = {add:function(){clearRuler}};
+
+        folder["tools"] = gui.addFolder('Tools');
+        
+        folder["ruler"] = folder["tools"].addFolder("Ruler");
+        folder["ruler"].add(drawMeasurementLineFcnWrapper,'add').name("Measure Distance");
+        folder["ruler"].add(ruler.measurement, "length").listen();
+        folder["ruler"].add(ruler.measurement, "horizontal").listen();
+        folder["ruler"].add(ruler.measurement, "vertical").listen();
+        folder["ruler"].add(ruler.measurement, "bearing").listen();
+        folder["ruler"].add(clearRulerFcnWrapper,'add').name("Clear");
+        folder["ruler"].open();
+        
+        folder["tools"].add(options["tools"], 'showCompass').name("Compass").onChange(function(val){compass.visible = val; /*requestRenderIfNotRequested()*/});
+        folder["tools"].add(options["tools"], 'showWireframe').name("Grid (" + options["scene"].terrainHscale + "m)").onChange(function(val){
+          terrainWireframe.visible = val;
+          //requestRenderIfNotRequested();
+        });
+        folder["tools"].add(options["tools"], 'showRnavCoordFrame').name("Show RNAV").onChange(function(val){
+          roverNavCoordFrameAxes.visible = val; 
+          //requestRenderIfNotRequested(); 
+        });
+        folder["tools"].add(options["tools"], 'showStrategicRoute').name("Strategic Route").onChange(function(val){
+          routes.visible = val;
+          //requestRenderIfNotRequested(); 
+        });
+
+        
+        folder["scene"] = gui.addFolder('Scene');
+        folder["scene"].add(options["sun"], 'az', -179.9, 180.1).listen().name("Sun azimuth").onChange(placeSun);
+        folder["scene"].add(options["sun"], 'el', -1, 182).listen().name("Sun elevation").onChange(placeSun);
+        folder["scene"].add(options["sun"], 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){
+          sun.light1.intensity = val;
+          sun.light2.intensity = val;
+          //requestRenderIfNotRequested();
+        });
+        folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){
+          sun.light1.color.set(val);
+          sun.light2.color.set(val); 
+          placeSun(); //updates fog and renders
+        });
+        folder["scene"].add(diffuselight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(render); 
+        folder["scene"].addColor(options["sky"],'diffuseLightColor').name("Diffuse light color").onChange(function(val){diffuselight.color.set(val); render()});
+        //folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){groundPlane.material.color.set(val); render()});
+        folder["scene"].addColor(options["scene"],'surfaceColor').name("Surface color").onChange(function(val){
+          terrainMatl.color.set(val);
+          terrain2.material.color.set(val);
+          placeSun(); //updates fog and renders
+        });
+        folder["scene"].add(options["scene"], 'terrainTextureResolution', terrainTextureResolutions).name('Resolution').onChange(function(val){setTerrainTexture(val)});
+        folder["scene"].add(options["scene"], 'showHaze').name("Haze").onChange(function(val){
+          scene.fog.far = val ? options["scene"].fogDist : 0; 
+          //requestRenderIfNotRequested();
+        });
+
+        
+        folder["camera"] = gui.addFolder('Camera');
+        folder["camera"].add(options["camera"], 'fov', 5, 120).name("Field of View").onChange(function(val){setCameraFOV(val)});
+        folder["camera"].add(options["camera"], 'exposure', 0.1, 1).name("Exposure").onChange(function(val){renderer.toneMappingExposure=val; /*requestRenderIfNotRequested()*/});
+        folder["camera"].add(options["camera"], 'followRover').listen().name("Follow rover");
+
+
+        folder["rover"] = gui.addFolder('Rover');        
+        
+        folder["attitude"] = folder["rover"].addFolder('Attitude');
+        folder["attitude"].add(options["attitude"], 'roll', -40, 40).listen().name("Roll").onChange(tiltRover);
+        folder["attitude"].add(options["attitude"], 'pitch', -40, 40).listen().name("Pitch").onChange(tiltRover);
+        folder["attitude"].add(options["attitude"], 'yaw', -370, 370).listen().name("Heading").onChange(changeHeading);
+        folder["attitude"].add(options["attitude"], 'height', -3.0, 3.0).listen().name("Height").onChange(liftRover);
+
+
+        // make GUI folder for each joint group:
+        ["arm", "rsm", "hga", "mob"].forEach(function(jointGroupName){
+          folder[jointGroupName] = folder["rover"].addFolder(jointGroupLongNames[jointGroupName]);
+
+          // make pose selector:
+          const poseControl = folder[jointGroupName].add(options["pose"], jointGroupName, poseNames[jointGroupName]).name("Pose");
+          if(jointGroupName=="arm"){
+            poseControl.onChange(function(poseName){
+              planArmSequence(poseName);
+              if(!audio.started) loadAudio();
+              //defocus the selector to prevent later keyboard events (like the wasd drive keys) from changing the selection.
+              gui.__folders.Rover.__folders["Robotic Arm"].__controllers[0].domElement.children[0].blur();
+            });
+          } else {
+            poseControl.onChange(function(poseName){goToPose(jointGroupName, poseName)});
+          }
+
+          // add joint control for each joint:
+          jointNames[jointGroupName].forEach(function(jointName){
+            //console.log(jointName);
+            var joint = joints[jointGroupName][jointName];
+            joints[jointGroupName][jointName].gui = folder[jointGroupName].add(joint, 'angle', joint.min, joint.max)
+              .listen()
+              .name(joint.name)
+              .onChange(function(val){
+                setJoint(jointGroupName, jointName, val); 
+                //requestRenderIfNotRequested();
+              });
+          });
+        });
+                
+        // modify differential onchange callback:
+        joints["mob"]["diff"].gui.onChange(function(val){ mobSetRockers(val); });
+        
+        
+        folder["drive"] = gui.addFolder('Drive');
+        //folder["drive"].add(drive, 'turnRadius', -10, 10).name("Turn Radius (m)").onChange(function(val){setSteering(val); render();});
+        folder["drive"].add(drive, 'turnRate', -180, 180).name("Turn Rate (deg/m)").listen().onChange(setSteering);
+        folder["drive"].add(drive, 'speedRatio', -1*drive.maxSpeedRatio, drive.maxSpeedRatio).name("Speed x").listen().onChange(setSpeed);
+
+        //folder["drive"].add({add:function(){setSteering(0); render;}}).name("Turn in place");
+
+        gui.add({add:function(){infoOverlayOn()}},'add').name("Page Info");
+
+      }
+  
+  
+  
+      function makePin(origin, direction, pinLength, pinHeadWidth, pinColor, onload){
+        const pin = new THREE.Group();
+        pin.name = "pin";
+
+        // make needle:
+        const pinheadPos = direction.normalize().multiplyScalar(pinLength)
+        const needleGeometry = new THREE.BufferGeometry().setFromPoints( [origin, pinheadPos] );
+        const needleMaterial = new THREE.LineBasicMaterial({color: pinColor});
+        const needle = new THREE.Line( needleGeometry, needleMaterial );
+        pin.add(needle);
+        
+        // make pinhead: 
+        var pinheadMaterial = new THREE.SpriteMaterial( { 
+          map: new THREE.TextureLoader().load('images/poi.png'),
+          sizeAttenuation: false, 
+          opacity: 0.6,
+        });
+        var pinheadSprite = new THREE.Sprite(pinheadMaterial);
+        pinheadSprite.scale.set(pinHeadWidth, pinHeadWidth, pinHeadWidth);
+        pinheadSprite.position.copy(pinheadPos);
+        pin.add(pinheadSprite);
+
+        if(onload) onload(pin);
+        return pin;
+      }
+      window.makePin = makePin;
+  
+  
+  
+      function exportGLTF( input ) {
+				const gltfExporter = new GLTFExporter();
+				const options = {
+					trs: false,
+					onlyVisible: false,
+					truncateDrawRange: false,
+					binary: true,
+					//maxTextureSize: Number( document.getElementById( 'option_maxsize' ).value ) || Infinity // To prevent NaN value
+				};
+				gltfExporter.parse( input, function ( result ) {
+					if ( result instanceof ArrayBuffer ) {
+						saveArrayBuffer( result, 'scene.glb' );
+					} else {
+						const output = JSON.stringify( result, null, 2 );
+						console.log( output );
+						saveString( output, 'scene.gltf' );
+					}
+				}, options );
+			}
+			function saveArrayBuffer(buffer, filename ) {
+				save( new Blob( [ buffer ], { type: 'application/octet-stream' } ), filename );
+			}
+      window.exportGLTF = exportGLTF;
+
+			const link = document.createElement( 'a' );
+			link.style.display = 'none';
+			document.body.appendChild( link ); // Firefox workaround, see #6594
+
+			function save( blob, filename ) {
+				link.href = URL.createObjectURL( blob );
+				link.download = filename;
+				link.click();
+				// URL.revokeObjectURL( url ); breaks Firefox...
+			}
+
+			function saveString( text, filename ) {
+				save( new Blob( [ text ], { type: 'text/plain' } ), filename );
+			}
+    
+    
+    
+      function startLoadingManager(){
+        const status = document.getElementById('status_container');
+        THREE.DefaultLoadingManager.onStart = function ( url, itemsLoaded, itemsTotal ) {
+          console.log( 'Started loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+          status.innerHTML = "<b>Loading</b>";
+          status.style.color = "#F95";
+        };
+        THREE.DefaultLoadingManager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
+          console.log( 'Loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+        };
+        THREE.DefaultLoadingManager.onLoad = function ( ) {
+          console.log( 'Loading Complete!');
+          status.style.color = "#6F6";
+          status.innerHTML = "Ready";
+          //requestRenderIfNotRequested();
+        };
+      }
+
+
+
+
+		</script>
+
+	</body>
+</html>
