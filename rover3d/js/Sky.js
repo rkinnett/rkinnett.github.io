@@ -8,43 +8,41 @@ import {
 } from './three.module.js';
 
 /**
- * Based originally on mrdoob's three.js webgl sky shader demo:
- * https://github.com/mrdoob/three.js/blob/dev/examples/jsm/objects/Sky.js
+ * Based on "A Practical Analytic Model for Daylight"
+ * aka The Preetham Model, the de facto standard analytic skydome model
+ * https://www.researchgate.net/publication/220720443_A_Practical_Analytic_Model_for_Daylight
  *
- *   Which is in turn based on:
- *     Three.js integration by zz85 http://twitter.com/blurspline
+ * First implemented by Simon Wallner
+ * http://www.simonwallner.at/projects/atmospheric-scattering
  *
- *     "A Practical Analytic Model for Daylight"
- *       aka The Preetham Model, the de facto standard analytic skydome model
- *       https://www.researchgate.net/publication/220720443_A_Practical_Analytic_Model_for_Daylight
+ * Improved by Martin Upitis
+ * http://blenderartists.org/forum/showthread.php?245954-preethams-sky-impementation-HDR
  *
- *     First implemented by Simon Wallner
- *       http://www.simonwallner.at/projects/atmospheric-scattering
- *
- *     Improved by Martin Upitis
- *       http://blenderartists.org/forum/showthread.php?245954-preethams-sky-impementation-HDR
- *
- * Mars adaptation by Ryan Kinnett, 2021
+ * Three.js integration by zz85 http://twitter.com/blurspline
 */
 
-var Sky = function () {
+class Sky extends Mesh {
 
-	var shader = Sky.SkyShader;
+	constructor() {
 
-	var material = new ShaderMaterial( {
-		name: 'SkyShader',
-		fragmentShader: shader.fragmentShader,
-		vertexShader: shader.vertexShader,
-		uniforms: UniformsUtils.clone( shader.uniforms ),
-		side: BackSide,
-		depthWrite: false
-	} );
+		const shader = Sky.SkyShader;
 
-	Mesh.call( this, new BoxGeometry( 1, 1, 1 ), material );
+		const material = new ShaderMaterial( {
+			name: 'SkyShader',
+			fragmentShader: shader.fragmentShader,
+			vertexShader: shader.vertexShader,
+			uniforms: UniformsUtils.clone( shader.uniforms ),
+			side: BackSide,
+			depthWrite: false
+		} );
 
-};
+		super( new BoxGeometry( 1, 1, 1 ), material );
 
-Sky.prototype = Object.create( Mesh.prototype );
+	}
+
+}
+
+Sky.prototype.isSky = true;
 
 Sky.SkyShader = {
 
@@ -179,5 +177,6 @@ Sky.SkyShader = {
 	].join( '\n' )
 
 };
+
 
 export { Sky };

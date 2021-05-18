@@ -232,7 +232,7 @@
 
 		<script type="module">
       import * as THREE from './js/three.module.js';
-			import { OrbitControls, MapControls } from './js/OrbitControls.js';
+			//import { OrbitControls, MapControls } from './js/OrbitControls.js';
 			import { GLTFLoader } from './js/GLTFLoader.js';
       import { GLTFExporter } from './js/GLTFExporter.js';
 			import { Sky } from './js/Sky.js';
@@ -240,6 +240,11 @@
       import { Reflector } from './js/Reflector.js';
 			import { VertexNormalsHelper } from './js/VertexNormalsHelper.js';
       import { VRButton } from './js/VRButton.js';
+			import { XRControllerModelFactory } from './js/XRControllerModelFactory.js';
+			import { InteractiveGroup } from './js/InteractiveGroup.js';
+      import { XRGamepad } from './js/XRGamepad.js';
+      import { ActiveXRGamepad } from './js/ActiveXRGamepad.js';
+      import { XRTeleportControls } from './js/XRTeleportControls.js';
 
       window.THREE = THREE;
       
@@ -254,6 +259,8 @@
       let routes;
       let ruler;
       let prevRenderTime;
+      
+      let vrworkspace, platforms, teleportControls, activeController;
       
       let renderRequested = false;
       
@@ -560,24 +567,58 @@
         renderer.setAnimationLoop(render);
 
 
+
 				scene = new THREE.Scene();
         window.scene = scene;
         scene.fog = new THREE.Fog(options["scene"].fogColor, 0.1, options["scene"].showHaze ? options["scene"].fogDist : 0 );
         //scene.background = new THREE.Color( options.skyColor );
 
+        const group = new InteractiveGroup( renderer, camera );
+				scene.add( group );  
+
+        vrworkspace = new THREE.Group();
+        vrworkspace.position.set(0,2,0);
+        vrworkspace.rotation.set(-Math.PI/2,0,0,'XYZ');
+        scene.add( vrworkspace );
+        window.vrworksapce = vrworkspace;
+
 
 				camera = new THREE.PerspectiveCamera( options["camera"].fov, window.innerWidth / window.innerHeight, 0.1, 20000 );
-        camera.up.set( 0, 0, -1 );
-        camera.lookAt(0,0,-1.5);
+        //camera.up.set( 0, 0, -1 );
+        //camera.lookAt(0,0,-1.5);
 				//camera.position.set( 3.6, -0.1, -0.65 );
         //camera.position.set( 3.6, 0, -0.65 );
         //camera.position.set( 4, 2, -1.4 );
-        camera.position.set( -2, 10, -4 );
+        //camera.position.set( -2, 10, -4 );
+        vrworkspace.add(camera);
         window.camera = camera;
                         
-                
+
+
+        // VR Controllers:
+        const controller0 = new XRGamepad( renderer.xr, 0 );
+        const controller1 = new XRGamepad( renderer.xr, 1 );
+        vrworkspace.add( controller0, controller1 );
+
+        activeController = new ActiveXRGamepad( [ controller0, controller1 ] );
+        activeController.addEventListener( 'axis-pressed', e => {
+          if ( e.name === 'LStick-X' ) {
+            const direction = Math.sign( e.value );
+            const angle = - direction * Math.PI / 4;
+            workspace.rotation.y += angle;
+
+            const cameraPosition = new Vector3();
+            const upVector = new Vector3( 0, 0, -1 );
+            cameraPosition.set( -2, 10, -4 ).applyMatrix4( camera.matrixWorld );
+            workspace.position.sub( cameraPosition ).applyAxisAngle( upVector, angle ).add( cameraPosition );
+          }
+        });
+        vrworkspace.add( activeController );
+
+
         // Make Controls:
         //controls = new MapControls( camera, renderer.domElement );
+        /*
 				controls = new OrbitControls( camera, renderer.domElement );
 				//controls.addEventListener( 'change', requestRenderIfNotRequested ); // use if there is no animation loop
         //controls.mouseButtons = { ORBIT: THREE.MOUSE.LEFT, ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
@@ -595,12 +636,14 @@
         controls.enableDamping = false;
 				controls.target.set( 0, 0, -1 );
         window.controls = controls;
+        */
         
         
         // make compass inset:
+        /*
         makeCompass();
         compass.visible = options["tools"].showCompass;
-
+        */
 
 
 
@@ -713,11 +756,19 @@
               //requestRenderIfNotRequested();
               
               createTerrainChunks(mastermesh, 32, 32, function(chunks){
-                scene.add(chunks);
+                //scene.add(chunks);
                 console.log("loaded terrain");
                 terrain = chunks;
+                terrain.children.forEach(function(chunk){
+                  group.add( chunk );
+                });
                 sun.light2.target = terrain;
                 window.terrain = terrain;
+                
+                teleportControls = new XRTeleportControls( activeController, vrworkspace, terrain );
+                teleportControls.arc.material.color.set( 0x009688 );
+                scene.add( teleportControls.arc );
+                
                 if(rover) projectRoverToSurface();
               });
               //var vnh = new VertexNormalsHelper( terrain, 1 );
@@ -809,12 +860,14 @@
             goToPose(jointGroupName, options["pose"][jointGroupName]);
           });
 
-          scene.add(rover);
+          //scene.add(rover);
+          group.add( rover );
+
           //requestRenderIfNotRequested();
         });
 
 
-				controls.update();
+				//controls.update();
 
 				window.addEventListener('resize', onWindowResize );
         //renderer.domElement.addEventListener('mousedown', handleMouseDown, false );
@@ -890,9 +943,10 @@
 			}
 
 			function render() {     
-        renderRequested = false;
-        updateCompass();
-        renderer.render( scene, camera );
+        //renderRequested = false;
+        //updateCompass();
+        activeController.update();
+        teleportControls.update();
         
         const secondsElepased = clock.getDelta();
         if(drive.driving){
@@ -911,6 +965,8 @@
           updateAudio(secondsElepased);
           //requestRenderIfNotRequested();
         }
+        
+        renderer.render( scene, camera );
       }
       
       
@@ -1027,7 +1083,7 @@
         }
       }
       
-      
+      /*
       function updateCompass(){
 				//copy position of the camera into inset
 				compassInsetCamera.position.copy(controls.target.clone().sub(camera.position));
@@ -1035,7 +1091,7 @@
 				compassInsetCamera.lookAt(compassInsetScene.position);
 				compassInsetRenderer.render(compassInsetScene, compassInsetCamera);
       }
-
+      */
 
       
       function rulerLineFollowCursor(event){
@@ -2172,7 +2228,7 @@
         folder["ruler"].add(clearRulerFcnWrapper,'add').name("Clear");
         folder["ruler"].open();
         
-        folder["tools"].add(options["tools"], 'showCompass').name("Compass").onChange(function(val){compass.visible = val; /*requestRenderIfNotRequested()*/});
+        //folder["tools"].add(options["tools"], 'showCompass').name("Compass").onChange(function(val){compass.visible = val; /*requestRenderIfNotRequested()*/});
         folder["tools"].add(options["tools"], 'showWireframe').name("Grid (" + options["scene"].terrainHscale + "m)").onChange(function(val){
           terrainWireframe.visible = val;
           //requestRenderIfNotRequested();
@@ -2271,6 +2327,12 @@
         folder["drive"].add(drive, 'speedRatio', -1*drive.maxSpeedRatio, drive.maxSpeedRatio).name("Speed x").listen().onChange(setSpeed);
 
         //folder["drive"].add({add:function(){setSteering(0); render;}}).name("Turn in place");
+
+        //folder["controls"] = gui.addFolder('Controls');
+        //folder["controls"].add( teleportControls, 'minDistance', 0, 1, 0.01 );
+        //folder["controls"].add( teleportControls, 'maxDistance', 3, 15, 0.01 );
+        //folder["controls"].add( teleportControls, 'castHeight', 0, 5, 0.01 );
+
 
         gui.add({add:function(){infoOverlayOn()}},'add').name("Page Info");
 

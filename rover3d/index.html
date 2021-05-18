@@ -234,10 +234,13 @@
       import * as THREE from './js/three.module.js';
 			import { OrbitControls, MapControls } from './js/OrbitControls.js';
 			import { GLTFLoader } from './js/GLTFLoader.js';
+      import { GLTFExporter } from './js/GLTFExporter.js';
 			import { Sky } from './js/Sky.js';
       import { Lensflare, LensflareElement } from './js/LensFlare.js';
       import { Reflector } from './js/Reflector.js';
 			import { VertexNormalsHelper } from './js/VertexNormalsHelper.js';
+
+
       window.THREE = THREE;
       
       const { decode } = window.decodeTiff;
@@ -385,9 +388,9 @@
           showStrategicRoute: true,
         },
         scene: {
-          surfaceColor:  0xa7886e,
+          surfaceColor:  0xaf9681,
           showHaze:   true,
-          fogDist:    12000,
+          fogDist:    10000,
           fogColor:   0xa7886e,
           //terrainTextureResolution: (ismobile?'2m':'1m'),
           terrainTextureResolution: '2m',
@@ -400,7 +403,6 @@
           followRover: false,
         },
         pose: {
-          armPrev: "STOW",
           arm: "STOW",
           hga: "READY",
           rsm: "STRAIGHT",
@@ -553,6 +555,9 @@
         });
 
 
+        renderer.setAnimationLoop(render);
+
+
 				scene = new THREE.Scene();
         window.scene = scene;
         scene.fog = new THREE.Fog(options["scene"].fogColor, 0.1, options["scene"].showHaze ? options["scene"].fogDist : 0 );
@@ -572,7 +577,7 @@
         // Make Controls:
         //controls = new MapControls( camera, renderer.domElement );
 				controls = new OrbitControls( camera, renderer.domElement );
-				controls.addEventListener( 'change', requestRenderIfNotRequested ); // use if there is no animation loop
+				//controls.addEventListener( 'change', requestRenderIfNotRequested ); // use if there is no animation loop
         //controls.mouseButtons = { ORBIT: THREE.MOUSE.LEFT, ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
         //controls.mouseButtons = { ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
         controls.mouseButtons = {LEFT: 0, MIDDLE: 1, RIGHT: 2};
@@ -703,7 +708,7 @@
             mastermesh.material = terrainMatl;
             setTerrainTexture(options["scene"].terrainTextureResolution, function(){
               //scene.add(terrain);
-              requestRenderIfNotRequested();
+              //requestRenderIfNotRequested();
               
               createTerrainChunks(mastermesh, 32, 32, function(chunks){
                 scene.add(chunks);
@@ -722,8 +727,8 @@
         
         // Build low-res terrain:
         makeTerrain({
-          urlHeightMap: 'images/JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_rescale240m_centerReduced.tif',  // must be 16-bit grayscale tif
-          hscale:   240*0.96,    // m/px
+          urlHeightMap: 'images/JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_rescale60m.tif',  // must be 16-bit grayscale tif
+          hscale:   60*0.96,    // m/px
           vscale:   6,  // m/dn
           offset:   new THREE.Vector3(1300, -1300, 250),
           rotation: new THREE.Vector3(-1*Math.PI, 0, -1*Math.PI/2),
@@ -733,13 +738,13 @@
             terrain2 = mesh;
             window.terrain2 = mesh;
             mesh.name = "low-res terrain";
-            mesh.material = new THREE.MeshPhongMaterial({
+            mesh.material = new THREE.MeshBasicMaterial({
               color: options["scene"].surfaceColor,
               shininess: 2,
               map:  new THREE.TextureLoader().load('images/JCowart_color_mosaic.jpg', function(){
                 console.log("done loading low-res terrain texture");
                 scene.add(mesh);
-                requestRenderIfNotRequested();
+                //requestRenderIfNotRequested();
                 //var vnh = new VertexNormalsHelper(mesh, 1 );
                 //scene.add( vnh );              
               })
@@ -803,7 +808,7 @@
           });
 
           scene.add(rover);
-          requestRenderIfNotRequested();
+          //requestRenderIfNotRequested();
         });
 
 
@@ -891,18 +896,18 @@
         if(drive.driving){
           updateDrive(secondsElepased);
           //updateAudio(secondsElepased);
-          requestRenderIfNotRequested();
+          //requestRenderIfNotRequested();
         }
 
         if(armMotion.moving){
           updateArm(secondsElepased);
           //updateAudio(secondsElepased);
-          requestRenderIfNotRequested();
+          //requestRenderIfNotRequested();
         }
 
         if(audio.started && (audio.arm.state!="stopped" || audio.drive.state!="stopped")){
           updateAudio(secondsElepased);
-          requestRenderIfNotRequested();
+          //requestRenderIfNotRequested();
         }
       }
       
@@ -970,7 +975,7 @@
               audio.fadeGain.gain.value = 0;
               console.log("resuming drive audio");
               audio.drive.play();
-              requestRenderIfNotRequested();
+              //requestRenderIfNotRequested();
             } else {
               audio.fadeGain.gain.value = Math.min(1, audio.fadeGain.gain.value + audio.fadeRate * timeElapsed);
               if(audio.fadeGain.gain.value==1) {
@@ -988,7 +993,7 @@
                 console.log("pausing drive audio");
                 audio.drive.pause();
               }
-            } else requestRenderIfNotRequested();
+            } //else requestRenderIfNotRequested();
           } 
           
           if(audio.arm.state=="starting"){
@@ -996,7 +1001,7 @@
               audio.fadeGain.gain.value = 0;
               console.log("resuming arm audio");
               audio.arm.play();
-              requestRenderIfNotRequested();
+              //requestRenderIfNotRequested();
             } else {
               audio.fadeGain.gain.value = Math.min(1, audio.fadeGain.gain.value + audio.fadeRate * timeElapsed);
               if(audio.fadeGain.gain.value==1) {
@@ -1015,7 +1020,7 @@
                 console.log("pausing arm audio");
                 audio.arm.pause();
               }
-            } else requestRenderIfNotRequested();
+            } //else requestRenderIfNotRequested();
           }
         }
       }
@@ -1041,7 +1046,7 @@
           ruler.measurement.vertical = from0to1.z.toPrecision(4) + " m";
           ruler.measurement.horizontal = Math.sqrt(from0to1.x*from0to1.x + from0to1.y*from0to1.y).toPrecision(4) + " m";
           ruler.measurement.bearing = (Math.atan2(from0to1.y, from0to1.x)*rad2deg).toFixed(1) + " deg";
-          requestRenderIfNotRequested();
+          //requestRenderIfNotRequested();
         }
       }
 
@@ -1067,7 +1072,7 @@
         ruler.measurement.horizontal = "m";
         ruler.measurement.vertical = "m";
         ruler.measurement.bearing = "deg";
-        requestRenderIfNotRequested();
+        //requestRenderIfNotRequested();
       }
 
 
@@ -1084,7 +1089,7 @@
           ruler.pos0 = movePinToCursor(event1, ruler.pin0);
           ruler.pin0.visible = true;
           console.log("setting first pin to pos: " + ruler.pos0.x.toPrecision(4) + ", " + ruler.pos0.y.toPrecision(4) + ", " + ruler.pos0.z.toPrecision(4));
-          requestRenderIfNotRequested();
+          //requestRenderIfNotRequested();
           
           //then continuously draw/update connecting line from first marker to cursor
           ruler.line.visible = true;
@@ -1096,7 +1101,7 @@
             ruler.pos1 = movePinToCursor(event2, ruler.pin1);
             ruler.pin1.visible = true;
             console.log("setting second pin to pos: " + ruler.pos1.x.toPrecision(4) + ", " + ruler.pos1.y.toPrecision(4) + ", " + ruler.pos1.z.toPrecision(4));
-            requestRenderIfNotRequested();
+            //requestRenderIfNotRequested();
 
             var from0to1 = ruler.pos1.clone().sub(ruler.pos0);
             ruler.measurement.length = from0to1.length().toPrecision(4) + " m";
@@ -1498,7 +1503,7 @@
         jointNames[jointGroup].forEach(function(jointName){
           setJoint(jointGroup, jointName, jointAngles[n++]);
         });
-        requestRenderIfNotRequested();
+        //requestRenderIfNotRequested();
       }
    
       
@@ -1555,7 +1560,7 @@
                 if(!audio.arm.isPlaying) audio.arm.state="starting";
                 clock.getDelta();  // update clock since previous frame may have been a long time ago
                 armMotion.moving = true;
-                requestRenderIfNotRequested();
+                //requestRenderIfNotRequested();
               }, 500); //delay milliseconds
             }, 200);
           }
@@ -1693,7 +1698,7 @@
         parts["suspension_rocker_left"].rotation.y = -1*rocker_angle;
         parts["suspension_diff_link_right"].rotation.y = -1*rocker_angle;
         parts["suspension_diff_link_left"].rotation.y = rocker_angle;
-        requestRenderIfNotRequested();
+        //requestRenderIfNotRequested();
       }
 
 
@@ -1711,7 +1716,7 @@
           // Quadratic extinction
           intensityMultiplier = sun.extinctionCoeffs[0]*sunEl*sunEl + sun.extinctionCoeffs[1]*sunEl + sun.extinctionCoeffs[2];
         }
-        console.log("intensityMultiplier: " + intensityMultiplier);
+        //console.log("intensityMultiplier: " + intensityMultiplier);
         diffuselight.intensity = options["sky"].initialDiffuseLightIntensity * intensityMultiplier * intensityMultiplier;
         options["sun"].intensity = options["sun"].maxIntensity * intensityMultiplier;
         sun.light1.intensity = options["sun"].intensity;
@@ -1720,7 +1725,7 @@
         //Update fog:
         options["scene"].fogColor = interpHex(options["scene"].surfaceColor, options["sky"].diffuseLightColor, 0.65);  // blend of terrain and diffuse light color
         scene.fog.color = new THREE.Color(options["scene"].fogColor).multiplyScalar(intensityMultiplier*intensityMultiplier*0.5);
-        requestRenderIfNotRequested();
+        //requestRenderIfNotRequested();
       }
 
 
@@ -1732,7 +1737,7 @@
         );
         //console.log(newAttitude);
         rover.rotation.setFromVector3(newAttitude, 'ZYX');
-        requestRenderIfNotRequested();
+        //requestRenderIfNotRequested();
       }
       
       function changeHeading(){
@@ -1744,7 +1749,7 @@
       
       function liftRover(){
         rover.position.z = -1*options["attitude"].height;
-        requestRenderIfNotRequested();
+        //requestRenderIfNotRequested();
       }
 
 
@@ -1817,7 +1822,7 @@
         camera.position.copy(oldCamPos.clone().add(vecOldTargetToNewTarget));
         controls.target.copy(newTargetPosition);
         controls.update();
-        requestRenderIfNotRequested();
+        //requestRenderIfNotRequested();
       }
 
 
@@ -1837,7 +1842,7 @@
         } else if(keyAscii) {
           switch (keyAscii) {
             case "g":  console.log("PLACE");     placeRover(mouseNow);  break;
-            case "h":  console.log("PLACE");     rover.position.set(0,0,0);  settleRover(new THREE.Vector3(0,0,-1)); requestRenderIfNotRequested(); break;
+            case "h":  console.log("PLACE");     rover.position.set(0,0,0);  settleRover(new THREE.Vector3(0,0,-1)); /*requestRenderIfNotRequested();*/ break;
             case "r":  console.log("ROVER");     moveCameraToViewTarget(rover.position); break;
             case "t":  console.log("TOP");       break;
             case "f":  console.log("FOLLOW");    options["camera"].followRover = !options["camera"].followRover; break;
@@ -1944,7 +1949,7 @@
             child.visible = doShow;
           });
         }
-        requestRenderIfNotRequested();
+        //requestRenderIfNotRequested();
       }
       window.show = show;
 
@@ -1980,7 +1985,7 @@
       function setCameraFOV(fov){
         camera.fov = fov;
         camera.updateProjectionMatrix();
-        requestRenderIfNotRequested();
+        //requestRenderIfNotRequested();
       }
     
   
@@ -2007,7 +2012,7 @@
         if(!drive.driving) {
           if(audio.started && !audio.drive.isPlaying) {
             audio.drive.state="starting";
-            requestRenderIfNotRequested();
+            //requestRenderIfNotRequested();
           }
           setTimeout(function(){
             if(!drive.driving && audio.drive.isPlaying) {
@@ -2059,7 +2064,7 @@
           console.log("Starting drive");
           drive.prevStepTime = new Date().getTime();
           if(!audio.drive.isPlaying) audio.drive.state="starting";
-          requestRenderIfNotRequested();
+          //requestRenderIfNotRequested();
         }
         if(!drive.driving && prevDriving){
           console.log("Stopping drive");
@@ -2073,7 +2078,7 @@
         drive.rnavSpeed       = drive.rnavSpeedRatio * drive.speedRatio * drive.maxSpeed;
         drive.headingRate     = drive.turnRate * drive.rnavSpeed;  // (deg/s) = (deg/m)*(m/s)
         console.log(drive);
-        requestRenderIfNotRequested();
+        //requestRenderIfNotRequested();
       }
 
       
@@ -2112,8 +2117,10 @@
         const rnavRoverUp = new THREE.Vector3(0,0,-1);
         const worldRoverUp = rnavRoverUp.clone().applyMatrix4(rot);
 
-        if(options["camera"].followRover) moveCameraToViewTarget(rover.position.clone().add(worldRoverUp.multiplyScalar(3)));
-        //if(options["camera"].followRover) camera.position.add(deltaPos);
+        if(options["camera"].followRover) {
+          //camera.position.add(deltaPos);
+          moveCameraToViewTarget(rover.position.clone().add(worldRoverUp.multiplyScalar(3)));
+        }
       }
       
 
@@ -2163,18 +2170,18 @@
         folder["ruler"].add(clearRulerFcnWrapper,'add').name("Clear");
         folder["ruler"].open();
         
-        folder["tools"].add(options["tools"], 'showCompass').name("Compass").onChange(function(val){compass.visible = val; requestRenderIfNotRequested()});
+        folder["tools"].add(options["tools"], 'showCompass').name("Compass").onChange(function(val){compass.visible = val; /*requestRenderIfNotRequested()*/});
         folder["tools"].add(options["tools"], 'showWireframe').name("Grid (" + options["scene"].terrainHscale + "m)").onChange(function(val){
           terrainWireframe.visible = val;
-          requestRenderIfNotRequested();
+          //requestRenderIfNotRequested();
         });
         folder["tools"].add(options["tools"], 'showRnavCoordFrame').name("Show RNAV").onChange(function(val){
           roverNavCoordFrameAxes.visible = val; 
-          requestRenderIfNotRequested(); 
+          //requestRenderIfNotRequested(); 
         });
         folder["tools"].add(options["tools"], 'showStrategicRoute').name("Strategic Route").onChange(function(val){
           routes.visible = val;
-          requestRenderIfNotRequested(); 
+          //requestRenderIfNotRequested(); 
         });
 
         
@@ -2184,7 +2191,7 @@
         folder["scene"].add(options["sun"], 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){
           sun.light1.intensity = val;
           sun.light2.intensity = val;
-          requestRenderIfNotRequested();
+          //requestRenderIfNotRequested();
         });
         folder["scene"].addColor(options["sun"],'lightColor').name("Sunlight color").onChange(function(val){
           sun.light1.color.set(val);
@@ -2202,13 +2209,13 @@
         folder["scene"].add(options["scene"], 'terrainTextureResolution', terrainTextureResolutions).name('Resolution').onChange(function(val){setTerrainTexture(val)});
         folder["scene"].add(options["scene"], 'showHaze').name("Haze").onChange(function(val){
           scene.fog.far = val ? options["scene"].fogDist : 0; 
-          requestRenderIfNotRequested();
+          //requestRenderIfNotRequested();
         });
 
         
         folder["camera"] = gui.addFolder('Camera');
         folder["camera"].add(options["camera"], 'fov', 5, 120).name("Field of View").onChange(function(val){setCameraFOV(val)});
-        folder["camera"].add(options["camera"], 'exposure', 0.1, 1).name("Exposure").onChange(function(val){renderer.toneMappingExposure=val; requestRenderIfNotRequested()});
+        folder["camera"].add(options["camera"], 'exposure', 0.1, 1).name("Exposure").onChange(function(val){renderer.toneMappingExposure=val; /*requestRenderIfNotRequested()*/});
         folder["camera"].add(options["camera"], 'followRover').listen().name("Follow rover");
 
 
@@ -2247,7 +2254,7 @@
               .name(joint.name)
               .onChange(function(val){
                 setJoint(jointGroupName, jointName, val); 
-                requestRenderIfNotRequested();
+                //requestRenderIfNotRequested();
               });
           });
         });
@@ -2296,6 +2303,48 @@
       }
       window.makePin = makePin;
   
+  
+  
+      function exportGLTF( input ) {
+				const gltfExporter = new GLTFExporter();
+				const options = {
+					trs: false,
+					onlyVisible: false,
+					truncateDrawRange: false,
+					binary: true,
+					//maxTextureSize: Number( document.getElementById( 'option_maxsize' ).value ) || Infinity // To prevent NaN value
+				};
+				gltfExporter.parse( input, function ( result ) {
+					if ( result instanceof ArrayBuffer ) {
+						saveArrayBuffer( result, 'scene.glb' );
+					} else {
+						const output = JSON.stringify( result, null, 2 );
+						console.log( output );
+						saveString( output, 'scene.gltf' );
+					}
+				}, options );
+			}
+			function saveArrayBuffer(buffer, filename ) {
+				save( new Blob( [ buffer ], { type: 'application/octet-stream' } ), filename );
+			}
+      window.exportGLTF = exportGLTF;
+
+			const link = document.createElement( 'a' );
+			link.style.display = 'none';
+			document.body.appendChild( link ); // Firefox workaround, see #6594
+
+			function save( blob, filename ) {
+				link.href = URL.createObjectURL( blob );
+				link.download = filename;
+				link.click();
+				// URL.revokeObjectURL( url ); breaks Firefox...
+			}
+
+			function saveString( text, filename ) {
+				save( new Blob( [ text ], { type: 'text/plain' } ), filename );
+			}
+    
+    
     
       function startLoadingManager(){
         const status = document.getElementById('status_container');
@@ -2311,9 +2360,12 @@
           console.log( 'Loading Complete!');
           status.style.color = "#6F6";
           status.innerHTML = "Ready";
-          requestRenderIfNotRequested();
+          //requestRenderIfNotRequested();
         };
       }
+
+
+
 
 		</script>
 
