@@ -180,7 +180,7 @@ pre {
       <br/>
 
       <ol>
-        <li> Start by selecting either MSL or M2020 in the upper left. Then, <i>either</i>:
+        <li> Start by selecting either Perseverance, Ingenuity, or Curiosity in the upper left. Then, <i>either</i>:
           <ul>
             <li>click "Latest 25 images" to retrieve the latest <i>downlinked</i> images,</li>
             <li><i>or</i> click "Current Sol" to retrieve images (if available) for the current sol,</li>
@@ -211,6 +211,7 @@ pre {
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl">##PAGE_ADDR##?msl</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020">##PAGE_ADDR##?mars2020</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest">##PAGE_ADDR##?mars2020&latest</a>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?ingenuity&latest">##PAGE_ADDR##?ingenuity&latest</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000">##PAGE_ADDR##?msl&sol3000</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000&camera=HAZ">##PAGE_ADDR##?msl&sol3000&camera=haz</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches hazcam images)</gray>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3052&filter=rhaz00311">##PAGE_ADDR##?msl&sol3052&filter=rhaz00311</a>&nbsp;&nbsp;&nbsp;<gray>(fetches images from specific sequence)</gray>
@@ -243,9 +244,9 @@ pre {
       <div style="display: block; margin: 6px 0px"">
         Mission:&nbsp;&nbsp;
         <select name="selectMission" id="selectMission" onchange='setMission(selectMission.value)'>
-          <option value="mars2020" selected>Mars 2020</option>
-          <option value="msl">MSL</option>
+          <option value="mars2020" selected>Perseverance</option>
           <option value="ingenuity">Ingenuity</option>
+          <option value="msl">Curiosity</option>
         </select>
       </div>
       
@@ -374,6 +375,7 @@ var urlParams = {
 var missionFullName = {
   msl: "MSL",
   mars2020: "Mars 2020",
+  ingenuity: "Ingenuity",
 };
 
 const earthDaysPerMarsDay = 1.02749125;
@@ -455,6 +457,9 @@ function parseUrl(){
       } else if(val=="mars2020" || val=="m2020" || val=="perseverance"){
         urlParams.mission = "mars2020"
         setMission("mars2020");
+      } else if(val=="ingenuity"){
+        urlParams.mission = "ingenuity"
+        setMission("ingenuity");
       } else {
         console.log("unrecognized mission name:  " + val);
         return;
@@ -465,6 +470,9 @@ function parseUrl(){
     } else if(key=="mars2020" || key=="m2020" || key=="perseverance"){
       urlParams.mission = "mars2020";
       setMission("mars2020");
+    } else if(key=="ingenuity"){
+      urlParams.mission = "ingenuity";
+      setMission("ingenuity");
     } else if(key=="latest"){
       console.log("LATEST");
       urlParams.sol = "latest";
@@ -518,7 +526,7 @@ function parseUrl(){
     }
   }
 
-  if(urlParams.mission=="msl" || urlParams.mission=="mars2020"){
+  if(urlParams.mission=="msl" || urlParams.mission=="mars2020" || urlParams.mission=="ingenuity"){
     if(urlParams.sol=="latest" /*|| urlParams.sol==""*/){
       getLatest();
     } else if( (/^[0-9]+$/).test(urlParams.sol)){
@@ -722,7 +730,7 @@ function imageQuery(mission, sol){
   // Get full-frame still frames:
   var rss_url = base_url + '&condition_2=' + sol + ':sol:gte&condition_3=' + sol + ':sol:lte&num=' + images_per_page;
   console.log("Getting full-frame still frames");
-  getPaginatedFrames(rss_url + (mission=="mars2020" ? '&extended=sample_type::full' : ''), function(){
+  getPaginatedFrames(rss_url + (mission=="mars2020" || mission=="ingenuity" ? '&extended=sample_type::full' : ''), function(){
   
     // Get thumbnail still frames:
     console.log("Getting thumbnail still frames");
@@ -1160,7 +1168,7 @@ function currentMarsTime(){
   if(mission=="msl"){
     var msd_landing = 49268;
     var lat_degW = 222.6;  
-  } else if(mission=="mars2020") {
+  } else if(mission=="mars2020" || mission=="ingenuity") {
     var msd_landing = 52303;
     var lat_degW = 282.5;
   } else return {};
