@@ -71,9 +71,9 @@ export class XRTeleportControls extends EventDispatcher {
 		this.samples = 25;
 		this.minControllerAngle = 60;
 		this.maxControllerAngle = 120;
-		this.maxDistance = 7.5;
-		this.minDistance = .2;
-		this.castHeight = 3;
+		this.maxDistance = 20;
+		this.minDistance = .1;
+		this.castHeight = 6;
 
 		this._selectStartCallback = () => {
 

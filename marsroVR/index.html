@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Mars roVR</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+    body {
+      margin: 0;
+      overscroll-behavior: none;
+      font-family: Monospace;
+    }    
+    
+    #webgl {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: -1;
+    }
+    </style>
+	</head>
+	<body>
+    <div id="webgl"></div>
+
+  
+		<script type="module">
+
+			import * as THREE from '../rover3d/js/three.module.js';
+			import { VRButton } from '../rover3d/js/VRButton.js';
+			import { HTMLMesh } from '../rover3d/js/HTMLMesh.js';
+			import { InteractiveGroup } from '../rover3d/js/InteractiveGroup.js';
+			import { XRControllerModelFactory } from '../rover3d/js/XRControllerModelFactory.js';
+			import { GUI } from '../rover3d/js/dat.gui.module.js';
+      import { rover } from '../rover3d/js/Rover.js';
+      import { terrain } from '../rover3d/js/MarsTerrain.js';
+      import { sky } from '../rover3d/js/MarsSky.js';
+
+			let camera, scene, renderer;
+
+      let world, UP, NORTH;
+      let sphere;
+
+      let controller = [];
+      let controllerGrip = [];
+      let interactiveGroup;
+
+      let gui, guiMesh;
+      let raycaster;
+      let prevControlsState = [];
+      
+      let infoPanel = {};
+      let infoText = Array(40);
+
+      let deg2rad = Math.PI/180;
+      let rad2deg = 180/Math.PI;
+
+      window.rover = rover;
+      window.sky = sky;
+      window.terrain = terrain;
+      window.controller = controller;
+      window.THREE = THREE;
+      
+
+      const clock = new THREE.Clock();
+      
+
+      let options = {
+        tools: {},
+        scene: {
+          surfaceColor:  0xaf9681,
+          showHaze:   true,
+          fogDist:    14000,
+          fogColor:   0xa7886e,
+          exposure: 0.4,
+        },
+        pose: {
+          arm: "STOW",
+          hga: "READY",
+          rsm: "STRAIGHT",
+          mob: "STRAIGHT",
+        },
+        attitude: {
+          roll: 0,
+          pitch: 0,
+          yaw: 180,
+          height: -0.01,
+          vecTerrainNormal: new THREE.Vector3(0,1,0),
+        },
+        sky: {
+					turbidity:          1.0,
+					rayleigh:           0.01,
+					mieCoefficient:     0.0003,
+					mieDirectionalG:    0.9,
+          diffuseLightColor:  0xffe7d3,
+          diffuseLightIntensity: 0.25,
+          diffuseLightMaxIntensity: 0.25,
+        },
+        sun: {
+          az: -90, 
+          el: 45, 
+          dist: 20000, 
+          x:0, 
+          y:0, 
+          z:0, 
+          intensity:     0.75,
+          lightColor:    0xffe2b7,
+          maxIntensity:  0.6,
+          minLightFraction: 0.01,  //light intensity with sun at zero el
+          maxElQuadraticLight: 15, //deg below which light falls off quadratically
+        }
+      };
+      window.options = options;
+
+
+			init();
+			animate();
+
+			function init() {
+
+				scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(options.scene.fogColor, 0.1, options.scene.showHaze ? options.scene.fogDist : 0 );
+        window.scene = scene;
+
+        world = new THREE.Group();
+        UP = new THREE.Vector3(0,1,0);
+        NORTH = new THREE.Vector3(0,0,-1);
+        scene.add(world);
+        window.world = world;
+
+
+				camera = new THREE.PerspectiveCamera( 80, window.innerWidth / window.innerHeight, 0.1, 20000 );
+				camera.position.set( 0, 1.6, 1.5 );
+        window.camera = camera;
+
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.autoClear = false;
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; //
+				renderer.outputEncoding = THREE.sRGBEncoding; //
+				renderer.toneMapping = THREE.ACESFilmicToneMapping; //
+				renderer.xr.enabled = true;
+        renderer.toneMappingExposure = options.scene.exposure;
+				document.getElementById('webgl').appendChild( renderer.domElement );
+        window.renderer = renderer;
+
+
+        
+        const vrButton = VRButton.createButton( renderer );
+        window.vrButton = vrButton;
+				document.body.appendChild( vrButton );
+        
+        
+        // Catch the first click, load audio, then destroy the listener:
+        const onFirstClick = function() {
+          console.log("first click, loading audio");
+          rover.audio.load('../rover3d/data', camera);
+          document.body.removeEventListener('click', onFirstClick);
+        }
+        document.body.addEventListener('click', onFirstClick);
+        
+
+				window.addEventListener( 'resize', onWindowResize );
+
+				//////// SETUP WORLD
+        
+        rover.load( '../rover3d/model/Perseverance.glb' , UP, NORTH, function(){
+          //if(terrain.highResMesh) rover.attitude.projectToSurface(); // repositions rover onto terrain
+          sky.sun.light1.target = rover.model; //attach narrow sunlight to rover for fine scale shadows
+          
+          // Go to initial poses:
+          ["arm", "rsm", "hga", "mob"].forEach(function(jointGroupName){     
+            rover.goToPose(jointGroupName, options.pose[jointGroupName]);
+          });
+
+          rover.model.position.set(0,0,-2.2);
+          rover.attitude.set({yaw: options.attitude.yaw*deg2rad});
+          
+          world.add(rover.model);
+          if(terrain.highResMesh) rover.drive.surface = terrain.highResMesh;
+        });
+
+
+
+        sky.load(scene, {up: new THREE.Vector3(0,1,0)});
+        sky.placeSun(options.sun, options.scene.surfaceColor);
+       
+        
+        // Build high-res terrain, initially as monolithic mesh, then break it up into chunks:
+        terrain.load({
+          urlHeightMap:  '../rover3d/images/Jezero_MOLA_16bit_v2cm_h4m.tif',
+          textureImage:  '../rover3d/images/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120_crop32768_rescale2m_color.jpg',
+          hscale:   4,     // m/px
+          vscale:   0.02,  // m/dn
+          offset:   new THREE.Vector3(-1165, -240.17, -874),
+          rotation: new THREE.Vector3(-1*Math.PI/2, 0, 0),
+          color:    options.scene.surfaceColor,
+          onload: function(mastermesh){
+            terrain.createChunks(mastermesh, 16, 16, function(chunks){
+              console.log("loaded terrain");
+              terrain.highResMesh = chunks;
+              terrain.highResMesh.name = "high-res-terrain";
+              world.add(terrain.highResMesh);
+              sky.sun.light2.target = terrain.highResMesh;
+              renderer.shadowMap.needsUpdate = true;
+              if(rover.model) rover.drive.surface = terrain.highResMesh;
+            });
+            //var vnh = new VertexNormalsHelper( terrain, 1 );
+            //world.add( vnh );
+          }
+        });
+        
+        
+        // Build low-res terrain:
+        terrain.load({
+          urlHeightMap: '../rover3d/images/JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_rescale60m.tif',  // must be 16-bit grayscale tif
+          hscale:   60 /**0.96*/,    // m/px
+          vscale:   6,  // m/dn
+          offset:   new THREE.Vector3(-1265, -300, -1300),
+          rotation: new THREE.Vector3(-1*Math.PI/2, 0, 0),
+          color:    options.scene.surfaceColor,
+          onload: function(mesh){
+            console.log("loaded low-res terrain");
+            terrain.lowResMesh = mesh;
+            terrain.lowResMesh.name = "low-res-terrain";
+            terrain.lowResMesh.material = new THREE.MeshBasicMaterial({
+              color: options.scene.surfaceColor,
+              reflectivity: 0.1,
+              map:  new THREE.TextureLoader().load('../rover3d/images/JCowart_color_mosaic.jpg', function(){
+                console.log("done loading low-res terrain texture");
+                world.add(mesh);
+                //var vnh = new VertexNormalsHelper(mesh, 1 );
+                //scene.add( vnh );              
+              })
+            });
+          }
+        });
+        
+
+        //////// SETUP CONTROLLERS
+        
+				const controllerRayGeometry = new THREE.BufferGeometry();
+				controllerRayGeometry.setFromPoints( [ new THREE.Vector3( 0, 0, 0 ), new THREE.Vector3( 0, 0, -500 ) ] );
+
+				const controllerModelFactory = new XRControllerModelFactory();
+
+        [0, 1].forEach(function(idx){
+          const newController = renderer.xr.getController( idx );
+          if(newController){
+            controller[idx] = newController;
+            controller[idx].add( new THREE.Line( controllerRayGeometry ) );
+            controller[idx].addEventListener( 'connected', (e) => {
+              controller[idx].gamepad = e.data.gamepad;
+              controller[idx].buttonState = controller[idx].gamepad.buttons.map(function(btn) { return btn.value; });
+              scene.add( controller[idx] );
+              
+              controllerGrip[idx] = renderer.xr.getControllerGrip( idx );
+              controllerGrip[idx].add( controllerModelFactory.createControllerModel( controllerGrip[idx] ) );
+              scene.add( controllerGrip[idx] );
+            });
+            controller[idx].addEventListener( 'pressed', function(e){controllerEvent(e, idx)} );
+            controller[idx].addEventListener( 'released', function(e){controllerEvent(e, idx)} );
+            controller[idx].addEventListener( 'axis-pressed', function(e){controllerEvent(e, idx)} );
+            controller[idx].addEventListener( 'axis-released', function(e){controllerEvent(e, idx)} );
+            controller[idx].addEventListener( 'selectstart', function(e){controllerEvent(e, idx)} );
+            controller[idx].addEventListener( 'selectend', function(e){controllerEvent(e, idx)} );
+            controller[idx].addEventListener( 'squeezestart', function(e){controllerEvent(e, idx)} );
+            controller[idx].addEventListener( 'squeezeend', function(e){controllerEvent(e, idx)} );
+          }
+        });
+
+
+        raycaster = new THREE.Raycaster(new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1), 0.1, 4000);
+
+
+        sphere = new THREE.Mesh( new THREE.SphereGeometry( 0.25, 32, 32 ), new THREE.MeshBasicMaterial( {color: 0xffff00}) );
+        world.add( sphere );
+        
+        
+
+
+				///////// SETUP GUI
+				gui = new GUI( { width: 300 } );
+        window.gui = gui;
+        
+        var folder = {};
+
+        folder.scene = gui.addFolder('Scene');
+        folder.scene.add(options.sun, 'az', -179.9, 180.1).listen().name("Sun azimuth").onChange(function(){
+          sky.placeSun(options.sun);
+        });
+        folder.scene.add(options.sun, 'el', -1, 182).listen().name("Sun elevation").onChange(function(){sky.placeSun(options.sun)});
+        folder.scene.add(options.sun, 'intensity', 0.001, 0.999).listen().name("Sunlight intensity").onChange(function(val){
+          sky.sun.light1.intensity = val;
+          sky.sun.light2.intensity = val;
+        });
+        folder.scene.add(sky.diffuseLight, 'intensity', 0.001, 0.999).listen().name("Diffuse light").onChange(function(){sky.placeSun(options.sun)});
+        folder.scene.add(options.scene, 'exposure', 0.1, 1).name("Brightness").onChange(function(val){renderer.toneMappingExposure=val;});
+
+        folder.scene.open();
+
+
+        folder.rover = gui.addFolder('Rover');        
+        folder.rover.open();
+        folder.rover.add(options.attitude, 'yaw', -360, 360).name("Yaw").onChange(function(yaw){ rover.attitude.settle(options.attitude.vecTerrainNormal, yaw*deg2rad) });
+        
+        folder.drive = folder.rover.addFolder('Drive');
+        folder.drive.open();
+        folder.drive.add(rover.drive, 'turnRate', -180, 180).name("Turn Rate (deg/m)").listen().onChange(rover.drive.setSteering);
+        folder.drive.add(rover.drive, 'speedRatio', -1*rover.drive.maxSpeedRatio, rover.drive.maxSpeedRatio).name("Speed x").listen().onChange(rover.drive.setSpeed);
+        
+        /*
+        folder.attitude = folder.rover.addFolder('Attitude');
+        folder.attitude.add(options.attitude, 'roll', -40, 40).listen().name("Roll").onChange(tiltRover);
+        folder.attitude.add(options.attitude, 'pitch', -40, 40).listen().name("Pitch").onChange(tiltRover);
+        folder.attitude.add(options.attitude, 'yaw', -370, 370).listen().name("Heading").onChange(changeHeading);
+        folder.attitude.add(options.attitude, 'height', -3.0, 3.0).listen().name("Height").onChange(liftRover);
+        */
+
+        // make GUI folder for each joint group:
+        ["arm", "rsm", "hga", "mob"].forEach(function(jointGroupName){
+          folder[jointGroupName] = folder.rover.addFolder(rover.jointGroupLongNames[jointGroupName]);
+          folder[jointGroupName].open();
+          
+          // add joint control for each joint:
+          rover.jointNames[jointGroupName].forEach(function(jointName){
+            //console.log(jointName);
+            var joint = rover.joints[jointGroupName][jointName];
+            rover.joints[jointGroupName][jointName].gui = folder[jointGroupName].add(joint, 'angle', joint.min, joint.max)
+              .listen()
+              .name(joint.name)
+              .onChange(function(val){
+                rover.setJoint(jointGroupName, jointName, val); 
+              });
+          });
+        });
+
+        // make arm stow/unstow button
+        folder.arm.add({add:function(){
+          clock.getDelta();  // update clock since previous frame may have been a long time ago
+          if(rover.arm.stowed){
+            rover.arm.planSequence("READY_OUT");
+            gui.__folders.Rover.__folders["Robotic Arm"].__controllers[5].__li.firstElementChild.firstElementChild.innerHTML = "Stow Arm";
+          } else {
+            rover.arm.planSequence("STOW");
+            gui.__folders.Rover.__folders["Robotic Arm"].__controllers[5].__li.firstElementChild.firstElementChild.innerHTML = "Unstow Arm"
+          }
+          if(!rover.audio.started) rover.audio.load('../rover3d/data', camera);
+        }},'add').name("Unstow Arm");
+
+
+				gui.domElement.style.visibility = 'hidden';
+
+				interactiveGroup = new InteractiveGroup( renderer, camera );
+        interactiveGroup.name = "interactive_group";
+				scene.add( interactiveGroup );
+
+				guiMesh = new HTMLMesh( gui.domElement );
+        guiMesh.name = "gui_mesh";
+        guiMesh.material.transparent = true;
+        guiMesh.material.opacity = 0.5;
+				guiMesh.position.set(-3, 3, -3);
+				guiMesh.rotation.y = Math.PI / 4;
+				guiMesh.scale.setScalar( 6 );
+        guiMesh.toggleVisibility = function(){
+          guiMesh.material.visible = !guiMesh.material.visible;
+        }
+				interactiveGroup.add( guiMesh );
+        
+
+        infoPanel.geometry = new THREE.PlaneGeometry( 2, 2 );
+        infoPanel.canvas = document.createElement("canvas");
+        infoPanel.canvas.width = 600;
+        infoPanel.canvas.height = 600;
+        infoPanel.ctx = infoPanel.canvas.getContext("2d");
+        infoPanel.lineheight = 15;
+        infoPanel.ctx.font = "" + infoPanel.lineheight + "px monospace";
+        infoPanel.texture = new THREE.CanvasTexture(infoPanel.canvas);
+        infoPanel.material = new THREE.MeshBasicMaterial( { map: infoPanel.texture, transparent: true } );
+        infoPanel.panel = new THREE.Mesh( infoPanel.geometry, infoPanel.material );
+        infoPanel.panel.name = "info_panel";
+				infoPanel.panel.position.set(0, 2.5, -6);
+				infoPanel.panel.rotation.x = Math.PI / 6;
+				infoPanel.panel.scale.setScalar( 2 );
+				scene.add( infoPanel.panel );
+        
+        infoPanel.write = function(txt){
+          infoPanel.ctx.clearRect(0, 0, infoPanel.canvas.width, infoPanel.canvas.height);  // Clear
+          infoPanel.ctx.fillStyle = "white";  // font color
+          var lines = txt.split('\n');
+          // append lines to info log
+          for(const line of lines) {
+            infoText.unshift(line);
+          }
+          // display full info log
+          for(var j=0; j<infoText.length; j++){
+            infoPanel.ctx.fillText( (infoText[j]||''), 10, 30 + (j*infoPanel.lineheight) );
+          }
+          infoPanel.texture.needsUpdate = true;
+        };
+        window.infoPanel = infoPanel;
+	
+			}
+
+
+
+
+      ///////////////////////////////
+
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+
+			function animate() {
+				renderer.setAnimationLoop( render );
+			}
+
+
+
+			function render() {        
+        const secondsElapsed = clock.getDelta();  //needed for animations        
+        rover.update(secondsElapsed);
+				renderer.render( scene, camera );
+
+        checkController(0);
+        checkController(1);
+			}
+
+
+      //////////////////////////////////////////////
+      
+      function controllerEvent(e, idx){
+        const infoTxt = "controller " + idx + " event: " + e.type /*+ '\n' + JSON.stringify(e, null, '\t')*/;
+        infoPanel.write(infoTxt);
+        console.log("controller event: " + e.type);
+        console.log(e);
+        
+        if(e.type=="selectend" && terrain.highResMesh){
+          infoPanel.write("Checking for intersection");
+          const tempMatrix = new THREE.Matrix4();
+          tempMatrix.identity().extractRotation(controller[idx].matrixWorld);
+          raycaster.ray.origin.setFromMatrixPosition(controller[idx].matrixWorld);
+          raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+          // first check if intersects interactive group (GUI)
+          const intersectionsGui = raycaster.intersectObjects( interactiveGroup.children, true );
+          const hitGui = (intersectionsGui.length>0);
+          if(!guiMesh.material.visible || !hitGui){
+            // then check for terrain intersection:
+            const intersections = raycaster.intersectObjects( world.children, true );
+            if (intersections.length) {
+              console.log(intersections[0]);
+              world.position.sub(intersections[0].point);
+              world.updateMatrixWorld();
+            } else {
+              console.log("no intersection");
+              infoPanel.write("no intersection");
+            }
+          }
+        }
+        
+        if(e.type=="squeezeend" && terrain.highResMesh){
+          infoPanel.write("Checking for intersection");
+          const tempMatrix = new THREE.Matrix4();
+          tempMatrix.identity().extractRotation(controller[idx].matrixWorld);
+          raycaster.ray.origin.setFromMatrixPosition(controller[idx].matrixWorld);
+          raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+          // first check if intersects interactive group (GUI)
+          const intersectionsGui = raycaster.intersectObjects( interactiveGroup.children, true );
+          const hitGui = (intersectionsGui.length>0);
+          if(!guiMesh.material.visible || !hitGui){
+            // then check for terrain intersection:
+            const intersections = raycaster.intersectObjects( terrain.highResMesh.children, true );
+            if (intersections.length) {
+              console.log(intersections[0]);
+              rover.model.position.copy(intersections[0].point).sub(world.position);
+              
+              const normalMatrix = new THREE.Matrix3().getNormalMatrix( intersections[0].object.matrixWorld );        
+              options.attitude.vecTerrainNormal = intersections[0].face.normal.clone().applyMatrix3( normalMatrix ).normalize();  // normal vector to local terrain
+              rover.attitude.settle(options.attitude.vecTerrainNormal);
+            } else {
+              console.log("no intersection");
+              infoPanel.write("no intersection");
+            }
+          }
+        }
+      }
+      
+      
+      function checkController(idxController){
+        if(controller[idxController].buttonState){
+          controller[idxController].prevButtonsState = controller[idxController].buttonState.slice();
+          controller[idxController].buttonState = controller[idxController].gamepad.buttons.map(function(btn) { return btn.value; });
+          //console.log(controller[idxController].buttonState);
+          for(var idxButton=0; idxButton<controller[idxController].gamepad.buttons.length; idxButton++){
+            //buttonsVals += controller[idxController].buttonState[idxButton].value + "(" + controller[idxController].prevButtonsState[idxButton].value + ") ";
+            if(controller[idxController].buttonState[idxButton] != controller[idxController].prevButtonsState[idxButton]){
+              console.log("controller " + idxController + " button " + idxButton + " state changed to " + controller[idxController].buttonState[idxButton]);
+              infoPanel.write("controller " + idxController + " button " + idxButton + " state changed to " + controller[idxController].buttonState[idxButton]);
+              
+              // do things on button release:
+              if(controller[idxController].buttonState[idxButton]==0){
+                switch(idxButton){
+                  case 5:    guiMesh.toggleVisibility();      break;
+                  case 4:    infoPanel.materal.visible = !infoPanel.material.visible;   break;
+                }
+              }              
+            }
+          }
+          //console.log(buttonsVals);
+        }
+      }
+      
+      
+		</script>
+	</body>
+</html>

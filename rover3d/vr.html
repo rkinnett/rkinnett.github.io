@@ -226,7 +226,6 @@
 
     <script src="js/dat.gui.min.js"></script>
     <script src="js/decode-tiff.min.js"></script>
-    <script src="js/routes.js"></script>
 
 
 
@@ -240,11 +239,13 @@
       import { Reflector } from './js/Reflector.js';
 			import { VertexNormalsHelper } from './js/VertexNormalsHelper.js';
       import { VRButton } from './js/VRButton.js';
-			import { XRControllerModelFactory } from './js/XRControllerModelFactory.js';
-			import { InteractiveGroup } from './js/InteractiveGroup.js';
       import { XRGamepad } from './js/XRGamepad.js';
       import { ActiveXRGamepad } from './js/ActiveXRGamepad.js';
       import { XRTeleportControls } from './js/XRTeleportControls.js';
+			import { InteractiveGroup } from './js/InteractiveGroup.js';
+			import { HTMLMesh } from './js/HTMLMesh.js';
+			import { XRControllerModelFactory } from './js/XRControllerModelFactory.js';
+
 
       window.THREE = THREE;
       
@@ -267,8 +268,6 @@
       let timeout;
       let lastTap = 0;
       
-      let ismobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      console.log("is mobile? " + ismobile);
       
       let deg2rad = Math.PI/180;
       let rad2deg = 180/Math.PI;
@@ -573,29 +572,33 @@
         scene.fog = new THREE.Fog(options["scene"].fogColor, 0.1, options["scene"].showHaze ? options["scene"].fogDist : 0 );
         //scene.background = new THREE.Color( options.skyColor );
 
-        const group = new InteractiveGroup( renderer, camera );
-				scene.add( group );  
 
         vrworkspace = new THREE.Group();
-        vrworkspace.position.set(0,2,0);
-        vrworkspace.rotation.set(-Math.PI/2,0,0,'XYZ');
+        vrworkspace.position.set(0,0,0);
+        //vrworkspace.rotation.set(-Math.PI/2,0,0,'XYZ');
         scene.add( vrworkspace );
-        window.vrworksapce = vrworkspace;
+        window.vrworkspace = vrworkspace;
 
 
-				camera = new THREE.PerspectiveCamera( options["camera"].fov, window.innerWidth / window.innerHeight, 0.1, 20000 );
+				//camera = new THREE.PerspectiveCamera( options["camera"].fov, window.innerWidth / window.innerHeight, 0.1, 20000 );
+				camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 10 );
+				//camera.position.set( 2, 1.6, 2 );
+        camera.position.set( 0, 1.5, 0);
+        
         //camera.up.set( 0, 0, -1 );
         //camera.lookAt(0,0,-1.5);
 				//camera.position.set( 3.6, -0.1, -0.65 );
         //camera.position.set( 3.6, 0, -0.65 );
         //camera.position.set( 4, 2, -1.4 );
-        //camera.position.set( -2, 10, -4 );
+        //camera.position.set( 4, 2, 4 );
+
         vrworkspace.add(camera);
         window.camera = camera;
                         
 
 
         // VR Controllers:
+        /*
         const controller0 = new XRGamepad( renderer.xr, 0 );
         const controller1 = new XRGamepad( renderer.xr, 1 );
         vrworkspace.add( controller0, controller1 );
@@ -608,62 +611,38 @@
             workspace.rotation.y += angle;
 
             const cameraPosition = new Vector3();
-            const upVector = new Vector3( 0, 0, -1 );
-            cameraPosition.set( -2, 10, -4 ).applyMatrix4( camera.matrixWorld );
+            const upVector = new Vector3(0, 1, 0);
+            cameraPosition.set(0, 0, 0).applyMatrix4( camera.matrixWorld );
             workspace.position.sub( cameraPosition ).applyAxisAngle( upVector, angle ).add( cameraPosition );
           }
         });
         vrworkspace.add( activeController );
-
-
-        // Make Controls:
-        //controls = new MapControls( camera, renderer.domElement );
-        /*
-				controls = new OrbitControls( camera, renderer.domElement );
-				//controls.addEventListener( 'change', requestRenderIfNotRequested ); // use if there is no animation loop
-        //controls.mouseButtons = { ORBIT: THREE.MOUSE.LEFT, ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
-        //controls.mouseButtons = { ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
-        controls.mouseButtons = {LEFT: 0, MIDDLE: 1, RIGHT: 2};
-        //controls.enableKeys = true;
-        controls.enableKeys = false;
-        //controls.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
-        controls.keys = { LEFT: 0, RIGHT: 0, UP: 0, BOTTOM: 0 }; //disables keys
-        controls.touches = {ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN};
-				controls.minDistance = 0.1;
-				controls.listenToKeyEvents( window );
-				controls.maxDistance = 8000;
-        controls.screenSpacePanning = true;
-        controls.enableDamping = false;
-				controls.target.set( 0, 0, -1 );
-        window.controls = controls;
         */
         
+				const pointergeometry = new THREE.BufferGeometry();
+				pointergeometry.setFromPoints( [ new THREE.Vector3( 0, 0, 0 ), new THREE.Vector3( 0, 0, - 10 ) ] );
+
+				const controller1 = renderer.xr.getController( 0 );
+				controller1.add( new THREE.Line( pointergeometry ) );
+				scene.add( controller1 );
+
+				const controller2 = renderer.xr.getController( 1 );
+				controller2.add( new THREE.Line( pointergeometry ) );
+				scene.add( controller2 );
         
-        // make compass inset:
-        /*
-        makeCompass();
-        compass.visible = options["tools"].showCompass;
-        */
+				const controllerModelFactory = new XRControllerModelFactory();
+
+				const controllerGrip1 = renderer.xr.getControllerGrip( 0 );
+				controllerGrip1.add( controllerModelFactory.createControllerModel( controllerGrip1 ) );
+				scene.add( controllerGrip1 );
+
+				const controllerGrip2 = renderer.xr.getControllerGrip( 1 );
+				controllerGrip2.add( controllerModelFactory.createControllerModel( controllerGrip2 ) );
+				scene.add( controllerGrip2 );
+        window.controllerGrip1 = controllerGrip1;
+        window.controllerGrip2 = controllerGrip2;
 
 
-
-        // Make RMI mirror:
-        // to-do:  vertically invert the reflection
-        mirrorCamera = new THREE.PerspectiveCamera( 8, window.innerWidth / window.innerHeight, 0.1, 1000 );
-        window.mirrorCamera = mirrorCamera;
-        mirrorCamera.rotation.y = -1*Math.PI/2;
-        scene.add( mirrorCamera );
-        //const helper = new THREE.CameraHelper( mirrorCamera );  //handy for debugging
-        //scene.add( helper );
-        var mirrorGeom = new THREE.CircleGeometry( 0.07, 32 );
-				mirror = new Reflector( mirrorGeom, {
-					clipBias: 0.003,
-					textureWidth: window.innerWidth * window.devicePixelRatio,
-					textureHeight: window.innerHeight * window.devicePixelRatio,
-					color: 0xaaaa66,
-				} );
-        mirror.rotation.y = -1*Math.PI/2;
-        
 
 				// Add Sky
 				sky = new Sky();
@@ -673,7 +652,7 @@
         uniforms.rayleigh.value         = options.sky.rayleigh;
         uniforms.mieCoefficient.value   = options.sky.mieCoefficient;
         uniforms.mieDirectionalG.value  = options.sky.mieDirectionalG;
-        uniforms.up.value               = new THREE.Vector3(0, 0, -1);
+        uniforms.up.value               = new THREE.Vector3(0, 1, 0);
 				scene.add( sky );
 
 
@@ -705,7 +684,7 @@
         sun.light2.shadow.camera.bottom = -4000;
         sun.light2.shadow.camera.left = -4000;
         sun.light2.shadow.camera.right = 4000;
-        if(!ismobile) sun.lights.add( sun.light2 );
+        /*if(!ismobile)*/ sun.lights.add( sun.light2 );
         
         //Create a helper for the shadow camera
         //const helper = new THREE.CameraHelper( sun.light1.shadow.camera );
@@ -720,19 +699,6 @@
         
         placeSun();
         
-        // Make lens flares:
-        const textureLoader = new THREE.TextureLoader();
-        const textureFlare0 = textureLoader.load( "./images/lensflare0.png" );
-        const textureFlare1 = textureLoader.load( "./images/lensflare2.png" );
-        const textureFlare2 = textureLoader.load( "./images/lensflare3.png" );
-        const lensflare = new Lensflare();
-        //lensflare.addElement( new LensflareElement( textureFlare0, 88, 0 ) );
-        //lensflare.addElement( new LensflareElement( textureFlare1, 120, 0 ) );
-        lensflare.addElement( new LensflareElement( textureFlare2, 80,  0 ) );
-        lensflare.addElement( new LensflareElement( textureFlare2, 200, 0.1 ) );
-        lensflare.addElement( new LensflareElement( textureFlare2, 120, 0.15 ) );
-        //sun.lights.add( lensflare );
-
 
 
         terrainMatl = new THREE.MeshPhongMaterial({
@@ -747,28 +713,31 @@
           urlHeightMap: 'images/Jezero_MOLA_16bit_v2cm_h' + options["scene"].terrainHscale + 'm.tif',  // must be 16-bit grayscale tif
           hscale:   options["scene"].terrainHscale,    // m/px
           vscale:   options["scene"].terrainVscale,  // m/px
-          offset:   new THREE.Vector3(875, -1165, 240.14),
-          rotation: new THREE.Vector3(-1*Math.PI, 0, -1*Math.PI/2),
+          //offset:   new THREE.Vector3(875, -1165, 240.14),
+          offset:   new THREE.Vector3(-1165, -253.4, 875),
+          //rotation: new THREE.Vector3(-1*Math.PI, 0, -1*Math.PI/2),
+          rotation: new THREE.Vector3(-1*Math.PI/2, 0, 0),
           onload: function(mastermesh){
             mastermesh.material = terrainMatl;
             setTerrainTexture(options["scene"].terrainTextureResolution, function(){
               //scene.add(terrain);
               //requestRenderIfNotRequested();
               
-              createTerrainChunks(mastermesh, 32, 32, function(chunks){
+              createTerrainChunks(mastermesh, 16, 16, function(chunks){
                 //scene.add(chunks);
                 console.log("loaded terrain");
                 terrain = chunks;
-                terrain.children.forEach(function(chunk){
-                  group.add( chunk );
-                });
+                scene.add(terrain);
+                
+                //teleportControls = new XRTeleportControls( activeController, vrworkspace, terrain );
+                ///teleportControls.arc.material.color.set( 0x009688 );
+                //scene.add( teleportControls.arc );
+        
+                //terrain.add(chunks);
+
                 sun.light2.target = terrain;
                 window.terrain = terrain;
-                
-                teleportControls = new XRTeleportControls( activeController, vrworkspace, terrain );
-                teleportControls.arc.material.color.set( 0x009688 );
-                scene.add( teleportControls.arc );
-                
+                                
                 if(rover) projectRoverToSurface();
               });
               //var vnh = new VertexNormalsHelper( terrain, 1 );
@@ -783,13 +752,15 @@
           urlHeightMap: 'images/JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_rescale60m.tif',  // must be 16-bit grayscale tif
           hscale:   60*0.96,    // m/px
           vscale:   6,  // m/dn
-          offset:   new THREE.Vector3(1300, -1300, 250),
-          rotation: new THREE.Vector3(-1*Math.PI, 0, -1*Math.PI/2),
+          offset:   new THREE.Vector3(-1165, -310, 875),
+          //rotation: new THREE.Vector3(-1*Math.PI, 0, -1*Math.PI/2),
+          rotation: new THREE.Vector3(-1*Math.PI/2, 0, 0),
           color:    options["scene"].surfaceColor,
           onload: function(mesh){
             console.log("loaded low-res terrain");
             terrain2 = mesh;
-            window.terrain2 = mesh;
+            window.terrain2 = terrain2;
+            
             mesh.name = "low-res terrain";
             mesh.material = new THREE.MeshBasicMaterial({
               color: options["scene"].surfaceColor,
@@ -807,52 +778,13 @@
         
         
 
-        // Make coordinate frame axes:
-        roverNavCoordFrameAxes = createCoordAxes(scene, 0.5, "rnav");
-        roverNavCoordFrameAxes.visible = options["tools"].showRnavCoordFrame;
-        
-        // Make ruler:
-        let rulerGroup = new THREE.Group();
-        rulerGroup.name = "ruler";
-        ruler = {
-          pos0: new THREE.Vector3(0,0,0),
-          pos1: new THREE.Vector3(0,0,0),
-          pin0: makePin(new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1), 0.25, 0.01, 0x00ffff, function(pin){rulerGroup.add(pin)}),
-          pin1: makePin(new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1), 0.25, 0.01, 0x00ffff, function(pin){rulerGroup.add(pin)}),
-          line: new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color: 0x66ddff}) ),
-          measurement: {
-            length: "m",
-            vertical: "m",
-            horizontal:  "m",
-            bearing:  "deg",
-          }
-        }        
-        ruler.pin0.visible = false;
-        ruler.pin1.visible = false;
-        ruler.line.visible = false;
-        ruler.line.frustumCulled = false;
-        ruler.line.material.depthTest = false;
-        rulerGroup.add(ruler.line);
-        scene.add(rulerGroup);
-        window.ruler = ruler;
-
-        routes = new THREE.Group();
-        routes.name = "routes";
-        makeRoute(route[0], 0x66ddff);
-        makeRoute(route[1], 0x0000ff);
-        makeRoute(route[2], 0xffff00);
-        routes.position.set(0,0,-1);
-        routes.visible = options["tools"].showStrategicRoute;
-        scene.add(routes);
-
-
+   
         makeGUI();
         
 
         loadRover(function(){
-          rover.attach(roverNavCoordFrameAxes);
-          if(terrain) projectRoverToSurface(); // repositions rover onto terrain
-          tiltRover(); //matches rover tilt to local terrain
+          //if(terrain) projectRoverToSurface(); // repositions rover onto terrain
+          //tiltRover(); //matches rover tilt to local terrain
           sun.light1.target = rover; //attach narrow sunlight to rover for fine scale shadows
           
           // Go to initial poses:
@@ -860,8 +792,9 @@
             goToPose(jointGroupName, options["pose"][jointGroupName]);
           });
 
-          //scene.add(rover);
-          group.add( rover );
+          rover.children[0].rotation.set(Math.PI/2,0,Math.PI/2,'XYZ');
+          rover.position.set(0,0,-4);
+          scene.add(rover);
 
           //requestRenderIfNotRequested();
         });
@@ -876,12 +809,9 @@
         window.addEventListener('keypress', checkKeypress, false );
         renderer.domElement.addEventListener('dblclick', doubleClickHandler, false);
 
-        document.addEventListener('mousemove', function(e){mouse.x = e.clientX; mouse.y = e.clientY;}, false); // cache mouse pos
+        //document.addEventListener('mousemove', function(e){mouse.x = e.clientX; mouse.y = e.clientY;}, false); // cache mouse pos
         window.mouse = mouse;
         
-        renderer.domElement.addEventListener('touchstart', onTouchStart);
-        renderer.domElement.addEventListener('touchend', onTouchEnd);
-        renderer.domElement.addEventListener('touchmove', onTouchMove);
 
         
         /* The following prevents browsers from interpreting pinch gestures as global zoom */
@@ -891,7 +821,7 @@
 			}
 
       function singleClickHandler(e){
-        checkWhatWasClicked(e, scene.children);
+        //checkWhatWasClicked(e, scene.children);
         if(!audio.started) loadAudio();
       }
 
@@ -942,11 +872,14 @@
 				render();
 			}
 
+
+
+
 			function render() {     
         //renderRequested = false;
         //updateCompass();
-        activeController.update();
-        teleportControls.update();
+        //if(activeController) activeController.update();
+        //if(teleportControls) teleportControls.update();
         
         const secondsElepased = clock.getDelta();
         if(drive.driving){
@@ -1169,7 +1102,8 @@
 
             console.log("resuming controls");
             controls.enabled = true;
-            controls.update();
+            activeController.update();
+            teleportControls.update();
             
           }, {once: true});
         }, {once: true});
@@ -1370,14 +1304,6 @@
             }
           } );
             
-          // Replace RMI mirror with mirror object
-          rover.getObjectByName("rmi_lens").add( mirrorCamera );
-          rmiMirror = rover.getObjectByName("rmi_mirror");
-          rmiMirror.material.opacity = 0;
-          var mirrorPos = new THREE.Vector3();
-          rmiMirror.getWorldPosition(mirrorPos);
-          mirror.position.copy(mirrorPos);
-          rmiMirror.attach(mirror);
           
           console.log(rover);
           
@@ -1524,7 +1450,7 @@
           terrainWireframe.geometry = terrainMesh.geometry;
           terrainWireframe.rotation.copy(terrainMesh.rotation);
           terrainWireframe.position.copy(terrainMesh.position);
-          terrainWireframe.position.z += -0.02;
+          terrainWireframe.position.y += +0.02;
           terrainMesh.attach(terrainWireframe);
 
         });
@@ -1763,8 +1689,8 @@
       function placeSun(){
         const minEl = -2;
         var sunX = options["sun"].dist * Math.cos(options["sun"].el * deg2rad) * Math.cos(options["sun"].az * deg2rad) ;
-        var sunY = options["sun"].dist * Math.cos(options["sun"].el * deg2rad) * Math.sin(options["sun"].az * deg2rad);
-        var sunZ = -1 * options["sun"].dist * Math.sin(Math.max(minEl,options["sun"].el) * deg2rad);
+        var sunZ = options["sun"].dist * Math.cos(options["sun"].el * deg2rad) * Math.sin(options["sun"].az * deg2rad);
+        var sunY = options["sun"].dist * Math.sin(Math.max(minEl,options["sun"].el) * deg2rad);
         sun.pos.set(sunX, sunY, sunZ);
         sun.lights.position.set(sunX, sunY, sunZ);
 				sky.material.uniforms[ "sunDirection" ].value.copy( sun.pos.normalize() );
@@ -1789,9 +1715,9 @@
 
       function tiltRover(){
         var newAttitude = new THREE.Vector3(
-          options["attitude"].roll*deg2rad,
           options["attitude"].pitch*deg2rad, 
           options["attitude"].yaw*deg2rad, 
+          options["attitude"].roll*deg2rad,
         );
         //console.log(newAttitude);
         rover.rotation.setFromVector3(newAttitude, 'ZYX');
@@ -1801,12 +1727,12 @@
       function changeHeading(){
         var matrix = new THREE.Matrix4();
         matrix.extractRotation( rover.matrix );
-        var roverZ = new THREE.Vector3(0,0,1).transformDirection(matrix);
+        var roverZ = new THREE.Vector3(0,-1,0).transformDirection(matrix);
         settleRover(roverZ.multiplyScalar(-1));
       }
       
       function liftRover(){
-        rover.position.z = -1*options["attitude"].height;
+        rover.position.y = -1*options["attitude"].height;
         //requestRenderIfNotRequested();
       }
 
@@ -1879,7 +1805,8 @@
         */
         camera.position.copy(oldCamPos.clone().add(vecOldTargetToNewTarget));
         controls.target.copy(newTargetPosition);
-        controls.update();
+        activeController.update();
+        teleportControls.update();
         //requestRenderIfNotRequested();
       }
 
@@ -1900,7 +1827,7 @@
         } else if(keyAscii) {
           switch (keyAscii) {
             case "g":  console.log("PLACE");     placeRover(mouseNow);  break;
-            case "h":  console.log("PLACE");     rover.position.set(0,0,0);  settleRover(new THREE.Vector3(0,0,-1)); /*requestRenderIfNotRequested();*/ break;
+            case "h":  console.log("PLACE");     rover.position.set(0,0,0);  settleRover(new THREE.Vector3(0,1,0)); /*requestRenderIfNotRequested();*/ break;
             case "r":  console.log("ROVER");     moveCameraToViewTarget(rover.position); break;
             case "t":  console.log("TOP");       break;
             case "f":  console.log("FOLLOW");    options["camera"].followRover = !options["camera"].followRover; break;
@@ -1951,7 +1878,7 @@
         
         var hdg = options["attitude"].yaw*deg2rad;
         vecs.h = new THREE.Vector3(Math.cos(hdg), Math.sin(hdg), 0);  // heading vector in global xy plane
-        vecs.nadir = new THREE.Vector3(0, 0, 1);                     // nadir direction (down)
+        vecs.nadir = new THREE.Vector3(0, -1, 0);                     // nadir direction (down)
         vecs.nhz  = new THREE.Vector3().crossVectors(vecs.h, vecs.nadir).normalize();  // normal to heading vec and nadir
         vecs.newz = roverUpVec.clone().multiplyScalar(-1);
         vecs.newx = new THREE.Vector3().crossVectors(vecs.newz, vecs.nhz).normalize(); 
@@ -2042,7 +1969,7 @@
   
       function setCameraFOV(fov){
         camera.fov = fov;
-        camera.updateProjectionMatrix();
+        camerantdateProjectionMatrix();
         //requestRenderIfNotRequested();
       }
     
@@ -2156,10 +2083,14 @@
 
         // Update rover position:
         if(drive.turnRate==0){
-          drive.nextPosRnav.set(drive.rnavSpeed*secondsElepased, 0, 0);
+          drive.nextPosRnav.set(0, 0, drive.rnavSpeed*secondsElepased);
         } else {
           drive.headingChange = drive.headingRate*secondsElepased;  //deg        
-          drive.nextPosRnav.set(drive.turnRadius*Math.sin(drive.headingChange*deg2rad), drive.turnRadius*(1-Math.cos(drive.headingChange*deg2rad)), 0);
+          drive.nextPosRnav.set(
+            drive.turnRadius*(1-Math.cos(drive.headingChange*deg2rad)),
+            0,
+            drive.turnRadius*Math.sin(drive.headingChange*deg2rad)
+          );
           const newHeading = (options["attitude"].yaw + drive.headingChange) %360;
           options["attitude"].yaw = newHeading;
           rover.updateMatrixWorld();
@@ -2172,7 +2103,7 @@
         if(terrain) projectRoverToSurface();
         if(drive.turnRate!=0) changeHeading();
         
-        const rnavRoverUp = new THREE.Vector3(0,0,-1);
+        const rnavRoverUp = new THREE.Vector3(0,1,0);
         const worldRoverUp = rnavRoverUp.clone().applyMatrix4(rot);
 
         if(options["camera"].followRover) {
@@ -2184,8 +2115,8 @@
 
       function projectRoverToSurface(){
         if(terrain){
-          const rnavRoverUp = new THREE.Vector3(0,0,-1);
-          const rnavRoverDown = new THREE.Vector3(0,0,1);
+          const rnavRoverUp = new THREE.Vector3(0,1,0);
+          const rnavRoverDown = new THREE.Vector3(0,-1,0);
           const rot = new THREE.Matrix4().extractRotation( rover.matrix ); // get rover rotation matrix
           const worldRoverUp = rnavRoverUp.clone().applyMatrix4(rot);
           const worldRoverDown = rnavRoverDown.clone().applyMatrix4(rot);
@@ -2212,13 +2143,26 @@
       function makeGUI(){
         gui = new dat.GUI({hideable: false});
         window.gui = gui;
+
         var folder = {};
-  
+
+				const guigroup = new InteractiveGroup( renderer, camera );
+        guigroup.name = "guigroup";
+				scene.add( guigroup );
+        
+        const guimesh = new HTMLMesh( gui.domElement );
+        guimesh.name = "guimesh";
+				guimesh.position.set( 0, 3, 0);
+				//guimesh.rotation.y = Math.PI / 4;
+				guimesh.scale.setScalar( 20 );
+				guigroup.add( guimesh );
+
+
         var drawMeasurementLineFcnWrapper = { add:function(){ drawMeasurementLine() }};
         var clearRulerFcnWrapper = {add:function(){clearRuler}};
 
         folder["tools"] = gui.addFolder('Tools');
-        
+        /*
         folder["ruler"] = folder["tools"].addFolder("Ruler");
         folder["ruler"].add(drawMeasurementLineFcnWrapper,'add').name("Measure Distance");
         folder["ruler"].add(ruler.measurement, "length").listen();
@@ -2227,6 +2171,7 @@
         folder["ruler"].add(ruler.measurement, "bearing").listen();
         folder["ruler"].add(clearRulerFcnWrapper,'add').name("Clear");
         folder["ruler"].open();
+        */
         
         //folder["tools"].add(options["tools"], 'showCompass').name("Compass").onChange(function(val){compass.visible = val; /*requestRenderIfNotRequested()*/});
         folder["tools"].add(options["tools"], 'showWireframe').name("Grid (" + options["scene"].terrainHscale + "m)").onChange(function(val){
@@ -2241,7 +2186,6 @@
           routes.visible = val;
           //requestRenderIfNotRequested(); 
         });
-
         
         folder["scene"] = gui.addFolder('Scene');
         folder["scene"].add(options["sun"], 'az', -179.9, 180.1).listen().name("Sun azimuth").onChange(placeSun);

@@ -89,7 +89,7 @@ Sky.SkyShader = {
 		//'	float zenithAngleCos = clamp( dot( sunDirection, up ), -1.0, 1.0);',
     '	float zenithAngleCos = dot( sunDirection, up );',
     '	vSunE = sunIntensityZenith * max( 0.0, 1.0 - pow( e, -( ( piOver2 +0.15 - acos( zenithAngleCos ) ) / sunIntensityVsElevation ) ) );',
-		'	vSunfade = 1.0 - clamp( 1.0 - exp( ( -1.0 * sunDirection.z ) ), 0.0, 1.0 );',
+		'	vSunfade = 1.0 - clamp( 1.0 - exp( zenithAngleCos*0.75 ), 0.0, 1.0 );',
 
 		'	float rayleighCoefficient = rayleigh - ( 1.0 * ( 1.0 - vSunfade ) );',
 		'	vBetaR = totalRayleigh * rayleighCoefficient;',
