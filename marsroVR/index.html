@@ -53,7 +53,7 @@
       let prevControlsState = [];
       
       let infoPanel = {};
-      let infoText = Array(40);
+      let infoText = [];
 
       let deg2rad = Math.PI/180;
       let rad2deg = 180/Math.PI;
@@ -396,7 +396,8 @@
           var lines = txt.split('\n');
           // append lines to info log
           for(const line of lines) {
-            infoText.unshift(line);
+            infoText.push(line);
+            if(infoText.length>20) infoText.shift(infoText.length-20);
           }
           // display full info log
           for(var j=0; j<infoText.length; j++){
@@ -405,7 +406,15 @@
           infoPanel.texture.needsUpdate = true;
         };
         window.infoPanel = infoPanel;
-	
+        
+        infoPanel.write("Welcome to Jezero Crater, Mars!\n");
+        infoPanel.write("Explore the remnants of the ancient Jezero river delta with\nNASA's Perseverance rover.\n");
+        infoPanel.write("Use the control menu to manipulate the rover and scene.");
+        infoPanel.write("Use your pointer-finger trigger to teleport yourself.");
+        infoPanel.write("Use your middle-finger trigger to teleport Perseverance.");
+        infoPanel.write("Use the thumb tip (Y) button to toggle the control menu.");
+        infoPanel.write("Use the thumb base (X) button to toggle this information panel.\n\n");
+
 			}
 
 
