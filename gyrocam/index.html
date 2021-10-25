@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="x-ua-compatible" content="ie=edge">
+<!--<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Camera Az/El</title> 
+
+<!---
+Camera Az/El, R. Kinnett, 2021
+
+This page uses a phone's compass and accelerometer to measure
+and report azimuth and elevation of the center axis of the
+phone's environment camera, in real time.
+
+Tested on iphone 12 in iOS 14.8.
+--->
+
+<style>
+html, body{
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background-color: #222222;
+}  
+#camera, #video-obj, #video-canvas, #overlay-text{
+  position: fixed;
+  height: 100%;
+  width: 100%;
+  top: 0;
+  left: 0;
+}
+#video-canvas{
+  border: red;
+}
+#video-obj{
+  display: none;
+}
+#overlay-text { 
+  z-index: 15;
+  color: yellow;
+  font-family: "Lucida Console", "Courier New", monospace;
+  text-shadow: -0px 0 black, 0 1px black, 1px 0 black, 0 -1px black, 0px 0px 5px black;
+  width: 80ch;
+}
+#start-button{
+  width: 200px;
+  background-color: black;
+  color: white;
+  font-size: 16px;
+  border-radius: 30px;
+  border: none;
+  padding: 15px 20px;
+  text-align: center;
+  box-shadow: 0 5px 10px 0 rgba(0,0,0,0.2);
+  position: fixed;
+  bottom: 30px;
+  left: calc(50% - 100px);
+  z-index: 20;
+}
+
+</style>
+</head>
+
+<body onresize="resize_canvas()">
+  
+  <main id="camera">
+    <span id="overlay-text">Some text!</span>
+    <canvas id="video-canvas"></canvas>
+    <video id="video-obj" autoplay playsinline></video>
+    <button id="start-button">Start</button>
+  </main>
+    
+<script>
+var constraints = { video: { facingMode: "environment" }, audio: false };
+let orientation = {heading: 0, azimuth: 0, elevation: 0, roll: 0, gx: 0, gy: 0, gz: 0, init: false};
+const magdec = 12;  // degrees
+const g_hist_coeff = 0.25;  // low pass filter; value 1 means fully trust latest measurement;  value 0.5 means blend 50% old and new values
+
+const videoObj = document.querySelector("#video-obj"),
+  videoCanvas = document.querySelector("#video-canvas"),
+  overlayText = document.querySelector("#overlay-text"),
+  startButton = document.querySelector("#start-button")
+  videoCanvasContext = videoCanvas.getContext("2d");
+
+startButton.addEventListener('click', start, true);
+
+function start(){
+  DeviceMotionEvent.requestPermission().then(response => {
+    if (response == 'granted') {
+      window.addEventListener('deviceorientation', updateHeading);
+      window.addEventListener('devicemotion', updateAccelerometer);
+      setInterval(updateOverlayText, 200);
+    }
+  }).catch(() => alert("not supported"));
+  cameraStart();
+  startButton.style.display = 'none';
+}
+
+function cameraStart() {
+  if (navigator.mediaDevices.getUserMedia) {
+    var successCallback = function(stream) {
+      videoObj.srcObject = stream;
+    };
+    var errorCallback = function(error) {
+      console.log(error);
+    };
+    navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: 'environment' }
+    }).then(successCallback, errorCallback);
+    requestAnimationFrame(renderFrame);
+  }
+  requestAnimationFrame(renderFrame);
+}
+
+function renderFrame() {
+  requestAnimationFrame(renderFrame);
+  videoCanvas.width = videoCanvas.scrollWidth;
+  videoCanvas.height = videoCanvas.scrollHeight;
+  if (videoObj.readyState === videoObj.HAVE_ENOUGH_DATA) {
+    var videoSize = { width: videoObj.videoWidth, height: videoObj.videoHeight };
+    var canvasSize = { width: videoCanvas.width, height: videoCanvas.height };
+    var renderSize = calculateRenderSize(videoSize, canvasSize);
+    var xOffset = (canvasSize.width - renderSize.width) / 2;
+    var yOffset = (canvasSize.height - renderSize.height) / 2;
+    videoCanvasContext.drawImage(videoObj, xOffset, yOffset, renderSize.width, renderSize.height);
+    
+    // draw crosshairs:
+    videoCanvasContext.strokeStyle = 'red';
+    videoCanvasContext.beginPath();
+    videoCanvasContext.moveTo(videoCanvas.width/2-renderSize.width/2, videoCanvas.height/2);
+    videoCanvasContext.lineTo(videoCanvas.width/2+renderSize.width/2, videoCanvas.height/2);
+    videoCanvasContext.stroke();
+    videoCanvasContext.moveTo(videoCanvas.width/2, videoCanvas.height/2 - renderSize.height/2);
+    videoCanvasContext.lineTo(videoCanvas.width/2, videoCanvas.height/2 + renderSize.height/2);
+    videoCanvasContext.stroke();
+  }
+}
+
+function calculateRenderSize(srcSize, dstSize) {
+  var srcRatio = srcSize.width / srcSize.height;
+  var dstRatio = dstSize.width / dstSize.height;
+  if (dstRatio > srcRatio) {
+    return {
+      width:  dstSize.height * srcRatio,
+      height: dstSize.height
+    };
+  } else {
+    return {
+      width:  dstSize.width,
+      height: dstSize.width / srcRatio
+    };
+  }
+}
+
+function resize_canvas(){
+  console.log('resizing canvas to ' + document.body.scrollWidth + ' x ' + document.body.scrollHeight);
+  videoCanvas.width  = document.body.scrollWidth;
+  videoCanvas.height = document.body.scrollHeight;
+}
+
+
+function updateHeading(event){
+  orientation.heading = event.webkitCompassHeading*1;
+}
+
+function updateAccelerometer(event){
+  if(!orientation.init){
+    orientation.gx = event.accelerationIncludingGravity.x;
+    orientation.gy = event.accelerationIncludingGravity.y;
+    orientation.gz = event.accelerationIncludingGravity.z;
+    orientation.init = true;
+  } else {
+    orientation.gx = event.accelerationIncludingGravity.x * g_hist_coeff + orientation.gx * (1-g_hist_coeff);
+    orientation.gy = event.accelerationIncludingGravity.y * g_hist_coeff + orientation.gy * (1-g_hist_coeff);
+    orientation.gz = event.accelerationIncludingGravity.z * g_hist_coeff + orientation.gz * (1-g_hist_coeff);
+  }
+}
+
+
+function updateOverlayText(){
+  g = Math.sqrt(orientation.gx*orientation.gx + orientation.gy*orientation.gy + orientation.gz*orientation.gz)
+  orientation.elevation = (Math.asin(orientation.gz/g))*180/Math.PI;
+  orientation.roll = (Math.PI/2 + Math.atan2(orientation.gy,orientation.gx))*180/Math.PI;
+  orientation.azimuth = (orientation.heading + magdec -orientation.roll + 360) % 360;
+  
+  overlayText.innerHTML =       'Azimuth:    ' + Math.round( orientation.azimuth ).toString().padStart(5);  
+  overlayText.innerHTML += '<br/>Elevation:  ' + Math.round( orientation.elevation ).toString().padStart(5);
+  //overlayText.innerHTML += '<br/>Roll:       ' + Math.round( orientation.roll ).toString().padStart(5);
+  //overlayText.innerHTML += '<br/>Gx:         ' + orientation.gx.toFixed(2).padStart(5);
+  //overlayText.innerHTML += '<br/>Gy:         ' + orientation.gy.toFixed(2).padStart(5);
+  //overlayText.innerHTML += '<br/>Gz:         ' + orientation.gz.toFixed(2).padStart(5);
+}
+
+window.addEventListener("orientationchange", function () {
+  console.log("The orientation of the screen is: " + window.orientation + '(' + getPhoneOrientation() + ')');
+});
+
+function getPhoneOrientation(){
+  return (window.orientation==0 || window.orientation==180) ? 'portrait' : 'landscape';
+}
+
+    
+</script>
+  
+</body>
+</html>
