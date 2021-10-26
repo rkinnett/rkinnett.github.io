@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="x-ua-compatible" content="ie=edge">
 <!--<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">-->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <title>Camera Az/El</title> 
 
@@ -24,17 +24,17 @@ html, body{
   margin: 0;
   padding: 0;
   height: 100%;
-  width: 100%;
   overflow: hidden;
   background-color: #222222;
   color: white;
+  border-color: yellow;
 }  
 a{
   text-decoration: none;
   color: cyan;
 }
 #camera, #video-obj, #video-canvas, #overlay-text, #inputs{
-  position: absolute;
+  position: fixed;
   height: 100%;
   width: 100%;
   top: 0;
@@ -97,7 +97,7 @@ a{
 
 </head>
 
-<body onresize="resize_canvas()" onload="pageLoaded()">
+<body onresize="resize_canvas()" onload="pageLoaded()" scroll="no">
 
   <main id="camera">
     <div id="inputs" name="inputs">
