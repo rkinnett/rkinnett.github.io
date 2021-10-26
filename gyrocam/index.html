@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="x-ua-compatible" content="ie=edge">
 <!--<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">-->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <title>Camera Az/El</title> 
 
@@ -28,10 +28,14 @@ html, body{
   background-color: #222222;
   color: white;
   border-color: yellow;
+  touch-action: manipulation;
 }  
 a{
   text-decoration: none;
   color: cyan;
+}
+#about{
+  padding: 20px;
 }
 #camera, #video-obj, #video-canvas, #overlay-text, #inputs{
   position: fixed;
@@ -49,11 +53,11 @@ a{
   /*display: none;*/
 }
 #overlay-text { 
-  z-index: 15;
+  margin: 10px;
+  z-index: 10;
   color: yellow;
   font-family: "Lucida Console", "Courier New", monospace;
   text-shadow: -0px 0 black, 0 1px black, 1px 0 black, 0 -1px black, 0px 0px 5px black;
-  width: 80ch;
 }
 #inputs{
   z-index: 20;
@@ -62,20 +66,64 @@ a{
 #mag-dec-input{
   width: 6ch;
 }
-#start-button{
-  width: 200px;
+.buttons{
+  margin: 0;
   background-color: black;
   color: white;
   font-size: 16px;
   border-radius: 30px;
   border: none;
   padding: 15px 20px;
-  text-align: center;
+  text-align: top;
   box-shadow: 0 5px 10px 0 rgba(0,0,0,0.2);
   position: fixed;
+  z-index: 40;
+}
+#start-button{
+  width: 200px;
   bottom: 30px;
   left: calc(50% - 100px);
-  z-index: 20;
+}
+#live-view-bottons-group{
+  display: none;
+}
+#add-coord-button{
+  bottom: 30px;
+  left: 50%;
+  -ms-transform: translateX(-50%);
+  transform: translateX(-50%);
+}
+#list-coords-button{
+  right: 20px;
+  top: 15px;
+}
+#coords-list-container{
+  display: none;
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+  z-index: 45;
+  background-color: #222222;
+  border-color: yellow;
+  border-style: solid;
+}
+#copy-coords-button{
+  bottom: 30px;
+  left: 50%;
+  -ms-transform: translateX(-50%);
+  transform: translateX(-50%);
+}
+#close-coords-button{
+  right: 20px;
+  top: 15px;
+}
+#clear-coords-button{
+  right: 20px;
+  bottom: 30px;
 }
 .material-icons{
   color: cyan;
@@ -101,6 +149,16 @@ a{
 
   <main id="camera">
     <div id="inputs" name="inputs">
+      <div id="about">
+        <b><u>GyroCam</u></b><br/><br/>
+        This app displays and captures camera direction in azimuth and elevation coordinates.
+        Tap the <i class="material-icons">control_point</i> button to record the current az/el coordinate.
+        Tap the <i class="material-icons">format_list_bulleted</i> button to view saved coordinates.
+        Within the list view, tap the <i class="material-icons">content_copy</i> button to copy saved coordinates, 
+        or <i class="material-icons">delete_forever</i> to clear the list.
+      </div>
+      <br/><br/>
+    
       <label for="mag-dec-input">Magnetic declination?</label>
       <input type="text" id="mag-dec-input" name="mag-dec-input" value=0> 
       <a href="https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml?" target="_blank"><i class="material-icons">info</i></a>
@@ -138,13 +196,25 @@ a{
         <tr><td>Perth</td><td class="citymagdecval">-1</td></tr>
         <tr><td>Sydney</td><td class="citymagdecval">12</td></tr>
       </table>
+      <button id="start-button" class="buttons">Start</button>
     </div>
     <br/>
   
-    <span id="overlay-text"></span>
-    <button id="start-button">Start</button>
+    <div id="overlay-text"></div>
     <canvas id="video-canvas"></canvas>
     <video id="video-obj" autoplay playsinline></video>
+    
+    <div id="live-view-bottons-group">
+      <button id="add-coord-button" class="buttons"><i class="material-icons">control_point</i></button>
+      <button id="list-coords-button" class="buttons"><i class="material-icons">format_list_bulleted</i></button>
+    </div>
+    
+    <div id="coords-list-container">
+      <button id="close-coords-button" class="buttons"><i class="material-icons">cancel</i></button>
+      <button id="copy-coords-button" class="buttons"><i class="material-icons">content_copy</i></button>
+      <button id="clear-coords-button" class="buttons"><i class="material-icons">delete_forever</i></button>
+      <div id="coords-list"></div> 
+    </div>
   </main>
   
 <script>
@@ -152,6 +222,8 @@ var constraints = { video: { facingMode: "environment" }, audio: false };
 let orientation = {heading: 0, azimuth: 0, elevation: 0, roll: 0, gx: 0, gy: 0, gz: 0, init: false};
 var magdec = 12;  // degrees
 const g_hist_coeff = 0.25;  // low pass filter; value 1 means fully trust latest measurement;  value 0.5 means blend 50% old and new values
+
+var coords = [];
 
 var deviceType = null;
 
@@ -163,9 +235,25 @@ const videoObj = document.querySelector("#video-obj"),
   startButton = document.querySelector("#start-button"),
   magDecInput = document.querySelector("#mag-dec-input"),
   inputsDdiv = document.querySelector("#inputs"),
+  liveViewButtonsGroup = document.querySelector("#live-view-bottons-group"),
+  addCoordButton = document.querySelector("#add-coord-button"),
+  listCoordsButton = document.querySelector("#list-coords-button"),
+  coordButtonsContainer = document.querySelector("#coords-buttons-container"),
+  coordsListContainer = document.querySelector("#coords-list-container"),
+  coordsList = document.querySelector("#coords-list"),
+  copyCoordsButton = document.querySelector("#copy-coords-button"),
+  closeCoordsButton = document.querySelector("#close-coords-button"),
+  clearCoordsButton = document.querySelector("#clear-coords-button"),
   videoCanvasContext = videoCanvas.getContext("2d");
-
+ 
 startButton.addEventListener('click', start, true);
+addCoordButton.addEventListener('click', addCoord, true);
+listCoordsButton.addEventListener('click', listCoords, true);
+copyCoordsButton.addEventListener('click', copyCoords, true);
+clearCoordsButton.addEventListener('click', clearCoords, true);
+closeCoordsButton.addEventListener('click', closeCoords, true);
+
+window.addEventListener('click', (event) => { console.log(event.target); }, true);
 
 
 function getDeviceType(){
@@ -215,6 +303,7 @@ function start(){
   console.log('using magdec value: ' + magdec)
   setQueryStringParameter('magdec',magdec);
   inputsDdiv.style.visibility = 'hidden';
+  liveViewButtonsGroup.style.display = 'block';
   
   DeviceMotionEvent.requestPermission().then(response => {
     if (response == 'granted') {
@@ -228,7 +317,6 @@ function start(){
     }
   }).catch(() => alert("not supported"));
   cameraStart();
-  startButton.style.display = 'none';
 }
 
 function cameraStart() {
@@ -347,11 +435,40 @@ window.addEventListener("orientationchange", function () {
   console.log("The orientation of the screen is: " + window.orientation + '(' + getPhoneOrientation() + ')');
 });
 
+
 function getPhoneOrientation(){
   return (window.orientation==0 || window.orientation==180) ? 'portrait' : 'landscape';
 }
 
-    
+function addCoord(){
+  coords.push([orientation.azimuth, orientation.elevation]);
+}
+
+function listCoords(){
+  coordsListContainer.style.display = 'block';
+  coordsList.innerHTML = '';
+  for(var i=0; i<coords.length; i++){
+    coordsList.innerHTML += Math.round(coords[i][0]) + ", " + Math.round(coords[i][1]) + '<br/>';
+  }
+}
+
+function copyCoords(){
+  console.log('copying coords');
+  coordsStr = coordsList.innerHTML.replace(/<br>/g,'\n');
+  console.log(coordsStr);
+  navigator.clipboard.writeText(coordsStr);
+}
+
+function clearCoords(){
+  coords = [];
+  coordsList.innerHTML = '';
+}
+
+function closeCoords(){
+  coordsListContainer.style.display = 'none';
+}
+
+
 </script>
   
 </body>
