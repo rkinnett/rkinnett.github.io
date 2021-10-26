@@ -174,7 +174,7 @@ function getDeviceType(){
   } else if(navigator.userAgent.indexOf("android") > -1){
     deviceType = 'android';
   } else {
-    alert('Warning: device type is neither android nor iOS; page may not work as expected.');
+    alert('Warning: device type (' + navigator.platform + ') is neither android nor iOS; page may not work as expected.');
   }
   console.log('device type: ' + deviceType);
 }
