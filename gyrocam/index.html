@@ -37,7 +37,7 @@ html, body{
   border: red;
 }
 #video-obj{
-  display: none;
+  /*display: none;*/
 }
 #overlay-text { 
   z-index: 15;
@@ -116,6 +116,18 @@ function cameraStart() {
   }
   requestAnimationFrame(renderFrame);
 }
+
+videoObj.addEventListener('loadeddata', function() {
+  videoObj.style.transform = 'scale(0.0001,0.0001)';
+  videoObj.style.position = 'fixed';
+  videoObj.style.bottom = '0px';
+  videoObj.style.right = '0px';
+  /*
+  setTimeout(function () { 
+    videoObj['play']();
+  }, 100);
+  */
+}, false);
 
 function renderFrame() {
   requestAnimationFrame(renderFrame);
