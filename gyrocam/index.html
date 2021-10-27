@@ -80,9 +80,10 @@ a{
   z-index: 40;
 }
 #start-button{
-  width: 200px;
   bottom: 30px;
-  left: calc(50% - 100px);
+  left: 50%;
+  -ms-transform: translateX(-50%);
+  transform: translateX(-50%);
 }
 #live-view-bottons-group{
   display: none;
@@ -111,19 +112,37 @@ a{
   border-color: yellow;
   border-style: solid;
 }
-#copy-coords-button{
+#coords-buttons{
+  width: 300px;
+  height: 55px;
+  position: fixed;
   bottom: 30px;
   left: 50%;
+  -ms-transform: translateX(-50%);
+  transform: translateX(-50%);
+  padding: 0
+}
+#copy-coords-button{
+  bottom: 0px;
+  left: 25%;
+  -ms-transform: translateX(-50%);
+  transform: translateX(-50%);
+}
+#save-coords-button{
+  bottom: 0px;
+  left: 50%;
+  -ms-transform: translateX(-50%);
+  transform: translateX(-50%);
+}
+#clear-coords-button{
+  bottom: 0px;
+  left: 75%;
   -ms-transform: translateX(-50%);
   transform: translateX(-50%);
 }
 #close-coords-button{
   right: 20px;
   top: 15px;
-}
-#clear-coords-button{
-  right: 20px;
-  bottom: 30px;
 }
 .material-icons{
   color: cyan;
@@ -154,8 +173,8 @@ a{
         This app displays and captures camera direction in azimuth and elevation coordinates.
         Tap the <i class="material-icons">control_point</i> button to record the current az/el coordinate.
         Tap the <i class="material-icons">format_list_bulleted</i> button to view saved coordinates.
-        Within the list view, tap the <i class="material-icons">content_copy</i> button to copy saved coordinates, 
-        or <i class="material-icons">delete_forever</i> to clear the list.
+        Within the coordinate list view, tap the <i class="material-icons">content_copy</i> button to copy saved coordinates, 
+        <i class="material-icons">save</i> to save to file ("coords.csv"), or <i class="material-icons">delete_forever</i> to clear the list.
       </div>
       <br/><br/>
     
@@ -196,7 +215,7 @@ a{
         <tr><td>Perth</td><td class="citymagdecval">-1</td></tr>
         <tr><td>Sydney</td><td class="citymagdecval">12</td></tr>
       </table>
-      <button id="start-button" class="buttons">Start</button>
+      <button id="start-button" class="buttons"><i class="material-icons">play_circle_outline</i></button>
     </div>
     <br/>
   
@@ -211,8 +230,11 @@ a{
     
     <div id="coords-list-container">
       <button id="close-coords-button" class="buttons"><i class="material-icons">cancel</i></button>
-      <button id="copy-coords-button" class="buttons"><i class="material-icons">content_copy</i></button>
-      <button id="clear-coords-button" class="buttons"><i class="material-icons">delete_forever</i></button>
+      <div id="coords-buttons">
+        <button id="copy-coords-button" class="buttons"><i class="material-icons">content_copy</i></button>
+        <button id="clear-coords-button" class="buttons"><i class="material-icons">delete_forever</i></button>
+        <button id="save-coords-button" class="buttons"><i class="material-icons">save</i></button>
+      </div>
       <div id="coords-list"></div> 
     </div>
   </main>
@@ -244,6 +266,7 @@ const videoObj = document.querySelector("#video-obj"),
   copyCoordsButton = document.querySelector("#copy-coords-button"),
   closeCoordsButton = document.querySelector("#close-coords-button"),
   clearCoordsButton = document.querySelector("#clear-coords-button"),
+  saveCoordsButton = document.querySelector("#save-coords-button"),
   videoCanvasContext = videoCanvas.getContext("2d");
  
 startButton.addEventListener('click', start, true);
@@ -252,6 +275,7 @@ listCoordsButton.addEventListener('click', listCoords, true);
 copyCoordsButton.addEventListener('click', copyCoords, true);
 clearCoordsButton.addEventListener('click', clearCoords, true);
 closeCoordsButton.addEventListener('click', closeCoords, true);
+saveCoordsButton.addEventListener('click', saveCoords, true);
 
 window.addEventListener('click', (event) => { console.log(event.target); }, true);
 
@@ -462,6 +486,16 @@ function copyCoords(){
 function clearCoords(){
   coords = [];
   coordsList.innerHTML = '';
+}
+
+function saveCoords(){
+  coordsStr = coordsList.innerHTML.replace(/<br>/g,'\n').replace(/, /g,',');;
+  const a = document.createElement('a');
+  a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(coordsStr);
+  a.download = 'coords.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 function closeCoords(){
