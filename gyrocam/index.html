@@ -283,10 +283,10 @@ window.addEventListener('click', (event) => { console.log(event.target); }, true
 function getDeviceType(){
   if(['iPad Simulator','iPhone Simulator','iPad','iPhone'].includes(navigator.platform) || (navigator.userAgent.includes("Mac") && "ontouchend" in document)){
     deviceType = 'iOS';
-  } else if(navigator.userAgent.indexOf("android") > -1){
+  } else if(navigator.userAgent.match(/android/i)){
     deviceType = 'android';
   } else {
-    alert('Warning: device type (' + navigator.platform + ') is neither android nor iOS; page may not work as expected.');
+    alert('Warning: device type is neither android nor iOS; page may not work as expected.  Platform: "' + navigator.platform + '", user agent: "' + navigator.userAgent + '" ');
   }
   console.log('device type: ' + deviceType);
 }
@@ -361,10 +361,14 @@ function cameraStart() {
 }
 
 videoObj.addEventListener('loadeddata', function() {
-  videoObj.style.transform = 'scale(0.0001,0.0001)';
-  videoObj.style.position = 'fixed';
-  videoObj.style.bottom = '0px';
-  videoObj.style.right = '0px';
+  if(deviceType=="iOS"){
+    videoObj.style.transform = 'scale(0.0001,0.0001)';
+    videoObj.style.position = 'fixed';
+    videoObj.style.bottom = '0px';
+    videoObj.style.right = '0px';
+  } else {
+    videoObj.style.display = 'none';
+  }
   /*
   setTimeout(function () { 
     videoObj['play']();
