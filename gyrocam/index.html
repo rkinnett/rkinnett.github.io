@@ -152,6 +152,7 @@ a{
   border-spacing: 0;
   border-collapse: collapse;
   font-size: 0.65em;
+  line-height: 80%;
   color: darkgrey;
   font-family: "Lucida Console", "Courier New", monospace;
 }
@@ -171,12 +172,14 @@ a{
       <div id="about">
         <b><u>GyroCam</u></b><br/><br/>
         This app displays and captures camera direction in azimuth and elevation coordinates.
-        Tap the <i class="material-icons">control_point</i> button to record the current az/el coordinate.
-        Tap the <i class="material-icons">format_list_bulleted</i> button to view saved coordinates.
-        Within the coordinate list view, tap the <i class="material-icons">content_copy</i> button to copy saved coordinates, 
+        Tap <i class="material-icons">control_point</i> to record the current az/el coordinate.
+        Tap <i class="material-icons">format_list_bulleted</i> to view saved coordinates, then,
+        within the coordinate list view, tap <i class="material-icons">content_copy</i> to copy saved coordinates, 
         <i class="material-icons">save</i> to save to file ("coords.csv"), or <i class="material-icons">delete_forever</i> to clear the list.
+        <br/><br/>
+        <i>This page renders your camera view and sensor information locally without transmitting any data over the internet.</i>
       </div>
-      <br/><br/>
+      <br/>
     
       <label for="mag-dec-input">Magnetic declination?</label>
       <input type="text" id="mag-dec-input" name="mag-dec-input" value=0> 
@@ -329,35 +332,44 @@ function start(){
   inputsDdiv.style.visibility = 'hidden';
   liveViewButtonsGroup.style.display = 'block';
   
-  DeviceMotionEvent.requestPermission().then(response => {
+  if(typeof window.DeviceMotionEvent == 'undefined'){
+    alert('device motion events not supported');
+  }
+  
+  if(deviceType=='iOS'){  
+    DeviceMotionEvent.requestPermission().then(response => {
     if (response == 'granted') {
-      if(deviceType=='iOS'){
         window.addEventListener('deviceorientation', updateHeading);
-      } else if(deviceType=='android'){
-        window.addEventListener('deviceorientationabsolute', updateHeading);
+        window.addEventListener('devicemotion', updateAccelerometer);
+      } else {
+        alert('motion sensor permission denied');
       }
-      window.addEventListener('devicemotion', updateAccelerometer);
-      setInterval(updateOverlayText, 200);
-    }
-  }).catch(() => alert("not supported"));
+    }).catch(() => alert("DeviceMotionEvent.requestPermission not supported"));
+  } else if(deviceType=='android'){
+    window.addEventListener('deviceorientationabsolute', updateHeading);
+    //window.addEventListener('deviceorientation', updateHeading);
+    window.addEventListener('devicemotion', updateAccelerometer);
+  }
+  
+  
+  setInterval(updateOverlayText, 200);
   cameraStart();
 }
 
 function cameraStart() {
-  if (navigator.mediaDevices.getUserMedia) {
-    var successCallback = function(stream) {
-      videoObj.srcObject = stream;
-    };
-    var errorCallback = function(error) {
-      console.log(error);
-    };
-    navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: { facingMode: 'environment' }
-    }).then(successCallback, errorCallback);
+  navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: { facingMode: 'environment' },
+  })
+  .then((stream) => {
+    console.log("Got getUserMedia stream");
+    videoObj.srcObject = stream;
     requestAnimationFrame(renderFrame);
-  }
-  requestAnimationFrame(renderFrame);
+  })
+  .catch((err) => {
+    alert("Encountered getUserMedia error: " + err);
+    console.log("Encountered getUserMedia error", err);
+  }); 
 }
 
 videoObj.addEventListener('loadeddata', function() {
@@ -369,11 +381,6 @@ videoObj.addEventListener('loadeddata', function() {
   } else {
     videoObj.style.display = 'none';
   }
-  /*
-  setTimeout(function () { 
-    videoObj['play']();
-  }, 100);
-  */
 }, false);
 
 function renderFrame() {
@@ -447,16 +454,16 @@ function updateAccelerometer(event){
 
 function updateOverlayText(){
   g = Math.sqrt(orientation.gx*orientation.gx + orientation.gy*orientation.gy + orientation.gz*orientation.gz)
-  orientation.elevation = (Math.asin(orientation.gz/g))*180/Math.PI;
+  orientation.elevation = (Math.asin(orientation.gz/g))*180/Math.PI * (deviceType=='android'?-1:1);
   orientation.roll = (Math.PI/2 + Math.atan2(orientation.gy,orientation.gx))*180/Math.PI;
   orientation.azimuth = (orientation.heading + magdec -orientation.roll + 360) % 360;
   
   overlayText.innerHTML =       'Azimuth:    ' + Math.round( orientation.azimuth ).toString().padStart(5);  
   overlayText.innerHTML += '<br/>Elevation:  ' + Math.round( orientation.elevation ).toString().padStart(5);
-  //overlayText.innerHTML += '<br/>Roll:       ' + Math.round( orientation.roll ).toString().padStart(5);
-  //overlayText.innerHTML += '<br/>Gx:         ' + orientation.gx.toFixed(2).padStart(5);
-  //overlayText.innerHTML += '<br/>Gy:         ' + orientation.gy.toFixed(2).padStart(5);
-  //overlayText.innerHTML += '<br/>Gz:         ' + orientation.gz.toFixed(2).padStart(5);
+  overlayText.innerHTML += '<br/>Roll:       ' + Math.round( orientation.roll ).toString().padStart(5);
+  overlayText.innerHTML += '<br/>Gx:         ' + orientation.gx.toFixed(2).padStart(5);
+  overlayText.innerHTML += '<br/>Gy:         ' + orientation.gy.toFixed(2).padStart(5);
+  overlayText.innerHTML += '<br/>Gz:         ' + orientation.gz.toFixed(2).padStart(5);
 }
 
 window.addEventListener("orientationchange", function () {
