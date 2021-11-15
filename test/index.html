@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Rover Pics</title>
+ 
+<style>
+
+
+</style>
+</head>
+
+
+<body onload="pageSetup()">
+
+
+
+<script>
+
+function pageSetup(){
+  console.log("Fetching image data");
+  fetchJson('https://mars.nasa.gov/api/v1/raw_image_items/?order=sol+desc%2Cinstrument_sort+asc%2Csample_type_sort+asc%2C+date_taken+desc&per_page=50&page=0&condition_1=msl%3Amission&condition_2=3296%3Asol%3Agte&condition_3=3296%3Asol%3Alte&search=CHEMCAM_RMI&extended=thumbnail%3A%3Asample_type%3A%3Anoteq')  
+}
+
+
+function fetchJson(url, callback){
+  console.log("fetching rss feed:  " + url);
+  const xhr = new XMLHttpRequest();
+  xhr.onreadystatechange = function() {
+    if (this.readyState == 4) {
+      if (this.status == 200) {
+        console.log("Received response");
+        console.log(this.responseText);
+        if(callback) {
+          callback(JSON.parse(this.responseText, null, '\t'));
+        }
+      } else {
+        console.log("unexpected response:");
+        console.log(JSON.stringify(this.responseText, null, '\t'));
+        alert("Error fetching requested feed. The server may be overloaded, or it's possible no images have been posted from the requested sol.");
+      }
+    }
+  };
+  xhr.withCredentials = false;
+  xhr.open("GET", url, true);
+  setTimeout(function(){ xhr.send(); }, 100);
+}
+
+
+</script>
+
+</body>
+</html>
