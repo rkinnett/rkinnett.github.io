@@ -151,6 +151,9 @@ button:active {
   right: 20px;
   top: 15px;
 }
+#coords-header{
+  color: cyan;
+}
 .material-icons{
   color: cyan;
   vertical-align: bottom;
@@ -186,6 +189,11 @@ button:active {
         <br/><br/>
         <i>This page renders your camera view and sensor information locally without transmitting any data over the internet.</i>
       </div>
+      <br/>
+      
+      <input type="checkbox" id="full-sensor-data-checkbox" name="full-sensor-data-checkbox">
+      <label for="full-sensor-data-checkbox">Capture detailed sensor data</label>
+      <br/>
       <br/>
     
       <label for="mag-dec-input">Magnetic declination?</label>
@@ -245,6 +253,7 @@ button:active {
         <button id="clear-coords-button" class="buttons"><i class="material-icons">delete_forever</i></button>
         <button id="save-coords-button" class="buttons"><i class="material-icons">save</i></button>
       </div>
+      <div id="coords-header"></div>
       <div id="coords-list"></div> 
     </div>
   </main>
@@ -267,12 +276,14 @@ const videoObj = document.querySelector("#video-obj"),
   startButton = document.querySelector("#start-button"),
   magDecInput = document.querySelector("#mag-dec-input"),
   inputsDdiv = document.querySelector("#inputs"),
+  fullSensorDataCheckbox = document.querySelector("#full-sensor-data-checkbox"),
   liveViewButtonsGroup = document.querySelector("#live-view-bottons-group"),
   addCoordButton = document.querySelector("#add-coord-button"),
   listCoordsButton = document.querySelector("#list-coords-button"),
   coordButtonsContainer = document.querySelector("#coords-buttons-container"),
   coordsListContainer = document.querySelector("#coords-list-container"),
   coordsList = document.querySelector("#coords-list"),
+  coordsHeader = document.querySelector("#coords-header"),
   copyCoordsButton = document.querySelector("#copy-coords-button"),
   closeCoordsButton = document.querySelector("#close-coords-button"),
   clearCoordsButton = document.querySelector("#clear-coords-button"),
@@ -309,6 +320,7 @@ function pageLoaded(){
     magDecInput.value = magdecFromUrl;
   }
   getDeviceType();
+  clearCoords();
 }
 
 function parseMagDec(strMagDec){
@@ -358,6 +370,11 @@ function start(){
     window.addEventListener('devicemotion', updateAccelerometer);
   }
   
+  if(fullSensorDataCheckbox.checked){
+    coordsHeader.innerHTML = 'Date, Time, Heading, Az, El, Roll, gx, gy, gz <br/>';  
+  } else {
+    coordsHeader.innerHTML = 'Az, El <br/>';  
+  }
   
   setInterval(updateOverlayText, 200);
   cameraStart();
@@ -483,31 +500,52 @@ function getPhoneOrientation(){
 }
 
 function addCoord(){
-  coords.push([orientation.azimuth, orientation.elevation]);
+  if(fullSensorDataCheckbox.checked){
+    d = new Date();
+    coords.push([
+      d.toLocaleDateString(),
+      d.getHours() + ":" + d.getMinutes() +":" + d.getSeconds(),
+      orientation.heading.toFixed(2),
+      orientation.azimuth.toFixed(2),  
+      orientation.elevation.toFixed(2), 
+      orientation.roll.toFixed(2), 
+      orientation.gx.toFixed(2), 
+      orientation.gy.toFixed(2), 
+      orientation.gz.toFixed(2)
+    ]);
+  } else {
+    coords.push([orientation.azimuth, orientation.elevation]);
+  }
 }
 
 function listCoords(){
   coordsListContainer.style.display = 'block';
   coordsList.innerHTML = '';
   for(var i=0; i<coords.length; i++){
-    coordsList.innerHTML += Math.round(coords[i][0]) + ", " + Math.round(coords[i][1]) + '<br/>';
+    rowStr = coords[i][0]
+    for(var j=1; j<coords[i].length; j++){
+      rowStr += ", " + coords[i][j]
+    }
+    coordsList.innerHTML += rowStr + '<br/>';
   }
 }
 
 function copyCoords(){
   console.log('copying coords');
-  coordsStr = coordsList.innerHTML.replace(/<br>/g,'\n');
+  coordsStr = coordsHeader.innerHTML.replace(/<br>/g,'\n');
+  coordsStr += coordsList.innerHTML.replace(/<br>/g,'\n');
   console.log(coordsStr);
   navigator.clipboard.writeText(coordsStr);
 }
 
 function clearCoords(){
   coords = [];
-  coordsList.innerHTML = '';
+  coordsList.innerHTML = '';  
 }
 
 function saveCoords(){
-  coordsStr = coordsList.innerHTML.replace(/<br>/g,'\n').replace(/, /g,',');;
+  coordsStr = coordsHeader.innerHTML.replace(/<br>/g,'\n').replace(/, /g,',');;
+  coordsStr += coordsList.innerHTML.replace(/<br>/g,'\n').replace(/, /g,',');;
   const a = document.createElement('a');
   a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(coordsStr);
   a.download = 'coords.csv';
