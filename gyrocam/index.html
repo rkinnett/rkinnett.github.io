@@ -522,9 +522,9 @@ function listCoords(){
   coordsListContainer.style.display = 'block';
   coordsList.innerHTML = '';
   for(var i=0; i<coords.length; i++){
-    rowStr = coords[i][0]
+    rowStr = coords[i][0].toFixed(2)
     for(var j=1; j<coords[i].length; j++){
-      rowStr += ", " + coords[i][j]
+      rowStr += ", " + coords[i][j].toFixed(2)
     }
     coordsList.innerHTML += rowStr + '<br/>';
   }
