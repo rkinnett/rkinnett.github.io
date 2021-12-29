@@ -514,7 +514,7 @@ function addCoord(){
       orientation.gz.toFixed(2)
     ]);
   } else {
-    coords.push([orientation.azimuth, orientation.elevation]);
+    coords.push([orientation.azimuth.toFixed(0), orientation.elevation.toFixed(0)]);
   }
 }
 
@@ -522,9 +522,9 @@ function listCoords(){
   coordsListContainer.style.display = 'block';
   coordsList.innerHTML = '';
   for(var i=0; i<coords.length; i++){
-    rowStr = coords[i][0].toFixed(2)
+    rowStr = coords[i][0]
     for(var j=1; j<coords[i].length; j++){
-      rowStr += ", " + coords[i][j].toFixed(2)
+      rowStr += ", " + coords[i][j]
     }
     coordsList.innerHTML += rowStr + '<br/>';
   }
