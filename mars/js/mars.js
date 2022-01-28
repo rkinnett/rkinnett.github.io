@@ -2,8 +2,11 @@
 //import * as THREE from './three.module.js';
 //import { OrbitControls } from './OrbitControls.js';
 
-import * as THREE from "https://cdnjs.cloudflare.com/ajax/libs/three.js/r121/three.module.js";
-import { OrbitControls } from "https://threejs.org/examples/jsm/controls/OrbitControls.js";
+//import * as THREE from "https://cdnjs.cloudflare.com/ajax/libs/three.js/r121/three.module.js";
+//import { OrbitControls } from "https://threejs.org/examples/jsm/controls/OrbitControls.js";
+
+import * as THREE from 'https://unpkg.com/three@0.121.1/build/three.module.js';
+import { OrbitControls } from 'https://unpkg.com/three@0.121.1/examples/jsm/controls/OrbitControls.js';
 
 let camera, controls, scene, renderer, ephem, options, sun, globe, labels, pins, PointsOfInterest, stars, GlobeGroup, fakeSun, sunVec;
 
@@ -190,7 +193,7 @@ function init(){
   pins = new THREE.Group();
   //PointsOfInterest = new THREE.Points();
   //if(linearFloatTexturesSupported) createPins(globe_radius*1.02, globe_radius*0.01, 0x66ddff);
-  createPins(globe_radius*1.025, 0.004, 0.2);
+  createPins(globe_radius*1.025, 0.005, 0.2);
 
   render();
 
@@ -829,12 +832,12 @@ function createPins(vector_length, poi_size, poi_opacity) {
         break;
       case 'b':  /* article */
         var this_poi_matl = poiMaterial_article;
-        var this_poi_size = poi_size*1.4;
+        var this_poi_size = poi_size*1.6;
         var this_pin_color = 0x005efc;
         break;
       default: 
         var this_poi_matl = poiMaterial_generic;
-        var this_poi_size = poi_size*0.5;
+        var this_poi_size = poi_size*0.6;
         var this_pin_color = 0x66ddff;
         break;
     }
