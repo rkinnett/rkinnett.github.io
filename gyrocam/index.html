@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="x-ua-compatible" content="ie=edge">
+<!--<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<title>Camera Az/El</title> 
+
+<!---
+Camera Az/El, R. Kinnett, 2021
+
+This page uses a phone's compass and accelerometer to measure
+and report azimuth and elevation of the center axis of the
+phone's environment camera, in real time.
+
+Tested on iphone 12 in iOS 14.8.
+--->
+
+<style>
+html, body{
+  font-family: "Lucida Console", "Courier New", monospace;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background-color: #222222;
+  color: white;
+  border-color: yellow;
+  touch-action: manipulation;
+}  
+a{
+  text-decoration: none;
+  color: cyan;
+}
+#about{
+  padding: 20px;
+}
+#camera, #video-obj, #video-canvas, #overlay-text, #inputs{
+  position: fixed;
+  height: 100%;
+  width: 100%;
+  top: 0;
+  left: 0;
+}
+#video-canvas{
+  border-color: green;
+  border: red;
+  z-index: 0;
+}
+#video-obj{
+  /*display: none;*/
+}
+#overlay-text { 
+  margin: 10px;
+  z-index: 10;
+  color: yellow;
+  font-family: "Lucida Console", "Courier New", monospace;
+  text-shadow: -0px 0 black, 0 1px black, 1px 0 black, 0 -1px black, 0px 0px 5px black;
+}
+#inputs{
+  z-index: 20;
+  padding: 10px;
+}
+#mag-dec-input{
+  width: 6ch;
+}
+.buttons{
+  margin: 0;
+  background-color: black;
+  color: white;
+  font-size: 16px;
+  border-radius: 30px;
+  border: none;
+  padding: 15px 20px;
+  text-align: top;
+  box-shadow: 0 5px 10px 0 rgba(0,0,0,0.2);
+  position: fixed;
+  z-index: 40;
+  transition-delay: 50ms;
+}
+button:active {
+  background-color: gray;
+  transform: scale(1.05);
+  box-shadow: 0 5px 10px 0 rgba(1,1,1,0.2); 
+  transition: none;
+}
+#start-button{
+  bottom: 30px;
+  left: 50%;
+  -ms-transform: translateX(-50%);
+  transform: translateX(-50%);
+}
+#live-view-bottons-group{
+  display: none;
+}
+#add-coord-button{
+  bottom: 30px;
+  left: 50%;
+  -ms-transform: translateX(-50%);
+  transform: translateX(-50%);
+}
+#list-coords-button{
+  right: 20px;
+  top: 15px;
+}
+#coords-list-container{
+  display: none;
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+  z-index: 45;
+  background-color: #222222;
+  border-color: yellow;
+  border-style: solid;
+}
+#coords-buttons{
+  width: 300px;
+  height: 55px;
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  -ms-transform: translateX(-50%);
+  transform: translateX(-50%);
+  padding: 0
+}
+#copy-coords-button{
+  bottom: 0px;
+  left: 25%;
+  -ms-transform: translateX(-50%);
+  transform: translateX(-50%);
+}
+#save-coords-button{
+  bottom: 0px;
+  left: 50%;
+  -ms-transform: translateX(-50%);
+  transform: translateX(-50%);
+}
+#clear-coords-button{
+  bottom: 0px;
+  left: 75%;
+  -ms-transform: translateX(-50%);
+  transform: translateX(-50%);
+}
+#close-coords-button{
+  right: 20px;
+  top: 15px;
+}
+#coords-header{
+  color: cyan;
+}
+.material-icons{
+  color: cyan;
+  vertical-align: bottom;
+}
+#city-mag-dec-table{
+  border-spacing: 0;
+  border-collapse: collapse;
+  font-size: 0.65em;
+  line-height: 80%;
+  color: darkgrey;
+  font-family: "Lucida Console", "Courier New", monospace;
+}
+.citymagdecval{
+  padding-left: 10px;
+  text-align:right;
+}
+
+</style>
+
+</head>
+
+<body onresize="resize_canvas()" onload="pageLoaded()" scroll="no">
+
+  <main id="camera">
+    <div id="inputs" name="inputs">
+      <div id="about">
+        <b><u>GyroCam</u></b><br/><br/>
+        This app displays and captures camera direction in azimuth and elevation coordinates.
+        Tap <i class="material-icons">control_point</i> to record the current az/el coordinate.
+        Tap <i class="material-icons">format_list_bulleted</i> to view saved coordinates, then,
+        within the coordinate list view, tap <i class="material-icons">content_copy</i> to copy saved coordinates, 
+        <i class="material-icons">save</i> to save to file ("coords.csv"), or <i class="material-icons">delete_forever</i> to clear the list.
+        <br/><br/>
+        <i>This page renders your camera view and sensor information locally without transmitting any data over the internet.</i>
+      </div>
+      <br/>
+      
+      <input type="checkbox" id="full-sensor-data-checkbox" name="full-sensor-data-checkbox">
+      <label for="full-sensor-data-checkbox">Capture detailed sensor data</label>
+      <br/>
+      <br/>
+    
+      <label for="mag-dec-input">Magnetic declination?</label>
+      <input type="text" id="mag-dec-input" name="mag-dec-input" value=0> 
+      <a href="https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml?" target="_blank"><i class="material-icons">info</i></a>
+      <a href="https://www.ngdc.noaa.gov/geomag/WMM/data/WMM2020/WMM2020_D_BoZ_MILL.pdf" target="_blank"><i class="material-icons">map</i></a>
+      <a href="https://www.magnetic-declination.com/#" target="_blank"><i class="material-icons">location_searching</i></a><br/>
+      <table id="city-mag-dec-table">
+        <tr><td>Vancouver</td><td class="citymagdecval">16</td></tr>
+        <tr><td>Honolulu</td><td class="citymagdecval">9</td></tr>
+        <tr><td>San Francisco</td><td class="citymagdecval">13</td></tr>
+        <tr><td>Los Angeles</td><td class="citymagdecval">11</td></tr>
+        <tr><td>Denver</td><td class="citymagdecval">8</td></tr>
+        <tr><td>Dallas</td><td class="citymagdecval">3</td></tr>
+        <tr><td>Chicago</td><td class="citymagdecval">-4</td></tr>
+        <tr><td>Atlanta</td><td class="citymagdecval">-5</td></tr>
+        <tr><td>Miami</td><td class="citymagdecval">-7</td></tr>
+        <tr><td>Toronto</td><td class="citymagdecval">-10</td></tr>
+        <tr><td>Washington DC</td><td class="citymagdecval">-11</td></tr>
+        <tr><td>New York City</td><td class="citymagdecval">-13</td></tr>
+        <tr><td>Mexico City</td><td class="citymagdecval">4</td></tr>
+        <tr><td>Rio De Janeiro</td><td class="citymagdecval">-23</td></tr>
+        <tr><td>London</td><td class="citymagdecval">0</td></tr>
+        <tr><td>Madrid</td><td class="citymagdecval">0</td></tr>
+        <tr><td>Paris</td><td class="citymagdecval">1</td></tr>
+        <tr><td>Berlin</td><td class="citymagdecval">4</td></tr>
+        <tr><td>Rome</td><td class="citymagdecval">4</td></tr>
+        <tr><td>Vienna</td><td class="citymagdecval">5</td></tr>
+        <tr><td>Istanbul</td><td class="citymagdecval">6</td></tr>
+        <tr><td>Kiev</td><td class="citymagdecval">8</td></tr>
+        <tr><td>Moscow</td><td class="citymagdecval">12</td></tr>
+        <tr><td>Cairo</td><td class="citymagdecval">5</td></tr>
+        <tr><td>Johannesburg</td><td class="citymagdecval">-19</td></tr>
+        <tr><td>Mumbai</td><td class="citymagdecval">0</td></tr>
+        <tr><td>Beijing</td><td class="citymagdecval">-7</td></tr>
+        <tr><td>Tokyo</td><td class="citymagdecval">-8</td></tr>
+        <tr><td>Perth</td><td class="citymagdecval">-1</td></tr>
+        <tr><td>Sydney</td><td class="citymagdecval">12</td></tr>
+      </table>
+      <button id="start-button" class="buttons"><i class="material-icons">play_circle_outline</i></button>
+    </div>
+    <br/>
+  
+    <div id="overlay-text"></div>
+    <canvas id="video-canvas"></canvas>
+    <video id="video-obj" autoplay playsinline></video>
+    
+    <div id="live-view-bottons-group">
+      <button id="add-coord-button" class="buttons"><i class="material-icons">control_point</i></button>
+      <button id="list-coords-button" class="buttons"><i class="material-icons">format_list_bulleted</i></button>
+    </div>
+    
+    <div id="coords-list-container">
+      <button id="close-coords-button" class="buttons"><i class="material-icons">cancel</i></button>
+      <div id="coords-buttons">
+        <button id="copy-coords-button" class="buttons"><i class="material-icons">content_copy</i></button>
+        <button id="clear-coords-button" class="buttons"><i class="material-icons">delete_forever</i></button>
+        <button id="save-coords-button" class="buttons"><i class="material-icons">save</i></button>
+      </div>
+      <div id="coords-header"></div>
+      <div id="coords-list"></div> 
+    </div>
+  </main>
+  
+<script>
+var constraints = { video: { facingMode: "environment" }, audio: false };
+let orientation = {heading: 0, azimuth: 0, elevation: 0, roll: 0, gx: 0, gy: 0, gz: 0, init: false};
+var magdec = 12;  // degrees
+const g_hist_coeff = 0.25;  // low pass filter; value 1 means fully trust latest measurement;  value 0.5 means blend 50% old and new values
+
+var coords = [];
+
+var deviceType = null;
+
+const urlParams = new URLSearchParams(window.location.search);
+
+const videoObj = document.querySelector("#video-obj"),
+  videoCanvas = document.querySelector("#video-canvas"),
+  overlayText = document.querySelector("#overlay-text"),
+  startButton = document.querySelector("#start-button"),
+  magDecInput = document.querySelector("#mag-dec-input"),
+  inputsDdiv = document.querySelector("#inputs"),
+  fullSensorDataCheckbox = document.querySelector("#full-sensor-data-checkbox"),
+  liveViewButtonsGroup = document.querySelector("#live-view-bottons-group"),
+  addCoordButton = document.querySelector("#add-coord-button"),
+  listCoordsButton = document.querySelector("#list-coords-button"),
+  coordButtonsContainer = document.querySelector("#coords-buttons-container"),
+  coordsListContainer = document.querySelector("#coords-list-container"),
+  coordsList = document.querySelector("#coords-list"),
+  coordsHeader = document.querySelector("#coords-header"),
+  copyCoordsButton = document.querySelector("#copy-coords-button"),
+  closeCoordsButton = document.querySelector("#close-coords-button"),
+  clearCoordsButton = document.querySelector("#clear-coords-button"),
+  saveCoordsButton = document.querySelector("#save-coords-button"),
+  videoCanvasContext = videoCanvas.getContext("2d");
+ 
+startButton.addEventListener('click', start, true);
+addCoordButton.addEventListener('click', addCoord, true);
+listCoordsButton.addEventListener('click', listCoords, true);
+copyCoordsButton.addEventListener('click', copyCoords, true);
+clearCoordsButton.addEventListener('click', clearCoords, true);
+closeCoordsButton.addEventListener('click', closeCoords, true);
+saveCoordsButton.addEventListener('click', saveCoords, true);
+
+window.addEventListener('click', (event) => { console.log(event.target); }, true);
+
+
+function getDeviceType(){
+  if(['iPad Simulator','iPhone Simulator','iPad','iPhone'].includes(navigator.platform) || (navigator.userAgent.includes("Mac") && "ontouchend" in document)){
+    deviceType = 'iOS';
+  } else if(navigator.userAgent.match(/android/i)){
+    deviceType = 'android';
+  } else {
+    alert('Warning: device type is neither android nor iOS; page may not work as expected.  Platform: "' + navigator.platform + '", user agent: "' + navigator.userAgent + '" ');
+  }
+  console.log('device type: ' + deviceType);
+}
+
+function pageLoaded(){
+  magdecFromUrl = urlParams.get('magdec');
+  console.log('magdecFromUrl: ' + magdecFromUrl);
+  if(magdecFromUrl!==null){
+    console.log('setting mag dec input to url value: ' + magdecFromUrl);
+    magDecInput.value = magdecFromUrl;
+  }
+  getDeviceType();
+  clearCoords();
+}
+
+function parseMagDec(strMagDec){
+  if( /^[+-]?[0-9\.]+$/.test(strMagDec) ){
+    magdec = strMagDec *1;
+  } else if( /^[0-9\.]+E$/.test(strMagDec) ){
+    magdec = strMagDec.replace('E','') * 1;
+  } else if( /^[0-9\.]+W$/.test(strMagDec) ){
+    magdec = strMagDec.replace('W','');
+  } else {
+    alert('Warning: unexpected value specified for magnetic declination: "' + strMagDec + '".  Expected positive or negative floating point value in degrees, or positive value suffixed as "E" or "W".  Defaulting to 0 deg.');
+    magdec = 0;
+  }
+  return magdec;
+}
+
+function setQueryStringParameter(name, value) {
+  console.log('updating url');
+  urlParams.set(name, value);
+  window.history.replaceState({}, "", decodeURIComponent(`${window.location.pathname}?${urlParams}`));
+}
+
+
+function start(){
+  magdec = parseMagDec(magDecInput.value);
+  console.log('using magdec value: ' + magdec)
+  setQueryStringParameter('magdec',magdec);
+  inputsDdiv.style.visibility = 'hidden';
+  liveViewButtonsGroup.style.display = 'block';
+  
+  if(typeof window.DeviceMotionEvent == 'undefined'){
+    alert('device motion events not supported');
+  }
+  
+  if(deviceType=='iOS'){  
+    DeviceMotionEvent.requestPermission().then(response => {
+    if (response == 'granted') {
+        window.addEventListener('deviceorientation', updateHeading);
+        window.addEventListener('devicemotion', updateAccelerometer);
+      } else {
+        alert('motion sensor permission denied');
+      }
+    }).catch(() => alert("DeviceMotionEvent.requestPermission not supported"));
+  } else if(deviceType=='android'){
+    window.addEventListener('deviceorientationabsolute', updateHeading);
+    //window.addEventListener('deviceorientation', updateHeading);
+    window.addEventListener('devicemotion', updateAccelerometer);
+  }
+  
+  if(fullSensorDataCheckbox.checked){
+    coordsHeader.innerHTML = 'Date, Time, Heading, Az, El, Roll, gx, gy, gz <br/>';  
+  } else {
+    coordsHeader.innerHTML = 'Az, El <br/>';  
+  }
+  
+  setInterval(updateOverlayText, 200);
+  cameraStart();
+}
+
+function cameraStart() {
+  navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: { facingMode: 'environment' },
+  })
+  .then((stream) => {
+    console.log("Got getUserMedia stream");
+    videoObj.srcObject = stream;
+    requestAnimationFrame(renderFrame);
+  })
+  .catch((err) => {
+    alert("Encountered getUserMedia error: " + err);
+    console.log("Encountered getUserMedia error", err);
+  }); 
+}
+
+videoObj.addEventListener('loadeddata', function() {
+  if(deviceType=="iOS"){
+    videoObj.style.transform = 'scale(0.0001,0.0001)';
+    videoObj.style.position = 'fixed';
+    videoObj.style.bottom = '0px';
+    videoObj.style.right = '0px';
+  } else {
+    videoObj.style.display = 'none';
+  }
+}, false);
+
+function renderFrame() {
+  requestAnimationFrame(renderFrame);
+  videoCanvas.width = videoCanvas.scrollWidth;
+  videoCanvas.height = videoCanvas.scrollHeight;
+  if (videoObj.readyState === videoObj.HAVE_ENOUGH_DATA) {
+    var videoSize = { width: videoObj.videoWidth, height: videoObj.videoHeight };
+    var canvasSize = { width: videoCanvas.width, height: videoCanvas.height };
+    var renderSize = calculateRenderSize(videoSize, canvasSize);
+    var xOffset = (canvasSize.width - renderSize.width) / 2;
+    var yOffset = (canvasSize.height - renderSize.height) / 2;
+    videoCanvasContext.drawImage(videoObj, xOffset, yOffset, renderSize.width, renderSize.height);
+    
+    // draw crosshairs:
+    videoCanvasContext.strokeStyle = 'red';
+    videoCanvasContext.beginPath();
+    videoCanvasContext.moveTo(videoCanvas.width/2-renderSize.width/2, videoCanvas.height/2);
+    videoCanvasContext.lineTo(videoCanvas.width/2+renderSize.width/2, videoCanvas.height/2);
+    videoCanvasContext.stroke();
+    videoCanvasContext.moveTo(videoCanvas.width/2, videoCanvas.height/2 - renderSize.height/2);
+    videoCanvasContext.lineTo(videoCanvas.width/2, videoCanvas.height/2 + renderSize.height/2);
+    videoCanvasContext.stroke();
+  }
+}
+
+function calculateRenderSize(srcSize, dstSize) {
+  var srcRatio = srcSize.width / srcSize.height;
+  var dstRatio = dstSize.width / dstSize.height;
+  if (dstRatio > srcRatio) {
+    return {
+      width:  dstSize.height * srcRatio,
+      height: dstSize.height
+    };
+  } else {
+    return {
+      width:  dstSize.width,
+      height: dstSize.width / srcRatio
+    };
+  }
+}
+
+function resize_canvas(){
+  console.log('resizing canvas to ' + document.body.scrollWidth + ' x ' + document.body.scrollHeight);
+  videoCanvas.width  = document.body.scrollWidth;
+  videoCanvas.height = document.body.scrollHeight;
+}
+
+
+function updateHeading(event){
+  if(deviceType=='iOS'){
+    orientation.heading = event.webkitCompassHeading*1;
+  } else if(deviceType=='android'){
+    orientation.heading = 180 - event.alpha;
+  }
+}
+
+function updateAccelerometer(event){
+  if(!orientation.init){
+    orientation.gx = event.accelerationIncludingGravity.x;
+    orientation.gy = event.accelerationIncludingGravity.y;
+    orientation.gz = event.accelerationIncludingGravity.z;
+    orientation.init = true;
+  } else {
+    orientation.gx = event.accelerationIncludingGravity.x * g_hist_coeff + orientation.gx * (1-g_hist_coeff);
+    orientation.gy = event.accelerationIncludingGravity.y * g_hist_coeff + orientation.gy * (1-g_hist_coeff);
+    orientation.gz = event.accelerationIncludingGravity.z * g_hist_coeff + orientation.gz * (1-g_hist_coeff);
+  }
+}
+
+
+function updateOverlayText(){
+  g = Math.sqrt(orientation.gx*orientation.gx + orientation.gy*orientation.gy + orientation.gz*orientation.gz)
+  orientation.elevation = (Math.asin(orientation.gz/g))*180/Math.PI * (deviceType=='android'?-1:1);
+  orientation.roll = (Math.PI/2 + Math.atan2(orientation.gy,orientation.gx))*180/Math.PI;
+  orientation.azimuth = (orientation.heading + magdec -orientation.roll + 360) % 360;
+  
+  overlayText.innerHTML =       'Azimuth:    ' + Math.round( orientation.azimuth ).toString().padStart(5);  
+  overlayText.innerHTML += '<br/>Elevation:  ' + Math.round( orientation.elevation ).toString().padStart(5);
+  overlayText.innerHTML += '<br/>Roll:       ' + Math.round( orientation.roll ).toString().padStart(5);
+  overlayText.innerHTML += '<br/>Gx:         ' + orientation.gx.toFixed(2).padStart(5);
+  overlayText.innerHTML += '<br/>Gy:         ' + orientation.gy.toFixed(2).padStart(5);
+  overlayText.innerHTML += '<br/>Gz:         ' + orientation.gz.toFixed(2).padStart(5);
+}
+
+window.addEventListener("orientationchange", function () {
+  console.log("The orientation of the screen is: " + window.orientation + '(' + getPhoneOrientation() + ')');
+});
+
+
+function getPhoneOrientation(){
+  return (window.orientation==0 || window.orientation==180) ? 'portrait' : 'landscape';
+}
+
+function addCoord(){
+  if(fullSensorDataCheckbox.checked){
+    d = new Date();
+    coords.push([
+      d.toLocaleDateString(),
+      d.getHours() + ":" + d.getMinutes() +":" + d.getSeconds(),
+      orientation.heading.toFixed(2),
+      orientation.azimuth.toFixed(2),  
+      orientation.elevation.toFixed(2), 
+      orientation.roll.toFixed(2), 
+      orientation.gx.toFixed(2), 
+      orientation.gy.toFixed(2), 
+      orientation.gz.toFixed(2)
+    ]);
+  } else {
+    coords.push([orientation.azimuth.toFixed(0), orientation.elevation.toFixed(0)]);
+  }
+}
+
+function listCoords(){
+  coordsListContainer.style.display = 'block';
+  coordsList.innerHTML = '';
+  for(var i=0; i<coords.length; i++){
+    rowStr = coords[i][0]
+    for(var j=1; j<coords[i].length; j++){
+      rowStr += ", " + coords[i][j]
+    }
+    coordsList.innerHTML += rowStr + '<br/>';
+  }
+}
+
+function copyCoords(){
+  console.log('copying coords');
+  coordsStr = coordsHeader.innerHTML.replace(/<br>/g,'\n');
+  coordsStr += coordsList.innerHTML.replace(/<br>/g,'\n');
+  console.log(coordsStr);
+  navigator.clipboard.writeText(coordsStr);
+}
+
+function clearCoords(){
+  coords = [];
+  coordsList.innerHTML = '';  
+}
+
+function saveCoords(){
+  coordsStr = coordsHeader.innerHTML.replace(/<br>/g,'\n').replace(/, /g,',');;
+  coordsStr += coordsList.innerHTML.replace(/<br>/g,'\n').replace(/, /g,',');;
+  const a = document.createElement('a');
+  a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(coordsStr);
+  a.download = 'coords.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function closeCoords(){
+  coordsListContainer.style.display = 'none';
+}
+
+
+</script>
+  
+</body>
+</html>
