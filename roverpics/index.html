@@ -219,6 +219,7 @@ pre {
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol50&filter=ECV">##PAGE_ADDR##?mars2020&sol50&filter=ECV</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches movie frames)</gray>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol18&fullframe">##PAGE_ADDR##?mars2020&sol18&fullframe</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=date">##PAGE_ADDR##?mars2020&latest&sort=date</a>
+      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=date&sortdir=descending">##PAGE_ADDR##?mars2020&latest&sort=date&sortdir=descending</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=imageid">##PAGE_ADDR##?mars2020&latest&sort=imageid</a>
       <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=camera">##PAGE_ADDR##?mars2020&latest&sort=camera</a>
       
@@ -370,7 +371,7 @@ var urlParams = {
   frame:    "",
   latest:   false,
   sortfield: "",
-  sortdir:  "ascending",
+  sortdirection:  "ascending",
 };
 var missionFullName = {
   msl: "MSL",
@@ -520,7 +521,7 @@ function parseUrl(){
       else console.log('unrecognized sort field: "' + val + '"');
     } else if(/^(sortdir)|(sortdirection)|(dir)|(direction)?$/.test(key) && /^(ascending)|(descending)$/.test(val) ) {
       console.log('Sort dir: "' + val + '"');
-      urlParams.sortdir = key;
+      urlParams.sortdirection = val;
     } else {
       console.log("unrecognized url parameter: " + key);
     }
@@ -689,6 +690,8 @@ function setThisPageUrlParams(){
     if(paramsCount>0) paramString += "&";
     paramString += "sort=" + urlParams.sortfield;
     paramsCount++;
+    paramString += "&sortdir=" + urlParams.sortdirection;
+    paramsCount++;    
   }
 
   console.log(urlParams);
