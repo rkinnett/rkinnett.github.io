@@ -740,7 +740,6 @@
             mesh.name = "low-res terrain";
             mesh.material = new THREE.MeshBasicMaterial({
               color: options["scene"].surfaceColor,
-              shininess: 2,
               map:  new THREE.TextureLoader().load('images/JCowart_color_mosaic.jpg', function(){
                 console.log("done loading low-res terrain texture");
                 scene.add(mesh);
@@ -856,6 +855,8 @@
 
       function onTouchEnd(event){
         touch.current.endTime = new Date().getTime();
+        mouse.x = ( event.targetTouches[0].pageX / window.innerWidth) * 2 - 1;
+        mouse.y = -( event.targetTouches[0].pageY / window.innerHeight) * 2 + 1;
         touch.current.duration = touch.current.endTime - touch.current.startTime;
         touch.current.singleFingerTap = (touch.current.duration<200 && touch.current.nFingers==1 && !touch.current.moved);
         console.log(touch);
@@ -865,8 +866,24 @@
           //alert("double tap " + event.touches.length);
           doubleClickHandler(event.changedTouches[0]);
           //event.preventDefault();
-        }        
+        } else if(touch.current.singleFingerTap && touch.current.duration>500){
+          var mouseNow = new THREE.Vector2().copy(mouse);
+          console.log(mouseNow);
+          placeRover(mouseNow);
+        }
         touch.prev = JSON.parse(JSON.stringify(touch.current));
+      }
+
+      function longTouchHandler(event){
+        console.log("long touch");
+        console.log(event);
+        var intersects = checkWhatWasClicked(event, [terrain, rover]);
+        if(intersects && intersects[0] && intersects[0].point){
+          console.log(intersects[0].point);
+          //camera.position.set(intersects[0].point);
+          //camera.translate(0,0, -1*camera.position.distanceTo(intersects[0].point));
+          moveCameraToViewTarget(intersects[0].point);
+        }
       }
 
       function onTouchMove(event){
@@ -887,27 +904,25 @@
 				render();
 			}
 
-			function render() {     
-        renderRequested = false;
+			function render() {
+        //console.log('render')
+        //renderRequested = false;
         updateCompass();
         renderer.render( scene, camera );
         
         const secondsElepased = clock.getDelta();
         if(drive.driving){
           updateDrive(secondsElepased);
-          //updateAudio(secondsElepased);
           //requestRenderIfNotRequested();
         }
 
         if(armMotion.moving){
           updateArm(secondsElepased);
-          //updateAudio(secondsElepased);
           //requestRenderIfNotRequested();
         }
 
         if(audio.started && (audio.arm.state!="stopped" || audio.drive.state!="stopped")){
           updateAudio(secondsElepased);
-          //requestRenderIfNotRequested();
         }
       }
       
@@ -916,6 +931,8 @@
         if (!renderRequested) {
           renderRequested = true;
           requestAnimationFrame(render);
+        } else {
+          console.log('skipping render')
         }
       }
 
@@ -1448,6 +1465,7 @@
           console.log("done loading terrain hieght map");
           
           //render();
+          controls.update();
 
           if(params.onload!==undefined) params.onload(terrainMesh);
           
@@ -2063,7 +2081,7 @@
           clock.getDelta();  // update clock since previous frame may have been a long time ago
           console.log("Starting drive");
           drive.prevStepTime = new Date().getTime();
-          if(!audio.drive.isPlaying) audio.drive.state="starting";
+          if(audio.drive && !audio.drive.isPlaying) audio.drive.state="starting";
           //requestRenderIfNotRequested();
         }
         if(!drive.driving && prevDriving){
