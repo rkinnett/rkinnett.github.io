@@ -300,6 +300,7 @@ saveCoordsButton.addEventListener('click', saveCoords, true);
 
 window.addEventListener('click', (event) => { console.log(event.target); }, true);
 
+var last_heading
 
 function getDeviceType(){
   if(['iPad Simulator','iPhone Simulator','iPad','iPhone'].includes(navigator.platform) || (navigator.userAgent.includes("Mac") && "ontouchend" in document)){
@@ -455,11 +456,13 @@ function resize_canvas(){
 
 
 function updateHeading(event){
-  if(deviceType=='iOS'){
-    orientation.heading = event.webkitCompassHeading*1;
-  } else if(deviceType=='android'){
-    orientation.heading = 180 - event.alpha;
+  orientation.heading  = event.webkitCompassHeading ? event.webkitCompassHeading : 180 - event.alpha
+  last_heading = last_heading ? last_heading : orientation.heading   // initialize if haven't already
+  if (Math.abs(orientation.heading - last_heading) > 100) {
+	orientation.heading += 180
   }
+  orientation.heading = ((orientation.heading % 360) + 360) % 360
+  last_heading = orientation.heading
 }
 
 function updateAccelerometer(event){
@@ -480,7 +483,7 @@ function updateOverlayText(){
   g = Math.sqrt(orientation.gx*orientation.gx + orientation.gy*orientation.gy + orientation.gz*orientation.gz)
   orientation.elevation = (Math.asin(orientation.gz/g))*180/Math.PI * (deviceType=='android'?-1:1);
   orientation.roll = (Math.PI/2 + Math.atan2(orientation.gy,orientation.gx))*180/Math.PI;
-  orientation.azimuth = (orientation.heading + magdec -orientation.roll + 360) % 360;
+  orientation.azimuth = ((orientation.heading + magdec -orientation.roll ) % 360 + 360) % 360;
   
   overlayText.innerHTML =       'Azimuth:    ' + Math.round( orientation.azimuth ).toString().padStart(5);  
   overlayText.innerHTML += '<br/>Elevation:  ' + Math.round( orientation.elevation ).toString().padStart(5);
