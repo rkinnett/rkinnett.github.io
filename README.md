@@ -8,4 +8,4 @@
 My [Github.io project tree](https://github.com/rkinnett/rkinnett.github.io)  
 My [other github stuff](https://github.com/rkinnett)  
   
-Contact me on [Twitter](https://twitter.com/rover_18) or [Discord](https://discord.gg/Eky6AhRSnj).  
+Contact me on [Twitter](https://twitter.com/rover_18) or [Discord](https://discord.gg/p87TKEc8Ta).  
