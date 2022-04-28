@@ -456,7 +456,7 @@ function resize_canvas(){
 
 
 function updateHeading(event){
-  orientation.heading  = event.webkitCompassHeading ? event.webkitCompassHeading : 180 - event.alpha
+  orientation.heading  = deviceType=='iOS' ? event.webkitCompassHeading*1 : 180 - event.alpha
   last_heading = last_heading ? last_heading : orientation.heading   // initialize if haven't already
   if (Math.abs(orientation.heading - last_heading) > 100 && Math.abs(orientation.heading - last_heading) < 300) {
 	orientation.heading += 180
