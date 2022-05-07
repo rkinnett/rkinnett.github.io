@@ -123,31 +123,25 @@
 					terrain = gltf.scene.children[0]
 					terrain.traverse(function (node) {
 						if (node.isMesh) {
+							// Convert to Phong material which looks better and handles shadows better:
 							var prevMaterial = node.material;
 							node.material = new THREE.MeshPhongMaterial();
-							THREE.MeshBasicMaterial.prototype.copy.call( node.material, prevMaterial );
+							THREE.MeshBasicMaterial.prototype.copy.call( node.material, prevMaterial );							
 							node.material.shininess = 1;
 							node.receiveShadow  = true;
-							node.castShadow  = true;
-							node.material.side = THREE.FrontSide;
-							if(node.material.map){
-								node.material.minFilter = THREE.NearestMipmapLinearFilter;
-							}
-							node.material.needsUpdate = true;
 						}
 					});
 					console.log(terrain)
 					window.terrain = terrain;  // make accessible to console
 					scene.add( terrain );
-					renderer.shadowMap.needsUpdate = true;
 					render();
 				} );
 				
 				// Load helicopter:
 				gltfLoader.load( 'ingenuity/Ingenuity_rk_edit.glb', function ( gltf ) {
-					gltf.scene.traverse( function ( object ) {
-						if ( object.isMesh ) object.castShadow = true;
-					} );
+					//gltf.scene.traverse( function ( object ) {
+					//	if ( object.isMesh ) object.castShadow = true;
+					//} );
 					helicopter = gltf.scene.children[0]
 					console.log(helicopter)
 					helicopter.position.set(0,0,-1)
