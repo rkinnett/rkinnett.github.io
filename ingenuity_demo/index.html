@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Ingenuity Flight</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<!--link type="text/css" rel="stylesheet" href="main.css"-->
+		
+		<style>
+			#webgl {
+			  position: fixed;
+			  width: 100%; /* Full width (cover the whole page) */
+			  height: 100%; /* Full height (cover the whole page) */
+			  top: 0;
+			  left: 0;
+			  right: 0;
+			  bottom: 0;
+			  z-index: -1;
+			}
+		</style>		
+	</head>
+
+	<body>
+		<div id="webgl"></div>
+
+
+		<!-- Import maps polyfill -->
+		<!-- Remove this when import maps will be widely supported -->
+		<script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "https://unpkg.com/three@0.140.0/build/three.module.js"
+				}
+			}
+		</script>
+
+		<script type="module">
+
+			import * as THREE from 'three';
+
+			import { MapControls } from './three/OrbitControls.js';
+			import { GLTFLoader } from './three/GLTFLoader.js';
+			//import { RGBELoader } from './jsm/loaders/RGBELoader.js';
+
+			let camera, scene, renderer, diffuselight, terrain, helicopter;
+			
+			let deg2rad = Math.PI/180;
+			let rad2deg = 180/Math.PI;
+
+			let sun = {
+				pos:  new THREE.Vector3(),
+				lights:  new THREE.Group(),
+				az: -90,
+				el: 45, 				
+			}
+			window.sun = sun;  // make accessible to console
+
+			init();
+			render();
+
+			function init() {
+
+				const container = document.getElementById('webgl');
+				document.body.appendChild( container );
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.toneMapping = THREE.ACESFilmicToneMapping;
+				renderer.shadowMap.enabled = true; 
+				renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+				renderer.outputEncoding = THREE.sRGBEncoding;
+				//renderer.setClearColor(new THREE.Color(0xffe7d3, 1.0));
+				renderer.alpha = false;
+				//renderer.preserveDrawingBuffer = true;
+				renderer.physicallyCorrectLights = true;
+				renderer.toneMappingExposure = 1;
+				window.renderer = renderer;
+				container.appendChild( renderer.domElement );
+
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 200000 );
+				camera.position.set( -5, -2, -2 );
+				camera.up.set(0,0,-1)
+				camera.lookAt(0,0,-2);
+
+				scene = new THREE.Scene();
+				window.scene = scene;
+				scene.background = new THREE.Color( 0xf8e7d3 );
+
+				// Make diffuselight:
+				diffuselight = new THREE.AmbientLight( 0xffe7d3 );
+				diffuselight.intensity = 0.5;
+				scene.add( diffuselight );
+				
+				
+				// Light1 with narrow shadow map:
+				sun.light1 = new THREE.DirectionalLight(0xffe2b7, 0.75);
+				sun.light1.position.set(0,-1000,-1000)
+				sun.light1.castShadow = true;
+				sun.light1.shadow.camera.near = 1;
+				sun.light1.shadow.camera.far = 10000;
+				sun.light1.shadow.mapSize.width = 2048;
+				sun.light1.shadow.mapSize.height = 2048;
+				sun.light1.shadow.camera.top = sun.light1.shadow.camera.right = 5;
+				sun.light1.shadow.camera.bottom = sun.light1.shadow.camera.left = -5;
+
+				sun.lights.name = "lights";
+				sun.lights.add( sun.light1 );				
+				scene.add(sun.lights);
+				
+				//setSunPosition()
+								
+				//Create a helper for the shadow camera
+				//const helper = new THREE.CameraHelper( sun.light1.shadow.camera );
+				//scene.add( helper );
+
+				const gltfLoader = new GLTFLoader()
+
+				// Load base terrain:
+				gltfLoader.load( 'terrain/orbital/CompleteCrater_geometryNodes_decimated.gltf', function ( gltf ) {
+					terrain = gltf.scene.children[0]
+					terrain.traverse(function (node) {
+						if (node.isMesh) {
+							var prevMaterial = node.material;
+							node.material = new THREE.MeshPhongMaterial();
+							THREE.MeshBasicMaterial.prototype.copy.call( node.material, prevMaterial );
+							node.material.shininess = 1;
+							node.receiveShadow  = true;
+							node.castShadow  = true;
+							node.material.side = THREE.FrontSide;
+							if(node.material.map){
+								node.material.minFilter = THREE.NearestMipmapLinearFilter;
+							}
+							node.material.needsUpdate = true;
+						}
+					});
+					console.log(terrain)
+					window.terrain = terrain;  // make accessible to console
+					scene.add( terrain );
+					renderer.shadowMap.needsUpdate = true;
+					render();
+				} );
+				
+				// Load helicopter:
+				gltfLoader.load( 'ingenuity/Ingenuity_rk_edit.glb', function ( gltf ) {
+					gltf.scene.traverse( function ( object ) {
+						if ( object.isMesh ) object.castShadow = true;
+					} );
+					helicopter = gltf.scene.children[0]
+					console.log(helicopter)
+					helicopter.position.set(0,0,-1)
+					helicopter.traverse(function (node) {
+						if (node.isMesh) { node.castShadow = true; }
+					});
+					sun.light1.target = helicopter;
+					window.helicopter = helicopter;  // make accessible to console
+					scene.add( helicopter );
+					render();
+				} );
+
+				// Display coordinate axes:
+				const axesHelper = new THREE.AxesHelper( 5 );
+				scene.add( axesHelper );
+				
+
+				const controls = new MapControls( camera, renderer.domElement );
+				controls.addEventListener( 'change', render ); // use if there is no animation loop
+				controls.minDistance = 1;
+				controls.maxDistance = 10000;
+				controls.enableDamping = false;
+				controls.screenSpacePanning = false;  // for mapcontrols
+				controls.mouseButtons = {LEFT: 0, MIDDLE: 1, RIGHT: 2};
+				controls.update();
+
+				scene.traverse( function( child ) { 
+					if ( child.isMesh ) {
+						child.castShadow = true;
+						child.receiveShadow = true;
+					}
+				} );
+
+				window.addEventListener( 'resize', onWindowResize );
+
+			}
+
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				render();
+			}
+
+			function render() {
+				renderer.render( scene, camera );
+			}
+			
+			
+			function setSunPosition(){
+				const dist = 1000
+				sun.lights.position.set(
+					dist * Math.cos(sun.el * deg2rad) * Math.cos(sun.az * deg2rad), 
+					dist * Math.cos(sun.el * deg2rad) * Math.sin(sun.az * deg2rad), 
+					-1 * dist * Math.sin(sun.el * deg2rad)
+				);
+			}
+
+		</script>
+
+	</body>
+</html>
