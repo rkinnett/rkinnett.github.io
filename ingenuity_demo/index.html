@@ -47,7 +47,7 @@
 			import { GLTFLoader } from './three/GLTFLoader.js';
 			//import { RGBELoader } from './jsm/loaders/RGBELoader.js';
 
-			let camera, scene, renderer, diffuselight, terrain;
+			let camera, controls, scene, renderer, diffuselight, terrain;
 			
 			let deg2rad = Math.PI/180;
 			let rad2deg = 180/Math.PI;
@@ -75,10 +75,9 @@
 			const available_flights = ['','test']
 			
 			var guiParams = {
-				loadFile : function() { 
-					document.getElementById('input_selectFile').click();
-				},
+				//loadFile : function() { document.getElementById('input_selectFile').click() },
 				selected_flight: '',
+				follow_helicopter: true,
 			};
 			
 			let flight = {
@@ -88,7 +87,7 @@
 				field_names: [],
 				end_time: 0,
 				is_playing: false,
-				state: {x: 0, y: 0, z: -0.25, qx: 0, qy: 0, qz: 0, qw: 1, rotor_speed: 0},  // initial state
+				state: {x: 0, y: 0, z: -0.20, qx: 0, qy: 0, qz: 0, qw: 1, rotor_speed: 0},  // initial state
 				playback_time: 0,
 			}
 			
@@ -199,7 +198,7 @@
 				scene.add( axesHelper );
 				
 
-				const controls = new MapControls( camera, renderer.domElement );
+				controls = new MapControls( camera, renderer.domElement );
 				//controls.addEventListener( 'change', render ); // use if there is no animation loop
 				controls.minDistance = 1;
 				controls.maxDistance = 10000;
@@ -219,9 +218,9 @@
 				
 				
 				var gui = new dat.gui.GUI();
-				gui.add(guiParams, 'loadFile').name('Load CSV file');
-				gui.add(guiParams, 'selected_flight', available_flights).onChange(loadSelectedFlight);
-
+				//gui.add(guiParams, 'loadFile').name('Load CSV file');
+				gui.add(guiParams, 'selected_flight', available_flights).onChange(loadSelectedFlight).name('Select flight');
+				gui.add(guiParams, 'follow_helicopter').listen().name('Follow Ingenuity');
 				
 				renderer.setAnimationLoop(renderAnimationFrame)
 			}
@@ -280,6 +279,11 @@
 				// Update attitude:
 				var helicopterAttitude = new THREE.Quaternion(flight.state.qx, flight.state.qy, flight.state.qz, flight.state.qw);
 				helicopter.obj.rotation.setFromQuaternion(helicopterAttitude);
+				
+				// Update camera:
+				if (guiParams.follow_helicopter){
+					moveCameraToViewTarget(helicopter.obj.position);
+				}
 			}
 
 			
@@ -341,6 +345,16 @@
 						});
 					}
 				}
+			}
+			
+			
+			function moveCameraToViewTarget(newTargetPosition){
+				var oldCamPos = camera.position.clone();
+				var oldTargetPosition = controls.target.clone();
+				var vecOldTargetToNewTarget = newTargetPosition.clone().sub(oldTargetPosition);
+				camera.position.copy(oldCamPos.clone().add(vecOldTargetToNewTarget));
+				controls.target.copy(newTargetPosition);
+				controls.update();
 			}
 
 
