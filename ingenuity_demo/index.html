@@ -43,7 +43,7 @@
 
 			import * as THREE from 'three';
 			import * as dat from 'dat.gui';
-			import { MapControls } from './three/OrbitControls.js';
+			import { OrbitControls, MapControls } from './three/OrbitControls.js';
 			import { GLTFLoader } from './three/GLTFLoader.js';
 			//import { RGBELoader } from './jsm/loaders/RGBELoader.js';
 
@@ -116,7 +116,7 @@
 				container.appendChild( renderer.domElement );
 
 				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 200000 );
-				camera.position.set( -5, -2, -2 );
+				camera.position.set( -3, 4, -1 );
 				camera.up.set(0,0,-1)
 				camera.lookAt(0,0,-2);
 
@@ -198,12 +198,13 @@
 				scene.add( axesHelper );
 				
 
-				controls = new MapControls( camera, renderer.domElement );
+				controls = new OrbitControls( camera, renderer.domElement );
 				//controls.addEventListener( 'change', render ); // use if there is no animation loop
 				controls.minDistance = 1;
 				controls.maxDistance = 10000;
 				controls.enableDamping = false;
-				controls.screenSpacePanning = false;  // for mapcontrols
+				//controls.screenSpacePanning = false;  // false for mapcontrols, true for orbitcontrols
+				controls.screenSpacePanning = true;  // false for mapcontrols, true for orbitcontrols
 				controls.mouseButtons = {LEFT: 0, MIDDLE: 1, RIGHT: 2};
 				controls.update();
 
