@@ -23,6 +23,8 @@
 	<body>
 		<div id="webgl"></div>
 
+		<input id="input_selectFile" type="file" style="visibility:hidden" />
+
 
 		<!-- Import maps polyfill -->
 		<!-- Remove this when import maps will be widely supported -->
@@ -31,7 +33,8 @@
 		<script type="importmap">
 			{
 				"imports": {
-					"three": "https://unpkg.com/three@0.140.0/build/three.module.js"
+					"three": "https://unpkg.com/three@0.140.0/build/three.module.js",
+					"dat.gui": "https://unpkg.com/dat.gui@0.7.6/build/dat.gui.module.js"
 				}
 			}
 		</script>
@@ -39,15 +42,17 @@
 		<script type="module">
 
 			import * as THREE from 'three';
-
+			import * as dat from 'dat.gui';
 			import { MapControls } from './three/OrbitControls.js';
 			import { GLTFLoader } from './three/GLTFLoader.js';
 			//import { RGBELoader } from './jsm/loaders/RGBELoader.js';
 
-			let camera, scene, renderer, diffuselight, terrain, helicopter;
+			let camera, scene, renderer, diffuselight, terrain;
 			
 			let deg2rad = Math.PI/180;
 			let rad2deg = 180/Math.PI;
+			
+			const clock = new THREE.Clock();
 
 			let sun = {
 				pos:  new THREE.Vector3(),
@@ -56,9 +61,40 @@
 				el: 45, 				
 			}
 			window.sun = sun;  // make accessible to console
+			
+			let helicopter = {
+				loaded: false,
+				obj: null,
+				rotors: [
+					{ name: 'rotor_upper', obj: null, angle: 0, direction: 1 },
+					{ name: 'rotor_lower', obj: null, angle: 0, direction: -1 }
+				]
+			}
+			
+			
+			const available_flights = ['','test']
+			
+			var guiParams = {
+				loadFile : function() { 
+					document.getElementById('input_selectFile').click();
+				},
+				selected_flight: '',
+			};
+			
+			let flight = {
+				loaded: false,
+				name: null,
+				data: [],
+				field_names: [],
+				end_time: 0,
+				is_playing: false,
+				state: {x: 0, y: 0, z: -0.25, qx: 0, qy: 0, qz: 0, qw: 1, rotor_speed: 0},  // initial state
+				playback_time: 0,
+			}
+			
 
 			init();
-			render();
+			//render();
 
 			function init() {
 
@@ -134,24 +170,28 @@
 					console.log(terrain)
 					window.terrain = terrain;  // make accessible to console
 					scene.add( terrain );
-					render();
 				} );
 				
 				// Load helicopter:
 				gltfLoader.load( 'ingenuity/Ingenuity_rk_edit.glb', function ( gltf ) {
-					//gltf.scene.traverse( function ( object ) {
-					//	if ( object.isMesh ) object.castShadow = true;
-					//} );
-					helicopter = gltf.scene.children[0]
-					console.log(helicopter)
-					helicopter.position.set(0,0,-1)
-					helicopter.traverse(function (node) {
-						if (node.isMesh) { node.castShadow = true; }
+					helicopter.obj = gltf.scene.children[0]
+					helicopter.obj.position.set(flight.state.x, flight.state.y, flight.state.z)
+					helicopter.obj.traverse(function (node) {
+						if (node.isMesh) { 
+							node.castShadow = true;
+						}
+						//console.log(node.name)
+						helicopter.rotors.forEach((rotor) => {
+							if (node.name == rotor.name){
+								rotor.obj = node
+							}
+						});
 					});
-					sun.light1.target = helicopter;
+					sun.light1.target = helicopter.obj;
 					window.helicopter = helicopter;  // make accessible to console
-					scene.add( helicopter );
-					render();
+					console.log(helicopter)
+					scene.add( helicopter.obj );
+					helicopter.loaded = true;
 				} );
 
 				// Display coordinate axes:
@@ -160,7 +200,7 @@
 				
 
 				const controls = new MapControls( camera, renderer.domElement );
-				controls.addEventListener( 'change', render ); // use if there is no animation loop
+				//controls.addEventListener( 'change', render ); // use if there is no animation loop
 				controls.minDistance = 1;
 				controls.maxDistance = 10000;
 				controls.enableDamping = false;
@@ -176,7 +216,14 @@
 				} );
 
 				window.addEventListener( 'resize', onWindowResize );
+				
+				
+				var gui = new dat.gui.GUI();
+				gui.add(guiParams, 'loadFile').name('Load CSV file');
+				gui.add(guiParams, 'selected_flight', available_flights).onChange(loadSelectedFlight);
 
+				
+				renderer.setAnimationLoop(renderAnimationFrame)
 			}
 
 			function onWindowResize() {
@@ -186,7 +233,20 @@
 				render();
 			}
 
-			function render() {
+			function renderAnimationFrame() {
+				const timeDeltaSeconds = clock.getDelta();
+								
+				// Update playback time:
+				if (flight.is_playing) {
+					flight.playback_time += timeDeltaSeconds;
+					if (flight.playback_time < flight.end_time){
+						updateHelicopter(timeDeltaSeconds)
+					} else {
+						flight.playback_time = 0;
+						flight.is_playing = false
+					}
+				} 
+								
 				renderer.render( scene, camera );
 			}
 			
@@ -199,6 +259,90 @@
 					-1 * dist * Math.sin(sun.el * deg2rad)
 				);
 			}
+
+			function updateHelicopter(timeDelta){
+				if (!helicopter.loaded){
+					return
+				}
+				
+				// Interpolate flight states
+				updateHelicopterState();
+				
+				// Update rotors:
+				helicopter.rotors.forEach((rotor) => {
+					rotor.angle += (rotor.direction * flight.state.rotor_speed * timeDelta) % (Math.PI*2)
+					rotor.obj.rotation.set(0,0,rotor.angle ,'XYZ')
+				})
+				
+				// Update position:
+				helicopter.obj.position.set(flight.state.x, flight.state.y, flight.state.z)
+				
+				// Update attitude:
+				var helicopterAttitude = new THREE.Quaternion(flight.state.qx, flight.state.qy, flight.state.qz, flight.state.qw);
+				helicopter.obj.rotation.setFromQuaternion(helicopterAttitude);
+			}
+
+			
+			
+			function loadSelectedFlight(selected_flight){
+				const filename = 'flights/' + selected_flight + '/flight.csv'
+				console.log(filename)
+				
+				// Get flight data CSV file:
+				var request = new XMLHttpRequest();  
+				request.open("GET", filename, false);   
+				request.send(null);
+				
+				if (request.responseText.length <= 1){
+					alert('Flight data file inaccessible: ' + filename);
+					flight.loaded = false;
+					flight.is_playing = false;
+					return
+				}
+				
+				flight.name = selected_flight
+				
+				// Parse CSV content into 2d array:
+				var csvData = new Array();
+				var jsonObject = request.responseText.split(/\r?\n|\r/);
+				for (var i = 0; i < jsonObject.length; i++) {
+				  csvData.push(jsonObject[i].split(','));
+				}
+				console.log(csvData);
+				
+				// Reshape into associative array:
+				flight.field_names = csvData[0]
+				flight.data = []
+				for (var entry_idx=1; entry_idx<csvData.length; entry_idx++) {
+					if (csvData[entry_idx].length>1){
+						var entry = {}
+						for (var field_idx=0; field_idx<flight.field_names.length; field_idx++) {
+							var field_name = flight.field_names[field_idx]
+							entry[field_name] = parseFloat(csvData[entry_idx][field_idx])
+						}
+						flight.data.push(entry)
+					}
+				}
+				console.log(flight.data[flight.data.length-1])
+				flight.end_time = flight.data[flight.data.length-1].time;
+				flight.is_playing = true;
+				flight.loaded = true;
+				console.log(flight);
+			}
+			
+
+			function updateHelicopterState(){
+				flight.state = {}
+				for (var datum_idx=0; datum_idx<flight.data.length-1; datum_idx++) {
+					if ( flight.playback_time >= flight.data[datum_idx].time && flight.playback_time < flight.data[datum_idx+1].time ){
+						var interp_factor = (flight.playback_time - flight.data[datum_idx].time) / (flight.data[datum_idx+1].time - flight.data[datum_idx].time);
+						Object.keys(flight.data[datum_idx]).forEach(key => {
+							flight.state[key] = flight.data[datum_idx][key] + interp_factor * (flight.data[datum_idx+1][key] - flight.data[datum_idx][key]);
+						});
+					}
+				}
+			}
+
 
 		</script>
 
