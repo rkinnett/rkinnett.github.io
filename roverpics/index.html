@@ -1070,7 +1070,7 @@ function reshapeMslImageList(msl_raw_image_list_json){
       camera_vector: img.camera_vector,
     }
     msl_raw_image_list_json.images[index].image_files = {
-      'small':    img.url.replace(/.jpg/,'-thm.jpg').replace(/.JPG/,'-thm.JPG'),
+      'small':    img.url.replace(/.jpg/,'-thm.jpg').replace(/.JPG/,'-thm.JPG').replace(/.PNG/,'-thm.PNG'),
       'full_res': img.url
     }    
     msl_raw_image_list_json.images[index].date_taken_mars = img.extended.lmst || '';
