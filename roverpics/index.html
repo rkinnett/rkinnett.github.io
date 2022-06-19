@@ -325,7 +325,13 @@ pre {
     </div>  
     <form id="cam_filter"></form>
   </th>
-  <th> <h3 onclick='sortTable("frametype")'>Frame Type</h3>  <form id="type_filter"></form> </th>
+  <th> <h3 onclick='sortTable("frametype")'>Frame Type</h3>
+    <div>
+      <a onclick='selectFrameTypes("all")'>[all]</a>&nbsp;
+      <a onclick='selectFrameTypes("none")'>[none]</a>
+    </div>
+	<form id="type_filter"></form> 
+  </th>
   <th> 
     <h3 onclick='sortTable("imageid")'>Image ID</h3> 
     <div style="block">
@@ -597,6 +603,19 @@ function selectCams(allOrNone){
   doFilter();
 }
 
+
+function selectFrameTypes(allOrNone){
+  console.log("selecting " + allOrNone + " frame types");
+  var include = (allOrNone=="all")? true : false;  
+  var frameTypeCheckboxes = table.tHead.rows[0].cells[3].querySelectorAll('input[type="checkbox"]');
+  console.log(frameTypeCheckboxes);
+  console.log(frameTypeCheckboxes.length);
+  for(var i=0; i<frameTypeCheckboxes.length; i++){
+    console.log(frameTypeCheckboxes[i]);
+    frameTypeCheckboxes[i].checked = include;
+  }
+  doFilter();
+}
 
 
 function selectImages(allOrNone){
