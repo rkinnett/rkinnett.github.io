@@ -739,11 +739,12 @@ function imageQuery(mission, sol){
   
   
   // Get full-frame still frames:
-  var rss_url = base_url + '&condition_2=' + sol + ':sol:gte&condition_3=' + sol + ':sol:lte&num=' + images_per_page;
+  var rss_url = base_url + '&condition_2=' + sol + ':sol:gte&condition_3=' + sol + ':sol:lte&num=' + images_per_page + '&per_page=' + images_per_page;
   console.log("Getting full-frame still frames");
   console.log(rss_url)
   
-  var url_full_frames = rss_url + '&extended=' + (mission=="msl" ? 'full::sample_type' : 'sample_type::full');
+  var url_full_frames = rss_url + '&extended=' + (mission=="msl" ? 'thumbnail::sample_type::noteq' : 'sample_type::full');
+  console.log('Full frame query url: ' + url_full_frames);
   getPaginatedFrames(url_full_frames, function(){
   
     // Get thumbnail still frames:
@@ -1059,6 +1060,7 @@ function reshapeMslImageList(msl_raw_image_list_json){
   // Reshape MSL image metadata to match old RSS query protocol.
   msl_raw_image_list_json.images = msl_raw_image_list_json.items;
   delete msl_raw_image_list_json.items;
+  msl_raw_image_list_json.total_results = msl_raw_image_list_json.total;
   msl_raw_image_list_json.images.forEach((img, index) => {
     msl_raw_image_list_json.images[index].sample_type = img.extended.sample_type;
     msl_raw_image_list_json.images[index].camera = {
