@@ -711,9 +711,9 @@ function setThisPageUrlParams(){
 function imageQuery(mission, sol){
 
   if(mission=="msl"){
-	var base_url = 'https://mars.nasa.gov/api/v1/raw_image_items?order=sol+desc,+date_taken+desc&condition_1=msl:mission';
+    var base_url = 'https://mars.nasa.gov/api/v1/raw_image_items?order=sol+desc,+date_taken+desc&condition_1=msl:mission';
   } else {
-	var base_url = 'https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission;
+    var base_url = 'https://mars.nasa.gov/rss/api/?feed=raw_images&feedtype=json&category=' + mission;
   }
   console.log(base_url)
   
@@ -750,7 +750,7 @@ function imageQuery(mission, sol){
     console.log("Getting thumbnail still frames");
     var url_thumbnails = rss_url + '&extended=' + (mission=="msl" ? 'thumbnail::sample_type' : 'sample_type::thumbnail');
     getPaginatedFrames(url_thumbnails, function(){
-			
+            
       if(mission=="mars2020"){
         // Get full-frame movie frames:
         console.log("Getting full-frame movie frames");
@@ -780,7 +780,7 @@ function getPaginatedFrames(url, callback){
   fetchJson(url + '&page=' + 0, function(extd_image_list_json){
     console.log(extd_image_list_json);
 
-	num_images_available = extd_image_list_json.total_results || extd_image_list_json.total || 0
+    num_images_available = extd_image_list_json.total_results || extd_image_list_json.total || 0
     if(!extd_image_list_json || !num_images_available){
       console.log("getPaginatedFrames: no images");
       callback();
@@ -791,8 +791,8 @@ function getPaginatedFrames(url, callback){
     const num_pages = Math.ceil(num_images_available / extd_image_list_json.per_page);
     console.log("extended query indicates " + num_images_available + " images available (" + num_pages + " pages)");
 
-	// Since MSL decided to rename "images" list to "items":
-	extd_image_list_json = mission=="msl" ? reshapeMslImageList(extd_image_list_json) : extd_image_list_json;
+    // Since MSL decided to rename "images" list to "items":
+    extd_image_list_json = mission=="msl" ? reshapeMslImageList(extd_image_list_json) : extd_image_list_json;
 
     // Append images from the first page, one at a time, to master list
     if(extd_image_list_json.images && extd_image_list_json.images.length>0 ){
@@ -821,8 +821,8 @@ function getPaginatedFrames(url, callback){
       fetchJson(url + '&page=' + page, function(extd_image_list_json){
         console.log(extd_image_list_json);
 
-    	// Since MSL decided to rename "images" list to "items":
-		extd_image_list_json = mission=="msl" ? reshapeMslImageList(extd_image_list_json) : extd_image_list_json;
+        // Since MSL decided to rename "images" list to "items":
+        extd_image_list_json = mission=="msl" ? reshapeMslImageList(extd_image_list_json) : extd_image_list_json;
 
         // Append images, one at a time, to master list
         if(extd_image_list_json.images && extd_image_list_json.images.length>0 ){
@@ -851,8 +851,11 @@ function getPaginatedFrames(url, callback){
 
 function getFullframeStillframes(rss_url, callback){
   fetchJson(rss_url, function(rxJson){
+    // Since MSL decided to rename "images" list to "items":
+    rxJson = mission=="msl" ? reshapeMslImageList(rxJson) : rxJson;
+
     image_list_json = rxJson;
-    console.log(image_list_json);
+    console.log(image_list_json);	
     if(!image_list_json || !image_list_json.images || !image_list_json.images.length) return;    
     got_images = true;
     if(callback) callback();
@@ -1057,19 +1060,19 @@ function reshapeMslImageList(msl_raw_image_list_json){
   msl_raw_image_list_json.images = msl_raw_image_list_json.items;
   delete msl_raw_image_list_json.items;
   msl_raw_image_list_json.images.forEach((img, index) => {
-	msl_raw_image_list_json.images[index].sample_type = img.extended.sample_type;
-	msl_raw_image_list_json.images[index].camera = {
-	  instrument: img.instrument,
-	  camera_model_component_list: img.camera_model_component_list,
-	  camera_position: img.camera_position,
-	  camera_vector: img.camera_vector,
-	}
-	msl_raw_image_list_json.images[index].image_files = {
-	  'small':    img.url.replace(/.jpg/,'-thm.jpg').replace(/.JPG/,'-thm.JPG'),
-	  'full_res': img.url
-	}	
-	msl_raw_image_list_json.images[index].date_taken_mars = img.extended.lmst || '';
-	msl_raw_image_list_json.images[index].date_taken_utc  = img.date_taken || '';
+    msl_raw_image_list_json.images[index].sample_type = img.extended.sample_type;
+    msl_raw_image_list_json.images[index].camera = {
+      instrument: img.instrument,
+      camera_model_component_list: img.camera_model_component_list,
+      camera_position: img.camera_position,
+      camera_vector: img.camera_vector,
+    }
+    msl_raw_image_list_json.images[index].image_files = {
+      'small':    img.url.replace(/.jpg/,'-thm.jpg').replace(/.JPG/,'-thm.JPG'),
+      'full_res': img.url
+    }    
+    msl_raw_image_list_json.images[index].date_taken_mars = img.extended.lmst || '';
+    msl_raw_image_list_json.images[index].date_taken_utc  = img.date_taken || '';
   });
   return msl_raw_image_list_json;
 }
@@ -1285,7 +1288,7 @@ function exportImageURLs(){
   var fname = document.getElementById("summary").innerText.replace(/.* from /,"").replace(/ /g,"_") + '_image_urls.txt'
   a.download = fname;
   a.click();
-	URL.revokeObjectURL(a.href);
+    URL.revokeObjectURL(a.href);
 }
 
 function exportJson(){
@@ -1299,7 +1302,7 @@ function exportJson(){
   var fname = document.getElementById("summary").innerText.replace(/.* from /,"").replace(/ /g,"_") + '_image_data.json'
   a.download = fname;
   a.click();
-	URL.revokeObjectURL(a.href);
+    URL.revokeObjectURL(a.href);
 }
 
 
