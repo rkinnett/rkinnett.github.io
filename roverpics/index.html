@@ -49,6 +49,11 @@ table {
 
 h3 {
   text-decoration: underline;
+   cursor:pointer;
+}
+
+.action_pointer {
+ cursor:pointer;
 }
 
 #loading {
@@ -303,8 +308,8 @@ pre {
 <tr>
   <th> <h3 title="This is currently only used for exporting URLs to file">Select</h3> 
     <div>
-      <a onclick='selectImages("all")'>[all]</a>&nbsp;
-      <a onclick='selectImages("none")'>[none]</a>
+      <a class='action_pointer' onclick='selectImages("all")'>[all]</a>&nbsp;
+      <a class='action_pointer' onclick='selectImages("none")'>[none]</a>
     </div>
     <div>
       <div class="checkbox_div">
@@ -320,15 +325,15 @@ pre {
   <th> <h3>Thumbnail</h3> </th>
   <th> <h3 onclick='sortTable("camera")'>Camera</h3> 
     <div>
-      <a onclick='selectCams("all")'>[all]</a>&nbsp;
-      <a onclick='selectCams("none")'>[none]</a>
+      <a class='action_pointer' onclick='selectCams("all")'>[all]</a>&nbsp;
+      <a class='action_pointer' onclick='selectCams("none")'>[none]</a>
     </div>  
     <form id="cam_filter"></form>
   </th>
   <th> <h3 onclick='sortTable("frametype")'>Frame Type</h3>
     <div>
-      <a onclick='selectFrameTypes("all")'>[all]</a>&nbsp;
-      <a onclick='selectFrameTypes("none")'>[none]</a>
+      <a class='action_pointer' onclick='selectFrameTypes("all")'>[all]</a>&nbsp;
+      <a class='action_pointer' onclick='selectFrameTypes("none")'>[none]</a>
     </div>
 	<form id="type_filter"></form> 
   </th>
