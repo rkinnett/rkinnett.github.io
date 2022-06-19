@@ -49,11 +49,19 @@ table {
 
 h3 {
   text-decoration: underline;
-   cursor:pointer;
+  cursor:pointer;
 }
 
 .action_pointer {
- cursor:pointer;
+  cursor:pointer;
+}
+
+.metadata_button {
+  cursor:pointer;
+  text-align: center;
+  color:blue;
+  font-weight: bold;
+  font-size:  125%;
 }
 
 #loading {
@@ -81,23 +89,24 @@ h3 {
   display: none; /* Hidden by default */
   position: fixed; /* Stay in place */
   z-index: 1; /* Sit on top */
-  padding-top: 100px; /* Location of the box */
   left: 0;
   top: 0;
+  padding: 20px 20px 20px 20px;
   width: 100%; /* Full width */
   height: 100%; /* Full height */
-  overflow: auto; /* Enable scroll if needed */
   background-color: rgb(0,0,0); /* Fallback color */
   background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
 }
 
-.modal-content {
+.modal-content, .modal-metadata, .modal-image {
   background-color: #fefefe;
+  width: 80%; 
+  height: 90%;
   margin: auto;
-  padding: 0px 20px 0px 20px;
+  padding: 5px 20px 5px 20px;
   border: 1px solid #888;
-  width: 80%;
   color: #321;
+  overflow: scroll;
 }
 
 .modal_close_button {
@@ -107,6 +116,7 @@ h3 {
   font-weight: bold;
   cursor: pointer;
 }
+
 
 .close:hover,
 .close:focus {
@@ -129,27 +139,10 @@ strong {
   padding-right: 2px;
 }
 
-.imgcontainer:hover .imgoverlay {
-  opacity: 0.8;
-  overflow: scroll;
-}
-
 .imgcontainer {
+  cursor: pointer;
   position: relative;
   overflow: hidden;
-}
-
-.imgoverlay {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 100%;
-  width: 100%;
-  opacity: 0;
-  transition: .5s ease;
-  background-color: #eae6e0
 }
 
 pre {
@@ -164,15 +157,15 @@ pre {
 
 <body onload="pageSetup()">
 
-<!-- INFO -->
-<div id="info_modal" class="modal">
+<!-- PAGE INFO -->
+<div id="page_info_modal" class="modal">
   <div class="modal-content">
     <div style="display: inline-block">
       <h1>Rover Pics</h1>
       <p> R. Kinnett, 2021. </p>
     </div>
     <div style="float: right">
-      <span id="modal_close_button" class="modal_close_button" onclick='closeModal()'>&times;</span>
+      <span id="modal_close_button" class="modal_close_button" onclick='closeModal("page_info_modal")'>&times;</span>
     </div>
     <hr/>
     <p>   
@@ -233,12 +226,43 @@ pre {
       
       Get the source code on <a href="https://github.com/rkinnett/rkinnett.github.io/tree/master/roverpics">github</a>.<br/>
       
-      <b>Comments and suggestions: </b> <a href="https://twitter.com/rover_18">twitter</a> or <a href="https://discord.gg/Eky6AhRSnj">discord</a>
+      <b>Comments and suggestions: </b> <a href="https://twitter.com/rover_18">twitter</a> or <a href="https://discord.gg/p87TKEc8Ta">discord</a>
       
     </p>
   </div>
 </div>
 
+
+
+<!-- IMAGE MODAL -->
+<div id="image_modal" class="modal">
+  <div class="modal-image">
+    <div style="display: inline-block">
+      <h1 id="image_modal_image_title">Image ID</h1>
+    </div>
+    <div style="float: right">
+      <span id="modal_close_button" class="modal_close_button" onclick='closeModal("image_modal")'>&times;</span>
+    </div>
+    <hr/>
+    <img id="image_modal_img"/>
+  </div>
+</div>
+
+
+
+<!-- IMAGE METADATA MODAL -->
+<div id="image_info_modal" class="modal">
+  <div class="modal-metadata">
+    <div style="display: inline-block">
+      <h1 id="image_metadata_title">Image ID</h1>
+    </div>
+    <div style="float: right">
+      <span id="modal_close_button" class="modal_close_button" onclick='closeModal("image_info_modal")'>&times;</span>
+    </div>
+    <hr/>
+    <p id="image_metadata_content"> Metadata </p>
+  </div>
+</div>
 
 
 <!-- TOP ROW -->
@@ -286,7 +310,7 @@ pre {
   <!-- TOP RIGHT AREA -->
   <div style="float:right">
     <div style="display: block; padding: 5px">
-      <button onclick='openModal()'>INFO</button>
+      <button onclick='openModal("page_info_modal")'>INFO</button>
     </div>
     <div style="display: block; padding: 5px">
       <button onclick="exportJson()">Export Metadata</button> 
@@ -350,6 +374,7 @@ pre {
     </span>
   </th>
   <th> <h3 onclick='sortTable("date")'>Date Taken</h3> </th>
+  <th> info </th>
 </tr>
 </thead>
 <tbody id="table_body">
@@ -393,14 +418,13 @@ var missionFullName = {
 const earthDaysPerMarsDay = 1.02749125;
 
 
-// Get the modal
-var modal = document.getElementById("info_modal");
-
-function openModal(){
+function openModal(modal_name){
+  modal = document.getElementById(modal_name);
   modal.style.display = "block";
 }
 
-function closeModal(){
+function closeModal(modal_name){
+  modal = document.getElementById(modal_name);
   modal.style.display = "none";
 }
 
@@ -439,7 +463,7 @@ document.getElementById("textSol").addEventListener("keyup", event => {
 function pageSetup(){
   // Replace page address placeholder in Info modal:
   let page_address = window.location.origin + window.location.pathname;
-  var modal = document.getElementById("info_modal");
+  var modal = document.getElementById("page_info_modal");
   modal.innerHTML = modal.innerHTML.replaceAll("##PAGE_ADDR##",page_address);
 
   lmst = currentMarsTime();
@@ -1176,15 +1200,19 @@ function buildTable(){
       var cell3 = row.insertCell(3);
       var cell4 = row.insertCell(4);
       var cell5 = row.insertCell(5);
+	  var cell6 = row.insertCell(6);
+	  
+	  cell6.className = 'metadata_button';
 
       row.img_idx = n;
 
       cell0.innerHTML = '<input type="checkbox" class="selection_checkbox" id="SEL_' + image_id + '" ' + (selected?"checked":"") + '>';
-      cell1.innerHTML = '<div class="imgcontainer"><img src=' + thumb_url + ' />  <div class="imgoverlay"><pre>' + metadata + '</pre></div></div>';
+      cell1.innerHTML = '<div class="imgcontainer"><img src=' + thumb_url + ' onclick=showImage("' + image_id + '") /> </div>';
       cell2.innerHTML = cam_type;
       cell3.innerHTML = '<a href=' + biggest_url + ' target="_blank">' + img_type + '</a>';
       cell4.innerHTML = image_id;
       cell5.innerHTML = date_lmst.replace(/ /,"&nbsp;") + ' <br/> ' + date_utc + ' <br/> ' + date_local + '<br/><br/>' + time_since;
+	  cell6.innerHTML = '<a onclick=showMetadata("' + image_id + '")> &#9432; </a>';
 
     } else {
       //console.log("skipping image " + n + " " + cam_type + " " + img_type);
@@ -1233,6 +1261,34 @@ function sortTable(field){
   buildTable();
 }
 
+
+function showMetadata(image_id){
+  console.log('showing metadata for image id ' + image_id);
+  images.forEach(function(img){
+    if(img.imageid == image_id){
+      metadata    = JSON.stringify(img, null, 2).replace(/^ ( *)"([^"]+)":/mg,'$1$2:').replace(/^[{}]/mg,"");
+	  console.log(metadata);
+	  document.getElementById("image_metadata_title").innerHTML = image_id;
+	  document.getElementById("image_metadata_content").innerHTML = '<pre>' + metadata + '</pre>';
+	  openModal("image_info_modal");
+	  return;
+    }
+  });
+}
+
+
+function showImage(image_id){
+  console.log('showing image: ' + image_id);
+  images.forEach(function(img){
+    if(img.imageid == image_id){
+      biggest_url = img.image_files["full_res"];
+	  document.getElementById("image_modal_image_title").innerHTML = image_id;
+      document.getElementById("image_modal_img").src = img.image_files["full_res"];
+	  openModal("image_modal");
+	  return;
+    }
+  });
+}
 
 
 function setMissionClock(){
