@@ -102,20 +102,32 @@ h3 {
   border: 1px solid #888;
   color: #321;
   position: fixed;
-  width: 90%;
-  height: 90%;
+  height: calc(100% - 60px);  
+  width: calc(100% - 60px);  
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   overflow: hidden;
-  //margin: 20px auto;
+  
+  display: -webkit-box; /* OLD - iOS 6-, Safari 3.1-6 */
+  display: -moz-box; /* OLD - Firefox 19- (buggy but mostly works) */
+  display: -ms-flexbox; /* TWEENER - IE 10 */
+  display: -webkit-flex; /* NEW - Chrome */
+  display: flex; /* NEW, Spec - Opera 12.1, Firefox 20+ */
+  -ms-flex-direction: column;
+  -moz-flex-direction: column;
+  -webkit-flex-direction: column;
+  flex-direction: column;
 }
 
 .modal-content {
-  height: 90%;
   width: 100%;
-  margin-bottom: 20px;
   overflow: auto;
+  -webkit-box-flex: 1; /* OLD - iOS 6-, Safari 3.1-6 */
+  -moz-box-flex: 1; /* OLD - Firefox 19- */
+  -webkit-flex: 1; /* Chrome */
+  -ms-flex: 1; /* IE 10 */
+  flex: 1; /* NEW, */
 }
 
 .modal-title {
@@ -180,6 +192,10 @@ pre {
   color:lightgray;
 }
 
+p {
+  padding: 10px;
+}
+
 
 </style>
 </head>
@@ -207,35 +223,37 @@ pre {
         <br/>
         <span style="color: orange">Note:</span> JPL's RSS API (and this page, consequentially) returns incomplete results from MSL.
         <br/>
+      </p>
 
-        <ol>
-          <li> Start by selecting either Perseverance, Ingenuity, or Curiosity in the upper left. Then, <i>either</i>:
-            <ul>
-              <li>click "Latest images" to retrieve the latest <i>downlinked</i> images,</li>
-              <li><i>or</i> click "Current Sol" to retrieve images (if available) for the current sol,</li>
-              <li>or enter a specific sol number and click Go, or click Prev/Next to increment/decrement sol number and retrieve images, if available.</li>
-            </ul> 
-          </li>
-          <li> After retrieving image information and thumbnails, the user may:
-            <ul>
-              <li>
-                Export a JSON file containing all info retrieved from JPL,
-              </li>
-              <li>
-                Use checkboxes under the Camera and Type headings to narrow the table to specific images of interest, then use a browser extension to download all full-frame (or largest available) images remaining in the table via the provided links. 
-                <ul>
-                  <li>
-                    Try <a href="https://www.downthemall.net/">DownThemAll!</a> for Chrome, Firefox or Opera
-                  </li>
-                </ul>
-              </li>
-              <li>
-                Down-select further via checkboxes in the Select column and click "Export selected image URLs" to save a text file containing URLs to the full-frame (or max available) images which can be used in conjunction with command-line tools such as wget and curl.
-              </li>
-            </ul>
-          </li>
-        </ol>
+      <ol>
+        <li> Start by selecting either Perseverance, Ingenuity, or Curiosity in the upper left. Then, <i>either</i>:
+          <ul>
+            <li>click "Latest images" to retrieve the latest <i>downlinked</i> images,</li>
+            <li><i>or</i> click "Current Sol" to retrieve images (if available) for the current sol,</li>
+            <li>or enter a specific sol number and click Go, or click Prev/Next to increment/decrement sol number and retrieve images, if available.</li>
+          </ul> 
+        </li>
+        <li> After retrieving image information and thumbnails, the user may:
+          <ul>
+            <li>
+              Export a JSON file containing all info retrieved from JPL,
+            </li>
+            <li>
+              Use checkboxes under the Camera and Type headings to narrow the table to specific images of interest, then use a browser extension to download all full-frame (or largest available) images remaining in the table via the provided links. 
+              <ul>
+                <li>
+                  Try <a href="https://www.downthemall.net/">DownThemAll!</a> for Chrome, Firefox or Opera
+                </li>
+              </ul>
+            </li>
+            <li>
+              Down-select further via checkboxes in the Select column and click "Export selected image URLs" to save a text file containing URLs to the full-frame (or max available) images which can be used in conjunction with command-line tools such as wget and curl.
+            </li>
+          </ul>
+        </li>
+      </ol>
 
+      <p>
         Also try URL parameters!  Examples:
         <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl">##PAGE_ADDR##?msl</a>
         <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020">##PAGE_ADDR##?mars2020</a>
@@ -251,14 +269,15 @@ pre {
         <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=date&sortdir=descending">##PAGE_ADDR##?mars2020&latest&sort=date&sortdir=descending</a>
         <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=imageid">##PAGE_ADDR##?mars2020&latest&sort=imageid</a>
         <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=camera">##PAGE_ADDR##?mars2020&latest&sort=camera</a>
+      </p>
         
-        <hr/>
+      <hr/>
+      <p>
         Image credits are provided in the JSON file which can be exported via the Export Metadata button.<br/><br/>
         
         Get the source code on <a href="https://github.com/rkinnett/rkinnett.github.io/tree/master/roverpics">github</a>.<br/>
         
-        <b>Comments and suggestions: </b> <a href="https://twitter.com/rover_18">twitter</a> or <a href="https://discord.gg/p87TKEc8Ta">discord</a>
-        
+        <b>Comments and suggestions: </b> <a href="https://twitter.com/rover_18">twitter</a> or <a href="https://discord.gg/p87TKEc8Ta">discord</a>        
       </p>
     </div>
   </div>
