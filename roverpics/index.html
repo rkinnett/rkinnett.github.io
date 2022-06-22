@@ -91,22 +91,38 @@ h3 {
   z-index: 1; /* Sit on top */
   left: 0;
   top: 0;
-  padding: 20px 20px 20px 20px;
   width: 100%; /* Full width */
   height: 100%; /* Full height */
   background-color: rgb(0,0,0); /* Fallback color */
   background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
 }
 
-.modal-content, .modal-metadata, .modal-image {
+.modal-inner {
   background-color: #fefefe;
-  width: 80%; 
-  height: 90%;
-  margin: auto;
-  padding: 5px 20px 5px 20px;
   border: 1px solid #888;
   color: #321;
-  overflow: scroll;
+  position: fixed;
+  width: 90%;
+  height: 90%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+  //margin: 20px auto;
+}
+
+.modal-content {
+  height: 90%;
+  width: 100%;
+  margin-bottom: 20px;
+  overflow: auto;
+}
+
+.modal-title {
+  width: 100%;
+  padding: 0px 10px 0px 10px;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .modal_close_button {
@@ -115,6 +131,12 @@ h3 {
   font-size: 28px;
   font-weight: bold;
   cursor: pointer;
+}
+
+.close_button_div {
+  z-index: 3;
+  padding: 0px 20px 0px 0px;
+  float: right;
 }
 
 
@@ -150,6 +172,14 @@ pre {
   margin-top: 0px;
 }
 
+#driveMinFilter, #driveMaxFilter {
+  width: 4ch;
+  padding: 2px;
+  margin: 1px;
+  font-family: monospace;
+  color:lightgray;
+}
+
 
 </style>
 </head>
@@ -159,76 +189,78 @@ pre {
 
 <!-- PAGE INFO -->
 <div id="page_info_modal" class="modal">
-  <div class="modal-content">
-    <div style="display: inline-block">
+  <div class="modal-inner">
+    <div class="modal-title">
+      <div class="close_button_div">
+        <span id="modal_close_button" class="modal_close_button" onclick='closeModal("page_info_modal")'>&times;</span>
+      </div>
       <h1>Rover Pics</h1>
       <p> R. Kinnett, 2021. </p>
-    </div>
-    <div style="float: right">
-      <span id="modal_close_button" class="modal_close_button" onclick='closeModal("page_info_modal")'>&times;</span>
-    </div>
-    <hr/>
-    <p>   
-      Also see NASA's <a href="https://mars.nasa.gov/msl/multimedia/raw-images/">MSL</a> and <a href="https://mars.nasa.gov/mars2020/multimedia/raw-images/">Mars 2020</a> raw image sites.
-      <br/><br/>
-    
-      This interface retrieves image information lists via <a href="https://mars.nasa.gov/rss/">JPL's RSS API</a> and builds a table showing thumbnails and basic metadata for each image, along with links to the maximum available resolution images.  This page retrieves all available full-frame and subframe still and movie frames and displays all inline.
-      <br/>
-      <span style="color: orange">Note:</span> JPL's RSS API (and this page, consequentially) returns incomplete results from MSL.
-      <br/>
-
-      <ol>
-        <li> Start by selecting either Perseverance, Ingenuity, or Curiosity in the upper left. Then, <i>either</i>:
-          <ul>
-            <li>click "Latest 25 images" to retrieve the latest <i>downlinked</i> images,</li>
-            <li><i>or</i> click "Current Sol" to retrieve images (if available) for the current sol,</li>
-            <li>or enter a specific sol number and click Go, or click Prev/Next to increment/decrement sol number and retrieve images, if available.</li>
-          </ul> 
-        </li>
-        <li> After retrieving image information and thumbnails, the user may:
-          <ul>
-            <li>
-              Export a JSON file containing all info retrieved from JPL,
-            </li>
-            <li>
-              Use checkboxes under the Camera and Type headings to narrow the table to specific images of interest, then use a browser extension to download all full-frame (or largest available) images remaining in the table via the provided links. 
-              <ul>
-                <li>
-                  Try <a href="https://www.downthemall.net/">DownThemAll!</a> for Chrome, Firefox or Opera
-                </li>
-              </ul>
-            </li>
-            <li>
-              Down-select further via checkboxes in the Select column and click "Export selected image URLs" to save a text file containing URLs to the full-frame (or max available) images which can be used in conjunction with command-line tools such as wget and curl.
-            </li>
-          </ul>
-        </li>
-      </ol>
-
-      Also try URL parameters!  Examples:
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl">##PAGE_ADDR##?msl</a>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020">##PAGE_ADDR##?mars2020</a>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest">##PAGE_ADDR##?mars2020&latest</a>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?ingenuity&latest">##PAGE_ADDR##?ingenuity&latest</a>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000">##PAGE_ADDR##?msl&sol3000</a>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000&camera=HAZ">##PAGE_ADDR##?msl&sol3000&camera=haz</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches hazcam images)</gray>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3052&filter=rhaz00311">##PAGE_ADDR##?msl&sol3052&filter=rhaz00311</a>&nbsp;&nbsp;&nbsp;<gray>(fetches images from specific sequence)</gray>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol0&filter=EDL">##PAGE_ADDR##?mars2020&sol0&filter=EDL</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches specific image type)</gray>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol50&filter=ECV">##PAGE_ADDR##?mars2020&sol50&filter=ECV</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches movie frames)</gray>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol18&fullframe">##PAGE_ADDR##?mars2020&sol18&fullframe</a>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=date">##PAGE_ADDR##?mars2020&latest&sort=date</a>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=date&sortdir=descending">##PAGE_ADDR##?mars2020&latest&sort=date&sortdir=descending</a>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=imageid">##PAGE_ADDR##?mars2020&latest&sort=imageid</a>
-      <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=camera">##PAGE_ADDR##?mars2020&latest&sort=camera</a>
-      
       <hr/>
-      Image credits are provided in the JSON file which can be exported via the Export Metadata button.<br/><br/>
+    </div>  
+    <div class="modal-content">
+      <p>   
+        Also see NASA's <a href="https://mars.nasa.gov/msl/multimedia/raw-images/">MSL</a> and <a href="https://mars.nasa.gov/mars2020/multimedia/raw-images/">Mars 2020</a> raw image sites.
+        <br/><br/>
       
-      Get the source code on <a href="https://github.com/rkinnett/rkinnett.github.io/tree/master/roverpics">github</a>.<br/>
-      
-      <b>Comments and suggestions: </b> <a href="https://twitter.com/rover_18">twitter</a> or <a href="https://discord.gg/p87TKEc8Ta">discord</a>
-      
-    </p>
+        This interface retrieves image information lists via <a href="https://mars.nasa.gov/rss/">JPL's RSS API</a> and builds a table showing thumbnails and basic metadata for each image, along with links to the maximum available resolution images.  This page retrieves all available full-frame and subframe still and movie frames and displays all inline.
+        <br/>
+        <span style="color: orange">Note:</span> JPL's RSS API (and this page, consequentially) returns incomplete results from MSL.
+        <br/>
+
+        <ol>
+          <li> Start by selecting either Perseverance, Ingenuity, or Curiosity in the upper left. Then, <i>either</i>:
+            <ul>
+              <li>click "Latest images" to retrieve the latest <i>downlinked</i> images,</li>
+              <li><i>or</i> click "Current Sol" to retrieve images (if available) for the current sol,</li>
+              <li>or enter a specific sol number and click Go, or click Prev/Next to increment/decrement sol number and retrieve images, if available.</li>
+            </ul> 
+          </li>
+          <li> After retrieving image information and thumbnails, the user may:
+            <ul>
+              <li>
+                Export a JSON file containing all info retrieved from JPL,
+              </li>
+              <li>
+                Use checkboxes under the Camera and Type headings to narrow the table to specific images of interest, then use a browser extension to download all full-frame (or largest available) images remaining in the table via the provided links. 
+                <ul>
+                  <li>
+                    Try <a href="https://www.downthemall.net/">DownThemAll!</a> for Chrome, Firefox or Opera
+                  </li>
+                </ul>
+              </li>
+              <li>
+                Down-select further via checkboxes in the Select column and click "Export selected image URLs" to save a text file containing URLs to the full-frame (or max available) images which can be used in conjunction with command-line tools such as wget and curl.
+              </li>
+            </ul>
+          </li>
+        </ol>
+
+        Also try URL parameters!  Examples:
+        <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl">##PAGE_ADDR##?msl</a>
+        <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020">##PAGE_ADDR##?mars2020</a>
+        <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest">##PAGE_ADDR##?mars2020&latest</a>
+        <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?ingenuity&latest">##PAGE_ADDR##?ingenuity&latest</a>
+        <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000">##PAGE_ADDR##?msl&sol3000</a>
+        <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3000&camera=HAZ">##PAGE_ADDR##?msl&sol3000&camera=haz</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches hazcam images)</gray>
+        <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?msl&sol3052&filter=rhaz00311">##PAGE_ADDR##?msl&sol3052&filter=rhaz00311</a>&nbsp;&nbsp;&nbsp;<gray>(fetches images from specific sequence)</gray>
+        <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol0&filter=EDL">##PAGE_ADDR##?mars2020&sol0&filter=EDL</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches specific image type)</gray>
+        <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol50&filter=ECV">##PAGE_ADDR##?mars2020&sol50&filter=ECV</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gray>(fetches movie frames)</gray>
+        <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&sol18&fullframe">##PAGE_ADDR##?mars2020&sol18&fullframe</a>
+        <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=date">##PAGE_ADDR##?mars2020&latest&sort=date</a>
+        <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=date&sortdir=descending">##PAGE_ADDR##?mars2020&latest&sort=date&sortdir=descending</a>
+        <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=imageid">##PAGE_ADDR##?mars2020&latest&sort=imageid</a>
+        <br/>&nbsp;&nbsp;<a href="##PAGE_ADDR##?mars2020&latest&sort=camera">##PAGE_ADDR##?mars2020&latest&sort=camera</a>
+        
+        <hr/>
+        Image credits are provided in the JSON file which can be exported via the Export Metadata button.<br/><br/>
+        
+        Get the source code on <a href="https://github.com/rkinnett/rkinnett.github.io/tree/master/roverpics">github</a>.<br/>
+        
+        <b>Comments and suggestions: </b> <a href="https://twitter.com/rover_18">twitter</a> or <a href="https://discord.gg/p87TKEc8Ta">discord</a>
+        
+      </p>
+    </div>
   </div>
 </div>
 
@@ -236,15 +268,17 @@ pre {
 
 <!-- IMAGE MODAL -->
 <div id="image_modal" class="modal">
-  <div class="modal-image">
-    <div style="display: inline-block">
+  <div class="modal-inner">
+    <div class="modal-title">
+      <div class="close_button_div">
+        <span id="modal_close_button" class="modal_close_button" onclick='closeModal("image_modal")'>&times;</span>
+      </div>
       <h1 id="image_modal_image_title">Image ID</h1>
+      <hr/>
     </div>
-    <div style="float: right">
-      <span id="modal_close_button" class="modal_close_button" onclick='closeModal("image_modal")'>&times;</span>
+    <div class="modal-content">
+      <img id="image_modal_img"/>
     </div>
-    <hr/>
-    <img id="image_modal_img"/>
   </div>
 </div>
 
@@ -252,15 +286,17 @@ pre {
 
 <!-- IMAGE METADATA MODAL -->
 <div id="image_info_modal" class="modal">
-  <div class="modal-metadata">
-    <div style="display: inline-block">
+  <div class="modal-inner">
+    <div class="modal-title">
+      <div class="close_button_div">
+        <span id="modal_close_button" class="modal_close_button" onclick='closeModal("image_info_modal")'>&times;</span>
+      </div>
       <h1 id="image_metadata_title">Image ID</h1>
-    </div>
-    <div style="float: right">
-      <span id="modal_close_button" class="modal_close_button" onclick='closeModal("image_info_modal")'>&times;</span>
-    </div>
     <hr/>
-    <p id="image_metadata_content"> Metadata </p>
+    </div>
+    <div class="modal-content">
+      <p id="image_metadata_content"> Metadata </p>
+    </div>
   </div>
 </div>
 
@@ -359,7 +395,7 @@ pre {
       <a class='action_pointer' onclick='selectFrameTypes("all")'>[all]</a>&nbsp;
       <a class='action_pointer' onclick='selectFrameTypes("none")'>[none]</a>
     </div>
-	<form id="type_filter"></form> 
+    <form id="type_filter"></form> 
   </th>
   <th> 
     <h3 onclick='sortTable("imageid")'>Image ID</h3> 
@@ -374,7 +410,19 @@ pre {
     </span>
   </th>
   <th> <h3 onclick='sortTable("date")'>Date Taken</h3> </th>
+  <th> site </th>
+  <th> 
+	<h3 onclick='sortTable("drive")'> drive </h3>
+    <div style="block">
+      <input type="text" id="driveMinFilter" name="driveMinFilter" value="min" onclick='setDriveFilter("min","")'>
+	  <br/>
+      <input type="text" id="driveMaxFilter" name="driveMaxFilter" value="max" onclick='setDriveFilter("max","")'>
+	  <br/>
+      <input type="button" value="Set" onclick="driveFilter()">
+    </div>
+  </th>
   <th> info </th>
+  
 </tr>
 </thead>
 <tbody id="table_body">
@@ -389,6 +437,10 @@ pre {
 var got_images = false;
 var table = document.getElementById("images_table");
 var spinner = document.getElementById("loading");
+var modalPageInfo = document.getElementById('page_info_modal');
+var modalImage = document.getElementById('image_modal');
+var modalMetadata = document.getElementById('image_info_modal');
+
 var cameras = [];
 var camera_type_img_counts = [];
 var image_types = [];
@@ -430,8 +482,11 @@ function closeModal(modal_name){
 
 // When the user clicks anywhere outside of the modal, close it
 window.onclick = function(event) {
-  if (event.target == modal) {
-    modal.style.display = "none";
+  console.log(event.target)
+  if (event.target == modalPageInfo || event.target == modalImage || event.target == modalMetadata) {
+    modalPageInfo.style.display = "none";
+    modalImage.style.display = "none";
+    modalMetadata.style.display= "none";
   }
 }
 
@@ -452,6 +507,57 @@ document.getElementById("textSol").addEventListener("keyup", event => {
       setThisPageUrlParams();
       getSol(sol);
     }
+    event.preventDefault();
+  }
+});
+
+
+function setDriveFilter(minOrMax, toString){
+  var textbox = minOrMax=="min" ? document.getElementById("driveMinFilter") : document.getElementById("driveMaxFilter");
+  if(textbox.value == minOrMax){
+    textbox.value = toString;
+    textbox.style.color = "black";
+  }
+}
+
+document.getElementById("driveMinFilter").addEventListener("focusout", event => {
+  if(event.target.value == ''){
+    event.target.value = "min";
+    event.target.style.color = "lightgray";
+  }
+  driveFilter();
+});
+
+document.getElementById("driveMaxFilter").addEventListener("focusout", event => {
+  if(event.target.value == ''){
+    event.target.value = "max";
+    event.target.style.color = "lightgray";
+  }
+  driveFilter();
+});
+
+
+// Handle enter key inside image name filter text box:
+document.getElementById("driveMinFilter").addEventListener("keyup", event => {
+  if(event.key == "Enter") {
+    imageIdFilter();
+    event.preventDefault();
+  }
+});
+
+
+// Handle enter key inside drive min filter text box:
+document.getElementById("driveMinFilter").addEventListener("keyup", event => {
+  if(event.key == "Enter") {
+    driveFilter(event);
+    event.preventDefault();
+  }
+});
+
+// Handle enter key inside drive max filter text box:
+document.getElementById("driveMaxFilter").addEventListener("keyup", event => {
+  if(event.key == "Enter") {
+    driveFilter(event);
     event.preventDefault();
   }
 });
@@ -547,12 +653,13 @@ function parseUrl(){
       urlParams.frame = "subframe";
     } else if(key=="thumb" || key=="thumbnail") {
       urlParams.frame = "thumbnail";
-    } else if(/^sort(field)?$/.test(key) && /^(type)|(frame)|(camera)|(cam)|(name)|(id)|(imageid)|(date)|(datetaken)|(time)$/.test(val) ) {
+    } else if(/^sort(field)?$/.test(key) && /^(type)|(frame)|(camera)|(cam)|(name)|(id)|(imageid)|(date)|(datetaken)|(time)|(drive)$/.test(val) ) {
       console.log('Sort: "' + val + '"');
       if(val=="type" || val=="frame") urlParams.sortfield = "frametype";
       else if(val=="camera" || val=="cam") urlParams.sortfield = "camera";
       else if(val=="name" || val=="id" || val=="imageid") urlParams.sortfield = "imageid";
       else if(val=="date" || val=="datetaken" || val=="time") urlParams.sortfield = "date";
+      else if(val=="drive" ) urlParams.sortfield = "drive";
       else console.log('unrecognized sort field: "' + val + '"');
     } else if(/^(sortdir)|(sortdirection)|(dir)|(direction)?$/.test(key) && /^(ascending)|(descending)$/.test(val) ) {
       console.log('Sort dir: "' + val + '"');
@@ -593,9 +700,18 @@ function setMission(missionName){
 
 function setImageIdFilter(toString){
   var keywordFilterTextbox = document.getElementById("imageIdFilterPattern");
-  keywordFilterTextbox.value = toString;
-  keywordFilterTextbox.style.color = "black";
+  if(keywordFilterTextbox.value == "Keyword"){
+    keywordFilterTextbox.value = toString;
+    keywordFilterTextbox.style.color = "black";
+  }
 }
+
+document.getElementById("imageIdFilterPattern").addEventListener("focusout", event => {
+  if(event.target.value == ''){
+    event.target.value = "Keyword";
+    event.target.style.color = "lightgray";
+  }
+});
 
 function clearImageIdFilter(){
   var keywordFilterTextbox = document.getElementById("imageIdFilterPattern");  
@@ -616,6 +732,10 @@ function imageIdFilter(){
     setThisPageUrlParams();
     doFilter();
   }
+}
+
+function driveFilter(event){
+  doFilter();
 }
 
 
@@ -904,7 +1024,7 @@ function getFullframeStillframes(rss_url, callback){
     rxJson = mission=="msl" ? reshapeMslImageList(rxJson) : rxJson;
 
     image_list_json = rxJson;
-    console.log(image_list_json);	
+    console.log(image_list_json);
     if(!image_list_json || !image_list_json.images || !image_list_json.images.length) return;    
     got_images = true;
     if(callback) callback();
@@ -1088,6 +1208,9 @@ function getSortOrder(sortField) {
     case "date":
       for(n=0; n<num_images; n++){ sortVals[n] = /^S/.test(images[n].date_taken_mars) ? images[n].date_taken_mars : /^2/.test(images[n].date_taken_utc) ? images[n].date_taken_utc : ""; }
       break;
+    case "drive":
+      for(n=0; n<num_images; n++){ sortVals[n] = images[n].drive; }    
+      break;
     default:
       console.log('unable to sort; invalid sort field: "' + urlParams.sortfield + '"');
       return;
@@ -1134,6 +1257,9 @@ function buildTable(){
 
   var lmst = currentMarsTime();
   var included_images_count = 0;
+  
+  minDrive = parseInt(document.getElementById('driveMinFilter').value) || 0;
+  maxDrive = parseInt(document.getElementById('driveMaxFilter').value) || 99999;
 
   clearTable();
 
@@ -1171,7 +1297,8 @@ function buildTable(){
     if( checked_checkbox_names.includes(cam_type) && 
         checked_checkbox_names.includes(img_type) && 
         image_id_filter.test(image_id) &&
-        ((selected && showSelected) || (!selected && showUnselected))
+        ((selected && showSelected) || (!selected && showUnselected)) &&
+		this_img.drive >= minDrive && this_img.drive<=maxDrive		
       ){
       //console.log("showing image " + n + " " + cam_type + " " + img_type);
 
@@ -1194,25 +1321,25 @@ function buildTable(){
         :                     "(" + (hours_ago/24/365).toFixed(1) + " years ago)";
 
       var row = table.tBodies[0].insertRow(num_rows++);
-      var cell0 = row.insertCell(0);
-      var cell1 = row.insertCell(1);
-      var cell2 = row.insertCell(2);
-      var cell3 = row.insertCell(3);
-      var cell4 = row.insertCell(4);
-      var cell5 = row.insertCell(5);
-	  var cell6 = row.insertCell(6);
-	  
-	  cell6.className = 'metadata_button';
+      cells = []
+      num_cols = 9;
+      for(i=0; i<num_cols; i++){
+        cells[i] = row.insertCell(i);
+      }
+      
+      cells[8].className = 'metadata_button';
 
       row.img_idx = n;
 
-      cell0.innerHTML = '<input type="checkbox" class="selection_checkbox" id="SEL_' + image_id + '" ' + (selected?"checked":"") + '>';
-      cell1.innerHTML = '<div class="imgcontainer"><img src=' + thumb_url + ' onclick=showImage("' + image_id + '") /> </div>';
-      cell2.innerHTML = cam_type;
-      cell3.innerHTML = '<a href=' + biggest_url + ' target="_blank">' + img_type + '</a>';
-      cell4.innerHTML = image_id;
-      cell5.innerHTML = date_lmst.replace(/ /,"&nbsp;") + ' <br/> ' + date_utc + ' <br/> ' + date_local + '<br/><br/>' + time_since;
-	  cell6.innerHTML = '<a onclick=showMetadata("' + image_id + '")> &#9432; </a>';
+      cells[0].innerHTML = '<input type="checkbox" class="selection_checkbox" id="SEL_' + image_id + '" ' + (selected?"checked":"") + '>';
+      cells[1].innerHTML = '<div class="imgcontainer"><img src=' + thumb_url + ' onclick=showImage("' + image_id + '") /> </div>';
+      cells[2].innerHTML = cam_type;
+      cells[3].innerHTML = '<a href=' + biggest_url + ' target="_blank">' + img_type + '</a>';
+      cells[4].innerHTML = image_id;
+      cells[5].innerHTML = date_lmst.replace(/ /,"&nbsp;") + ' <br/> ' + date_utc + ' <br/> ' + date_local + '<br/><br/>' + time_since;
+      cells[6].innerHTML = this_img.site;
+	  cells[7].innerHTML = this_img.drive;
+      cells[8].innerHTML = '<a onclick=showMetadata("' + image_id + '")> &#9432; </a>';
 
     } else {
       //console.log("skipping image " + n + " " + cam_type + " " + img_type);
@@ -1267,11 +1394,11 @@ function showMetadata(image_id){
   images.forEach(function(img){
     if(img.imageid == image_id){
       metadata    = JSON.stringify(img, null, 2).replace(/^ ( *)"([^"]+)":/mg,'$1$2:').replace(/^[{}]/mg,"");
-	  console.log(metadata);
-	  document.getElementById("image_metadata_title").innerHTML = image_id;
-	  document.getElementById("image_metadata_content").innerHTML = '<pre>' + metadata + '</pre>';
-	  openModal("image_info_modal");
-	  return;
+      console.log(metadata);
+      document.getElementById("image_metadata_title").innerHTML = image_id;
+      document.getElementById("image_metadata_content").innerHTML = '<pre>' + metadata + '</pre>';
+      openModal("image_info_modal");
+      return;
     }
   });
 }
@@ -1282,10 +1409,10 @@ function showImage(image_id){
   images.forEach(function(img){
     if(img.imageid == image_id){
       biggest_url = img.image_files["full_res"];
-	  document.getElementById("image_modal_image_title").innerHTML = image_id;
+      document.getElementById("image_modal_image_title").innerHTML = image_id;
       document.getElementById("image_modal_img").src = img.image_files["full_res"];
-	  openModal("image_modal");
-	  return;
+      openModal("image_modal");
+      return;
     }
   });
 }
