@@ -1307,11 +1307,23 @@ function buildTable(){
     var selected  = this_img.selected;
     var hours_ago;
     
+    /*
+    console.log([
+      checked_checkbox_names.includes(cam_type), 
+      checked_checkbox_names.includes(img_type), 
+      image_id_filter.test(image_id),
+      ((selected && showSelected),
+      (!selected && showUnselected)),
+      (this_img.drive == 'None' || this_img.drive >= minDrive),
+      (this_img.drive == 'None' || this_img.drive <= maxDrive)
+    ])
+    */
+    
     if( checked_checkbox_names.includes(cam_type) && 
         checked_checkbox_names.includes(img_type) && 
         image_id_filter.test(image_id) &&
         ((selected && showSelected) || (!selected && showUnselected)) &&
-		this_img.drive >= minDrive && this_img.drive<=maxDrive		
+		    (this_img.drive == 'None' || (this_img.drive >= minDrive && this_img.drive<=maxDrive))
       ){
       //console.log("showing image " + n + " " + cam_type + " " + img_type);
 
@@ -1351,11 +1363,11 @@ function buildTable(){
       cells[4].innerHTML = image_id;
       cells[5].innerHTML = date_lmst.replace(/ /,"&nbsp;") + ' <br/> ' + date_utc + ' <br/> ' + date_local + '<br/><br/>' + time_since;
       cells[6].innerHTML = this_img.site;
-	  cells[7].innerHTML = this_img.drive;
+	    cells[7].innerHTML = this_img.drive;
       cells[8].innerHTML = '<a onclick=showMetadata("' + image_id + '")> &#9432; </a>';
 
     } else {
-      //console.log("skipping image " + n + " " + cam_type + " " + img_type);
+      console.log("not displaying image " + n + " " + cam_type + " " + img_type + " " + this_img.drive);
     }    
   }
   setBusyIndicator(false);
