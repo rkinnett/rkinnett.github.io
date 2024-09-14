@@ -124,7 +124,7 @@ console.log('cubeCamera:', cubeCamera);
 
 // Load the spacecraft
 gltf_loader.load(
-  '/assets/blender_model/europa_clipper.glb',
+  './assets/blender_model/europa_clipper.glb',
   function (gltf) {
     spacecraft = gltf.scene.children[0];
     console.log(spacecraft)
@@ -146,7 +146,7 @@ gltf_loader.load(
 
 // Load the astronaut
 gltf_loader.load(
-  '/assets/blender_model/astronaut.glb',
+  './assets/blender_model/astronaut.glb',
   function (gltf2) {
     astronaut = gltf2.scene.children[0];
     console.log(astronaut)
