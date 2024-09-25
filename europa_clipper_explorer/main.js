@@ -33,23 +33,12 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight)
 })
 
-
 scene.background = new THREE.CubeTextureLoader()
 	.setPath( 'assets/background/2k/' )
-	.load( [
-    'px.png',
-    'nx.png',
-    'py.png',
-    'ny.png',
-    'pz.png',
-    'nz.png'
-  ]);
+	.load( ['px.png', 'nx.png', 'py.png', 'ny.png', 'pz.png', 'nz.png' ]);
   
-//scene.environment = new THREE.PMREMGenerator(renderer).fromCubemap(scene.background);
-
 
 const controls = new OrbitControls(camera, renderer.domElement)
-
 
 
 // Add lights to the scene
@@ -73,8 +62,6 @@ pointLight.position.set(10, 100, 20); // Set the position of the light
 pointLight.intensity = 20;
 scene.add(pointLight);
 
-
-// Make lens flares:
 const textureLoader = new THREE.TextureLoader();
 const textureFlare0 = textureLoader.load( "./assets/lensflare/flare0.png" );
 const textureFlare1 = textureLoader.load( "./assets/lensflare/flare1.png" );
@@ -96,10 +83,8 @@ directionalLight.add( lensflare );
 camera.position.set(15,-4,-1.5);
 
 
-// Instantiate the GLTFLoader
 const gltf_loader = new GLTFLoader();
 
-// Optional: Provide a DRACOLoader instance to decode compressed mesh data
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath( 'three/examples/jsm/libs/draco/' );
 gltf_loader.setDRACOLoader( dracoLoader );
@@ -139,8 +124,6 @@ gltf_loader.load(
 		console.log( 'An error happened' );
 	}
 );
-
-
 
 
 
@@ -207,12 +190,6 @@ function animate()  {
 
 function render() 
 {
-	// move the CubeCamera to the position of the object
-	//    that has a reflective surface, "take a picture" in each direction
-	//    and apply it to the surface.
-	// need to hide surface before and after so that it does not
-	//    "get in the way" of the camera
-
 	renderer.render( scene, camera );
 }
 

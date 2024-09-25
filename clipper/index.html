@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Europa Clipper VR</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+    body {
+      margin: 0;
+      overscroll-behavior: none;
+      font-family: Monospace;
+    }    
+    
+    #webgl {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: -1;
+      background-color: black;
+    }
+    </style>
+    
+    <script type="importmap">
+      {
+        "imports": {
+          "three":         "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"
+        }
+      }
+    </script>
+
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png">
+    <link rel="manifest" href="assets/favicon/site.webmanifest">
+    
+	</head>
+  
+	<body>
+    <div id="webgl"></div>
+    <script type="module" src="main.js"></script>
+	</body>
+  
+</html>
