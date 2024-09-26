@@ -10,79 +10,128 @@ import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 
 
-let camera, scene, renderer, astronaut, spacecraft, environment;
+let camera, scene, renderer, astronaut, spacecraft;
 let cubeRenderTarget, cubeCamera, reflectiveMaterial;
 let controllers;
 let controllerGrip = [];
 let mmu;
 let skybox;
+let infoPanel = {};
+let infoText = [];
 
+  
 window.THREE = THREE;
 
-
 const clock = new THREE.Clock();
-
 
 scene = new THREE.Scene();
 scene.background = 0x000000;
 
 camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 2000 );
-//camera.up.set(0,1,0);
 
-renderer = new THREE.WebGLRenderer();
+renderer = new THREE.WebGLRenderer( {antialias: true} );
 renderer.autoClear = false;
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( window.innerWidth, window.innerHeight );
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.antialis = true;
+renderer.shadowMap.enabled = true;
 renderer.xr.enabled = true;
-document.getElementById('webgl').appendChild( renderer.domElement );
+renderer.xr.setFramebufferScaleFactor( 2.0 ); //double xr resolution default is 1
+renderer.xr.getCamera(camera).near = 0.02;
+
+const container = document.getElementById('webgl');
+container.appendChild( renderer.domElement );
 
 document.body.appendChild( VRButton.createButton( renderer ) );
 
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight
-  camera.updateProjectionMatrix()
-  renderer.setSize(window.innerWidth, window.innerHeight)
-})
+const vr_camera = renderer.xr.getCamera();
+window.vr_camera = vr_camera;
 
-/*
-scene.background = new THREE.CubeTextureLoader()
-	.setPath( 'assets/background/2k/' )
-	.load( ['px.png', 'nx.png', 'py.png', 'ny.png', 'pz.png', 'nz.png' ]);
-*/  
+
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
 
 const controls = new OrbitControls(camera, renderer.domElement)
 
 
-environment = new THREE.Group();
-scene.add(environment);
+infoPanel.geometry = new THREE.PlaneGeometry( 2, 2 );
+infoPanel.name = "infoPanel";
+infoPanel.canvas = document.createElement("canvas");
+infoPanel.canvas.width = 600;
+infoPanel.canvas.height = 600;
+infoPanel.ctx = infoPanel.canvas.getContext("2d");
+infoPanel.lineheight = 15;
+infoPanel.ctx.font = "" + infoPanel.lineheight + "px monospace";
+infoPanel.texture = new THREE.CanvasTexture(infoPanel.canvas);
+infoPanel.material = new THREE.MeshBasicMaterial( { map: infoPanel.texture, transparent: true } );
+infoPanel.panel = new THREE.Mesh( infoPanel.geometry, infoPanel.material );
+infoPanel.panel.name = "info_panel";
+infoPanel.panel.position.set(0, 1.5, -3);
+infoPanel.panel.rotation.x = 1;
+infoPanel.panel.scale.setScalar( 2 );
+infoPanel.panel.material.opacity = 0.25;
+infoPanel.visible = false;
+
+infoPanel.write = function(txt){
+  infoPanel.ctx.clearRect(0, 0, infoPanel.canvas.width, infoPanel.canvas.height);  // Clear
+  infoPanel.ctx.fillStyle = "white";  // font color
+  var lines = txt.split('\n');
+  for(const line of lines) {
+    infoText.push(line);
+    if(infoText.length>20) infoText.shift(infoText.length-20);
+  }
+  for(var j=0; j<infoText.length; j++){
+    infoPanel.ctx.fillText( (infoText[j]||''), 10, 30 + (j*infoPanel.lineheight) );
+  }
+  infoPanel.texture.needsUpdate = true;
+};
+window.infoPanel = infoPanel;
+
+infoPanel.write("Welcome to Jezero Crater, Mars!\n");
+infoPanel.write("Explore the remnants of the ancient Jezero river delta with\nNASA's Perseverance rover.\n");
+
+
 
 
 // Add lights to the scene
 const ambientLight = new THREE.AmbientLight(0xffffff);
-ambientLight.intensity = 0.2;
-environment.add(ambientLight);
+ambientLight.intensity = 0.1;
+scene.add(ambientLight);
 
 const pointLight = new THREE.PointLight(0xffffff, 5, 1);
 pointLight.position.set(10, 100, 20); // Set the position of the light
-pointLight.intensity = 20;
-environment.add(pointLight);
+pointLight.intensity = 0.1;
+scene.add(pointLight);
 
 
 const sun = new THREE.DirectionalLight(0xffffff);
-sun.position.set(100, 100, 1000);
+sun.name = "sun";
+sun.position.set(20, 20, 800);
 sun.intensity = 4;
-sun.castShadow = true; // default false
-sun.shadow.mapSize.width = 512; // default
-sun.shadow.mapSize.height = 512; // default
-sun.shadow.camera.near = 0.1; // default
-sun.shadow.camera.far = 1200; // default
-environment.add(sun);
-//scene.add(sun);
+sun.castShadow = true;
+sun.shadow.mapSize = new THREE.Vector2(4096, 2048);
+sun.shadow.camera.near = sun.position.z - 100;
+sun.shadow.camera.far = sun.position.z + 50;
+sun.shadow.camera.top = 15;
+sun.shadow.camera.bottom = -15;
+sun.shadow.camera.left = -30;
+sun.shadow.camera.right = 30;
+window.sun = sun;
+//renderer.shadowMap.type = THREE.VSMShadowMap
+scene.add(sun);
+//scene.add(new THREE.CameraHelper(sun.shadow.camera))
 
 
 const loading_manager = new THREE.LoadingManager();
@@ -105,19 +154,6 @@ const textureLoader = new THREE.TextureLoader(loading_manager);
 
 
 
-camera.position.set(15,-4,-1.5);
-
-
-/*
-const texture_cube = new THREE.CubeTextureLoader()
-	.setPath( 'assets/background/2k/' )
-	.load( ['px.png', 'nx.png', 'py.png', 'ny.png', 'pz.png', 'nz.png' ]);
-
-const skybox_geom = new THREE.BoxGeometry(3, 3, 3);
-const skybox = new THREE.Mesh(skybox_geom, texture_cube);
-scene.add(skybox);
-*/
-
 const skybox_geometry = new THREE.BoxGeometry(2000,2000,2000);
 textureLoader.setPath( 'assets/background/2k/' );
 let skybox_materials = [
@@ -130,9 +166,10 @@ let skybox_materials = [
 ];
 
 skybox = new THREE.Mesh( skybox_geometry, skybox_materials );
+skybox.name = "stars";
 skybox.scale.x = -1;
 skybox.rotation.set(0,0,0,'XYZ');
-environment.add(skybox);
+scene.add(skybox);
 window.skybox = skybox;
 
 
@@ -150,16 +187,13 @@ cubeCamera.up.set(0, 1, 0);
 window.cubeCamera = cubeCamera;
 
 reflectiveMaterial = new THREE.MeshStandardMaterial( {
-  //envMap: cubeRenderTarget.texture,
   envMap: scene.environment,
   roughness: 0.02,
   metalness: 1,
-  //shininess: 1,
-  color: 0xffcc88,
+  color: 0xffeeaa,
 } );
 
 console.log('cubeCamera:', cubeCamera);
-
 
 
 
@@ -169,8 +203,19 @@ function load_spacecraft(){
     './assets/models/europa_clipper.glb',
     function (gltf) {
       spacecraft = gltf.scene.children[0];
+      spacecraft.name = "spacecraft";
+      
+      spacecraft.traverse((child) => {
+        if ( child.isMesh ) {
+          child.receiveShadow = true;          
+          if ( ['solar_cells',].includes(child.name) ){
+            child.castShadow = true;
+          }
+        }
+      });
+      
       console.log(spacecraft)
-      environment.add(spacecraft);
+      scene.add(spacecraft);
       spacecraft.solar_array = spacecraft.children[10].rotation.set(0,0,0);
       spacecraft.position.set(0,0,-8);
       spacecraft.rotation.set(-1.571,0,0,'XYZ');
@@ -179,6 +224,8 @@ function load_spacecraft(){
       skybox.material.forEach(function(material){material.color.set(0xffffff)});
       scene.environment = new THREE.PMREMGenerator(renderer).fromScene(scene, 0, 0.1, 2500).texture;
       skybox.material.forEach(function(material){material.color.set(0xaaaaaa)});
+
+      sun.target.position.copy( spacecraft.position );
 
       load_astronaut();
     },
@@ -191,9 +238,25 @@ function load_spacecraft(){
   );
 }
 
+
+
+const vr_pov_container = new THREE.Group();
+vr_pov_container.name = "pov_container";
+vr_pov_container.add( camera );
+vr_pov_container.add( infoPanel.panel );
+
+
 astronaut = new THREE.Group();
-astronaut.add( camera );
+astronaut.name = "astronaut";
+astronaut.add( vr_pov_container );
 scene.add(astronaut);
+
+
+
+
+camera.position.set(4, 0.75, -2);
+camera.lookAt( 0, 0, -2.5);
+
 
 
 textureLoader.setPath( 'assets/lensflare/' );
@@ -224,7 +287,7 @@ function load_astronaut(){
       console.log(astronaut_model)
       scene.add(astronaut_model);  // add directly to scene, not environment, since this will be static relative to viewer
       console.log("astronaut_model:",astronaut_model);
-      //astronaut_model.position.set(0, 1.25, 0.25);
+      astronaut_model.position.set(0, 0, 0.25);
       //astronaut_model.position.set(0, 0, 0.25);
       astronaut_model.rotation.set(-1.571,0,1.571, 'XYZ');
       astronaut.add(astronaut_model)
@@ -233,6 +296,8 @@ function load_astronaut(){
       
       astronaut_model.traverse((child) => {
         if ( ! child.isMesh ) return;
+        child.castShadow = true;
+        child.receiveShadow = true;
         //var prevMaterial = child.material;
         //child.material = new THREE.MeshPhongMaterial();
         child.material.shininess = 1;
@@ -253,6 +318,7 @@ function load_astronaut(){
       });
       astronaut.loaded = true;
       window.astronaut = astronaut;
+            
     },
     function ( error ) {
       console.log( 'An error happened' );
@@ -268,7 +334,6 @@ const axes_astronaut_world_frame = new THREE.AxesHelper( 1 );
 //scene.add( axes_astronaut_world_frame );
 
 
-camera.lookAt(0,1.5,0);
 
 astronaut.q_angular_rate = new THREE.Quaternion();
 astronaut.linear_rate = new THREE.Vector3();
@@ -343,7 +408,7 @@ const control_vector_world_frame_arrow = new THREE.ArrowHelper(
   new THREE.Vector3().copy( control_vector_world_frame ), 
   1, 0xffff00
 );
-control_vector_world_frame_arrow.origin = astronaut.position
+control_vector_world_frame_arrow.origin = astronaut.position;
 //scene.add( control_vector_world_frame_arrow ); 
 
 
@@ -365,6 +430,7 @@ const controllerModelFactory = new XRControllerModelFactory();
 
 const q_zero_rate = new THREE.Quaternion();
 
+/*
 function update_mmu_controls() {
   ['left', 'right'].forEach(function(controller_side){
     if (controllers[controller_side].connected){
@@ -375,14 +441,14 @@ function update_mmu_controls() {
         const current_input_value = controller.joystick.axes[controller_axis_idx] ;
         controller.joystick[axis].val.current = Math.round( current_input_value );
         if (controller.joystick[axis].val.current!=0 && controller.joystick[axis].val.previous==0  ){
-          console.log(controller_side + ' controller thumbstick ' + axis + ' axis pressed ' + controller.joystick[axis].val.current);
-          mmu_fire_thrusters(controller_side, axis, controller.joystick[axis].val.current);
+          console.log('(old method) ' + controller_side + ' controller thumbstick ' + axis + ' axis pressed ' + controller.joystick[axis].val.current);
+          //mmu_fire_thrusters(controller_side, axis, controller.joystick[axis].val.current);
         }
       });
     }
   });  
 }
-
+*/
 
 function mmu_fire_thrusters(controller_side, axis, value){
   console.log(controller_side, axis, value);
@@ -431,22 +497,27 @@ window.fire_thrusters = mmu_fire_thrusters;
   controller.add( new THREE.Line( controller_vectors_geometry ) );
   controller.addEventListener( 'connected', (e) => {
     console.log(controller_side + ' controller connected');
+    infoPanel.write(controller_side + ' controller connected');
     controller.gamepad = e.data.gamepad;
-    controller.buttonState = controller.gamepad.buttons.map(function(btn) { return btn.value; });
+    controller.buttonState = controller.gamepad.buttons.map(function(btn) { return btn.value; });  //get initial vals
+    controller.axesState   = controller.gamepad.axes.map(function(axs) { return axs.value; });  //get initial vals
     astronaut.add( controller );
-
-    console.log('adding event listenders for ' + controller_side + ' controller');
-    ['pressed', 'released', 'axis-pressed', 'axis-released', 'selectstart', 'selectend', 'squeezestart', 'squeezeend'].forEach(function(input_action){
-      controller.addEventListener( input_action, function(e){controllerEvent(e, controller_side)} );
-    });
+        
+    const vr_head_height = renderer.xr.getCamera(camera).position.y;
     
+    vr_pov_container.position.set(0, 0.45 - vr_head_height, -0.1);
+        
+    console.log('vr head height', vr_head_height);
+    infoPanel.write('vr head height: ' + vr_head_height);
+        
     controllers[controller_side].joystick.axes = controller.gamepad.axes;
+    infoPanel.write('gamepad axes:  ' + controllers[controller_side].joystick.axes);
     controllers[controller_side].connected = true;
   });
   
   const grip = controllers[controller_side].grip;
   grip.add( controllerModelFactory.createControllerModel( grip ) );
-  astronaut.add( grip );
+  vr_pov_container.add( grip );
 });
 
 function controllerEvent(e, controller_side){
@@ -458,26 +529,68 @@ function controllerEvent(e, controller_side){
 
 
 
+function checkController(which_controller){
+  const controller = controllers[which_controller].controller;
+  if(controller.buttonState){
+    controller.prevButtonsState = controller.buttonState.slice();
+    controller.buttonState = controller.gamepad.buttons.map(function(btn) { return btn.value; });
+    //console.log(controller.buttonState);
+    for(var idxButton=0; idxButton<controller.gamepad.buttons.length; idxButton++){
+      //buttonsVals += controller.buttonState[idxButton].value + "(" + controller.prevButtonsState[idxButton].value + ") ";
+      if(controller.buttonState[idxButton] != controller.prevButtonsState[idxButton]){
+        console.log( which_controller + " controller button " + idxButton + " state changed to " + controller.buttonState[idxButton]);
+        infoPanel.write(which_controller + " controller button " + idxButton + " state changed to " + controller.buttonState[idxButton]);
+        
+        // do things on button press:
+        if(controller.buttonState[idxButton]==1){
+          if (which_controller=="right"){
+            astronaut.q_angular_rate.copy( q_zero_rate );
+          } else {
+            astronaut.linear_rate.set(0,0,0);
+          }
+        }
+      }
+    }
+    controller.prevAxesState = controller.axesState;
+    controller.axesState = controller.gamepad.axes.map(function(val){return Math.round(val)})
+    //console.log('axes', controller.axesState, 'prev', controller.prevAxesState);
+    //console.log(controller.buttonState);
+    for(var idxAxis=2; idxAxis<controller.gamepad.axes.length; idxAxis++){
+      const axis_val = controller.axesState[idxAxis];
+      //buttonsVals += controller.buttonState[idxAxis].value + "(" + controller.prevAxesState[idxAxis].value + ") ";
+      if(axis_val != controller.prevAxesState[idxAxis]){
+        console.log( which_controller + " controller axis " + idxAxis + " state changed to " + axis_val);
+        infoPanel.write(which_controller + " controller axis " + idxAxis + " state changed to " + axis_val);
+        // do things on button release:
+        if(axis_val==1 || axis_val==-1){          
+          const axis_dir = idxAxis==2 ? 'up_down' : 'left_right';
+          //case 5:    guiMesh.toggleVisibility();      break;
+          //case 4:    infoPanel.material.visible = !infoPanel.material.visible;   break;
+          mmu_fire_thrusters(which_controller, axis_dir, axis_val );
+        }
+      }
+    }  
+  }
+}
+
+
+
 renderer.setAnimationLoop( function () {
   const dt = clock.getDelta();  
-  update_mmu_controls();
+  //update_mmu_controls();
+
+  checkController('left');
+  checkController('right');
   update_mmu_attitude_and_position(dt);
 
 	renderer.render( scene, camera );
+  
 });
 
 
 
 function update() {
   controls.update();
-  if (astronaut != null && astronaut.loaded) {
-    /*
-    cubeCamera.position.copy(astronaut.visor.position);
-    astronaut.visor.visible = false;
-    cubeCamera.update(renderer, scene);
-    astronaut.visor.visible = true;
-    */
-  }
 }
 
 
@@ -501,6 +614,4 @@ window.controllers = controllers;
 window.scene = scene;
 window.camera = camera;
 window.renderer = renderer;
-window.environment = environment;
 window.mmu = mmu;
-
