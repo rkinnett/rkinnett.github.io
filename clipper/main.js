@@ -39,6 +39,11 @@ scene.background = 0x000000;
 camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 20000 );
 scene.add( camera );
 
+camera.position.set(4, 0.75, -2);
+camera.lookAt( 0, 0, -10);
+
+
+
 renderer = new THREE.WebGLRenderer( {antialias: true} );
 renderer.autoClear = false;
 renderer.setPixelRatio( window.devicePixelRatio );
@@ -320,8 +325,6 @@ scene.add(astronaut);
 
 
 
-camera.position.set(4, 0.75, -2);
-camera.lookAt( 0, 0, -2.5);
 
 
 
