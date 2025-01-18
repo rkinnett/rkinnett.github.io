@@ -8,11 +8,13 @@
 import * as THREE from 'https://unpkg.com/three@0.121.1/build/three.module.js';
 import { OrbitControls } from 'https://unpkg.com/three@0.121.1/examples/jsm/controls/OrbitControls.js';
 
-let camera, controls, scene, renderer, ephem, options, sun, globe, labels, pins, PointsOfInterest, stars, GlobeGroup, fakeSun, sunVec;
+let camera, controls, scene, renderer, ephem, options, sun, globe, labels, pins, PointsOfInterest, stars, GlobeGroup, fakeSun, sunVec, canvas;
 
 let selectedObject = null;
 const raycaster = new THREE.Raycaster();
 const mouseVector = new THREE.Vector3();
+
+const ephemFile = 'js/ephem_2024_to_2035.json';
 
 const mapFiles = [
   'color_map_mgs_2k.jpg',
@@ -74,7 +76,9 @@ options = {
   g: 1,
   b: 1,
   initToCurrent: false,
-  showPins: true,
+  showStars: true,
+  showMars: true,
+  showPins: false,
   shininess: 15,
   northUp: true,
   showCoordFrame: false,
@@ -105,10 +109,13 @@ function init(){
   window.addEventListener('resize',     onWindowResize, {passive: true}, false );
 
   console.log("initializing renderer");
-  renderer = new THREE.WebGLRenderer();
+  renderer = new THREE.WebGLRenderer(); 
   renderer.setSize(width, height);
+  window.renderer = renderer;
   webglEl.appendChild(renderer.domElement);
   console.log(renderer);
+  var context = renderer.getContext();
+  canvas = context.canvas;
   renderer.domElement.addEventListener("webglcontextlost", function(event){  
     event.preventDefault();
     //cancelRequestAnimationFrame(requestId);
@@ -119,6 +126,7 @@ function init(){
 
   
   scene = new THREE.Scene();
+  window.scene = scene;
   
   camera = new THREE.PerspectiveCamera(15, width/height, 0.01, 250);
   camera.position.x = options.cameraDist;
@@ -167,6 +175,7 @@ function init(){
   var ephemQueryNowFcn = { add:function(){ showNow() }};
   var ephemQueryUtcFcn = { add:function(){ showSpecificTime()  }};
   var searchForFeatureFcn = { add:function(){ searchForFeature()  }};
+  var screenshotFcn = { add:function(){ screenShot() }};
 
 
   var gui = new dat.GUI();
@@ -175,6 +184,8 @@ function init(){
   gui.add(options, 'rotation', 0, 6.2832).listen().name("planet rotation").onChange(function(val){ GlobeGroup.rotation.z = val; });
   gui.add(options, 'northUp').listen().name("north up").onChange(function(){ setPoleOrientation() });
   gui.add(options, 'mirror').listen().onChange(function(boolMirror){ setMirroring(boolMirror) });
+  gui.add(options, 'showMars').listen().name("Mars").onChange(function(){ toggleMars() });
+  gui.add(options, 'showStars').listen().name("Stars").onChange(function(){ toggleStars() });
   gui.add(options, 'showPins').listen().name("Points of Interest").onChange(function(){ togglePins() });
   gui.add(options, 'showCoordFrame').listen().name("Coordinate Axes").onChange(function(val){ GlobeCoordAxes.visible = val });
   gui.add(options, 'mapFile',mapFiles).listen().name("Base map").onChange(function(){changeMap()});
@@ -187,6 +198,7 @@ function init(){
   gui.add(ephemQueryNowFcn,'add').name("Show now");
   gui.add(ephemQueryUtcFcn,'add').name("Show specific time");
   gui.add(searchForFeatureFcn,'add').name("Search");
+  gui.add(screenshotFcn,'add').name('Screenshot');
 
 
   PointsOfInterest = new THREE.Group();
@@ -413,12 +425,41 @@ function searchForFeature(){
 }
 
 
+function screenShot(){
+  render();
+  canvas.toBlob((blob) => {
+    saveBlob(blob, 'mars_globe.png');
+  });    
+}
+
+
+const saveBlob = (function() {
+  const a = document.createElement('a');
+  document.body.appendChild(a);
+  a.style.display = 'none';
+  return function saveData(blob, fileName) {
+     const url = window.URL.createObjectURL(blob);
+     a.href = url;
+     a.download = fileName;
+     a.click();
+  };
+}());
+
+
+function toggleStars(){
+  stars.visible = options.showStars;
+}
+
+function toggleMars(){
+  globe.visible = options.showMars;
+}
 
 function togglePins(){
   document.getElementById('poi_container').display = options.showPins ? 'block' : 'none';
   pins.visible = options.showPins;
   PointsOfInterest.visible = options.showPins;
 }
+
 
 function displayLatLon(event){
   const intersects = getIntersects( event.layerX, event.layerY, globe );
@@ -558,15 +599,16 @@ function interpolateEphemeris(dateQuery){
   var dayFrac = (dateQuery.getTime()/1000/60/60/24) % 1;
   console.log(strQueryDate + ' ' + dayFrac*24 + ' hours');
 
-  // round down to 1/4 day:
-  var hourRoundedDown = Math.floor(dayFrac*4)*6;
+  // round down to start of day:
+  var ephem_period = 24;
+  var hourRoundedDown = Math.floor(dayFrac*24/ephem_period)*ephem_period;
   var strDateInterpBelow = strQueryDate + " " + (hourRoundedDown<10?"0":"") + hourRoundedDown + ":00";
   console.log("strDateInterpBelow: " + strDateInterpBelow);
-  var interpRatio = (dayFrac*24 % 6) / 6;
+  var interpRatio = (dayFrac*24 % ephem_period) / ephem_period;
   console.log("interp ratio: " + interpRatio);
   
   // get interp upper bound:
-  var strDateInterpAbove = new Date(new Date(strDateInterpBelow.replace(" ","T") + ":00Z").valueOf() + 6*60*60*1000).toISOString().substring(0,16).replace(/T/g, " ");
+  var strDateInterpAbove = new Date(new Date(strDateInterpBelow.replace(" ","T") + ":00Z").valueOf() + ephem_period*60*60*1000).toISOString().substring(0,16).replace(/T/g, " ");
   console.log("interp bounds:  " + strDateInterpBelow + ", " + strDateInterpAbove);
 
   // get entries before and after query time:
@@ -594,17 +636,18 @@ function loadEphemData(callback){
   console.log("callback: " + callback);
   console.log("typeof callback: " + (typeof callback));
   console.log("loading ephemeris file");
-  $.getJSON('js/ephem.json')
+  $.getJSON(ephemFile)
   .done(function(data) { 
     console.log("done"); 
     ephem.data = data;
     console.log("testing ephem lookup:  ");
-    console.log(data["2020-01-01 06:00"][0]); // test	
+    console.log(data["2025-01-01 00:00"][0]); // test	
     ephem.loaded = true;
     if(typeof callback == 'function' ) callback();
   })
   .fail(function(jqXHR, textStatus, errorThrown) {
     console.log("error " + textStatus);
+    console.log(errorThrown);
     console.log("incoming Text " + jqXHR.responseText);
   })
 }
