@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>NEO Confirmation Priorities</title>
+  
+<style>
+
+</style>
+
+<body>
+
+<textarea id="csvOutput" cols="80" rows="50"> </textarea>
+
+
+<script>
+
+
+async function fetchJsonData(url) {
+  try {
+    // 1. Make the fetch request to the specified URL.
+    const response = await fetch(url);
+
+    // 2. Check if the request was successful (status code 200-299).
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    // 3. Parse the response body as JSON.
+    const data = await response.json();
+
+    // 4. Return the parsed JSON data.
+    return data;
+  } catch (error) {
+    // 5. Handle any errors that occur during the fetch operation.
+    console.error('Error fetching JSON:', error);
+    throw error; // Re-throw the error for further handling if needed.
+  }
+}
+
+
+const apiUrl = 'https://www.minorplanetcenter.net/Extended_Files/neocp.json';
+
+fetchJsonData(apiUrl)
+  .then(jsonData => {
+    console.log('Fetched JSON data:', jsonData);
+
+    const headers = Object.keys(jsonData[0]);
+
+    const rows = jsonData.map(obj =>
+        headers.map(header => {
+            const value = obj[header];
+            // Handle potential special characters or commas within values
+            return typeof value === 'string' && value.includes(',') ? `"${value}"` : value;
+        }).join(',')
+    );    
+    
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    document.getElementById('csvOutput').value = csvContent;
+
+    
+  })
+  .catch(error => {
+    console.error('Failed to retrieve JSON data:', error);
+  });
+
+
+
+
+
+
+</script>
+
+
+
+</body>
