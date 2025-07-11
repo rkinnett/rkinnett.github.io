@@ -4,16 +4,118 @@
   <meta charset="UTF-8">
   <title>NEO Confirmation Priorities</title>
   
-<style>
-
-</style>
-
+  <style>
+      table {
+          width: 100%;
+          border-collapse: collapse; /* */
+      }
+      th, td {
+          border: 1px solid black; /* */
+          padding: 8px; /* */
+          text-align: left;
+      }
+      th {
+          background-color: #f2f2f2; /* */
+          font-weight: bold; /* */
+      }
+      tr:nth-child(even) {
+          background-color: #eee; /* */
+      }
+      .table-container {
+          overflow-x: auto; /* */
+      }
+  </style>
+</head>
+    
 <body>
 
-<textarea id="csvOutput" cols="80" rows="50"> </textarea>
+<h3>NEO Confirmation Priorities</h3>
+
+Source:&nbsp;&nbsp;<a href="https://www.minorplanetcenter.net/iau/NEO/neocp.txt">Minor Planets Center NEO Confirmation Page text file</a>
+<br/>
+<br/>
+
+<!--
+<textarea id="csvOutput" cols="140" rows="5"> </textarea>
+<br/>
+<button onclick = "downloadFile()"> save File </button>
+<br/>
+<br/>
+-->
+
+<div style="width:20ch; float:left;">Local Sidereal Time:</div>&nbsp;&nbsp;<div id="lst_text_area" style="float:left"> </div> <br/>
+<div style="width:20ch; float:left;">Local time:</div>  <div id="local_time_text_area" style="float:left">#</div> <br/>
+<div style="width:20ch; float:left;">UTC time:</div>  <div id="utc_time_text_area" style="float:left">#</div>
+<br/>
+<br/>
+
+<h3>Filters</h3>
+
+Minimum Elevation:&nbsp;
+<input type="number" id="elevation_input" name="elevation_input" min="-90" max="90" value="10">
+
+<br/>
+<br/>
 
 
 <script>
+
+
+const lst_text_area = document.getElementById('lst_text_area');
+const local_time_text_area = document.getElementById('local_time_text_area');
+const utc_time_text_area = document.getElementById('utc_time_text_area');
+
+
+const apiUrl = 'https://www.minorplanetcenter.net/Extended_Files/neocp.json';
+
+const lat = 34.3018;     // Stony Ridge Observatory latitude
+const lon = -118.00;   // Stony Ridge Observatory longitude
+
+var date = new Date(); // current UTC time
+
+
+var LST_hours;
+updateSiderealTime();
+
+function updateSiderealTime(){
+  LST_hours = getLocalSiderealTime();
+  LST_whole_hours = Math.floor( LST_hours );
+  LST_whole_minutes = Math.floor( (LST_hours % 1) * 60 );
+  LST_whole_seconds = Math.floor( (((LST_hours % 1) * 60) % 1 ) *60 );
+  lst_text_area.innerHTML = LST_whole_hours + " hr " + LST_whole_minutes + " m " + LST_whole_seconds + " s";
+}
+
+function updatePacificTime() {
+  const options = {
+    timeZone: 'America/Los_Angeles',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'short'
+  };
+  const pacificTime = new Intl.DateTimeFormat('en-US', options).format(new Date());
+  local_time_text_area.textContent = pacificTime;
+}
+
+function updateUTCTime() {
+  const utcFormatter = new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZone: 'UTC', 
+    timeZoneName: 'short'
+  });
+  utc_time_text_area.textContent = utcFormatter.format(date);
+}
+
+
+setInterval(function() {
+  date = new Date(); // current UTC time
+  updateSiderealTime();
+  updatePacificTime();
+  updateUTCTime();
+}, 1000); 
+
 
 
 async function fetchJsonData(url) {
@@ -38,25 +140,372 @@ async function fetchJsonData(url) {
   }
 }
 
+var csvContent = '';
 
-const apiUrl = 'https://www.minorplanetcenter.net/Extended_Files/neocp.json';
+
+
+const numeric_fields = ['Score','Discovery_year','Discovery_month','Discovery_day','R.A.','Decl.','V', 'NObs','Arc','H','Not_Seen_dys','Az','El'];
+
+const hide_fields = ['Discovery_year','Discovery_month','Discovery_day'];
+
+function createTable() {
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const tbody = document.createElement('tbody');
+
+    const min_elevation = document.getElementById('elevation_input').value*1;
+
+    // Create table header
+    const headerRow = document.createElement('tr');
+    table_show_fields.forEach(key => {
+        const th = document.createElement('th');
+        //th.textContent = key.charAt(0).toUpperCase() + key.slice(1); // Capitalize header
+        th.textContent = table_column_labels[key];
+        th.dataset.key = key; // Store key for sorting
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    // Populate table body
+    table_data.forEach(item => { 
+        if( item.El >= min_elevation ){
+          const row = document.createElement('tr');
+          table_show_fields.forEach(key => {          
+          //for (const key in item) {
+              const td = document.createElement('td');
+              value = item[key];
+              if (numeric_fields.includes(key)){
+                value = Number(value);
+                item[key] = value;
+              }
+              td.textContent = value;
+              row.appendChild(td);
+          });
+          tbody.appendChild(row);
+        }
+    });
+        
+    table.appendChild(tbody);
+    return table;
+}
+
+
+table_show_fields = ['Temp_Desig','Discovery_date','Not_Seen_dys','Score','NObs','V','R.A.','Decl.','Az','El','Max_El', 'Time_Until_Max_El'];
+table_column_labels = {
+  'Temp_Desig': 'Temporaty Designation',
+  'Discovery_date': 'Discoery Date (UTC)',
+  'Updated': 'Updated',
+  'Not_Seen_dys': 'Days since last seen',
+  'Score': 'Score',
+  'NObs': 'Number of Observations',
+  'V': 'Visual Magnitude',
+  'R.A.': 'Right Ascension (hrs)',
+  'Decl.': 'Declination (deg)',
+  'Az': 'Azimuth (deg)',
+  'El': 'Elevation (deg)',
+  'Max_El': 'Max Elevation (deg)',
+  'Time_Until_Max_El': 'Time until Max Elevation'
+}
+
+
+
+var table_data;
+var isAscending = true;
+var sortKey = 'Time_Until_Max_El';
+
+function makeSortable() {
+    const headers = data_table.querySelectorAll('th');
+    headers.forEach(header => {
+        header.addEventListener('click', () => {
+            isAscending = header.classList.toggle('ascending'); // Toggle ascending/descending
+            sortKey = header.dataset.key;            
+            sortTable();
+        });
+    });
+}
+
+function sortTable(){
+  // Sort the data array
+  if (numeric_fields.includes(sortKey)){
+    if (isAscending) {
+      console.log('sorting by field ' + sortKey + ' in ascending numeric order');
+      table_data.sort((a, b) => a[sortKey] - b[sortKey]);
+    } else {
+      console.log('sorting by field ' + sortKey + ' in descending numeric order');
+      table_data.sort((a, b) => b[sortKey] - a[sortKey]);          
+    }
+  } else {
+    console.log('sorting by field ' + sortKey + ' in ' + (isAscending ? 'ascending' : 'descending') + ' string order');
+    table_data.sort((a, b) => {
+        if (a[sortKey] < b[sortKey]) return isAscending ? -1 : 1;
+        if (a[sortKey] > b[sortKey]) return isAscending ? 1 : -1;
+        return 0;
+    });
+  }            
+  renderTable();
+}
+
+
+function renderTable(){
+  const min_elevation = document.getElementById('elevation_input').value*1;            
+  const tbody = data_table.querySelector('tbody');  
+  date = new Date(); // current UTC time
+
+  tbody.innerHTML = ''; // Clear existing rows
+  table_data.forEach(item => {
+  
+    local_coords = raDecToAzEl(item["R.A."], item["Decl."], date, lat, lon);
+    item.Az = local_coords.azimuth.toFixed(0);
+    item.El = local_coords.elevation.toFixed(0);
+  
+    decimal_hours_to_max_el = ((item['R.A.'] - LST_hours) + 24) % 24;
+    decimal_hours_to_max_el = decimal_hours_to_max_el<12? decimal_hours_to_max_el : decimal_hours_to_max_el-24;
+    time_to_max_el_sign = Math.sign( decimal_hours_to_max_el );
+    time_to_max_el_whole_hours = Math.floor( Math.abs( decimal_hours_to_max_el ) );
+    time_to_max_el_whole_minutes =  Math.floor( (Math.abs( decimal_hours_to_max_el ) % 1) *60 );
+    item.Time_Until_Max_El = String(time_to_max_el_whole_hours).padStart(2,"0") + " h " + String(time_to_max_el_whole_minutes).padStart(2,"0") + " m   (" + (time_to_max_el_sign>0?"+":"-") + ")";
+  
+    if( item.El >=  min_elevation){
+      const row = document.createElement('tr');
+      table_show_fields.forEach(key => {
+        if (!hide_fields.includes(key)){
+          const td = document.createElement('td');
+          td.textContent = item[key];
+          row.appendChild(td);
+        }
+      });
+      tbody.appendChild(row);
+    }
+  });
+}
+
+
+
+function lstToLocalTime(lstHours, date, longitudeDeg, timezoneOffsetMinutes = 0) {
+    const LST_deg = lstHours * 15; // Convert LST to degrees
+
+    // 1. Compute Julian Date
+    function getJulianDate(d) {
+        return d.getTime() / 86400000 + 2440587.5;
+    }
+
+    const JD = getJulianDate(date);
+    const D = JD - 2451545.0; // Days since J2000.0
+
+    // 2. Greenwich Mean Sidereal Time (GMST) in degrees
+    let GMST = 280.46061837 + 360.98564736629 * D;
+    GMST = ((GMST % 360) + 360) % 360;
+
+    // 3. Calculate the desired Greenwich Mean Sidereal Time from LST and longitude
+    let desiredGMST = ((LST_deg - longitudeDeg) % 360 + 360) % 360;
+
+    // 4. Compute sidereal time difference
+    let deltaDeg = ((desiredGMST - GMST + 360) % 360);
+    const siderealSecondsPerSolarSecond = 0.9972695663;
+
+    // 5. Convert difference in sidereal degrees to solar seconds
+    const deltaSiderealHours = deltaDeg / 15;
+    const deltaSolarSeconds = (deltaSiderealHours * 3600) / siderealSecondsPerSolarSecond;
+
+    // 6. Adjust the input date by that delta (forward or backward)
+    const adjustedTime = new Date(date.getTime() + deltaSolarSeconds * 1000);
+
+    // 7. Apply time zone offset if provided (in minutes)
+    if (timezoneOffsetMinutes !== 0) {
+        adjustedTime.setMinutes(adjustedTime.getMinutes() + timezoneOffsetMinutes);
+    }
+
+    return adjustedTime;
+}
+
+
+function raDecToAzEl(raHours, decDeg, date, latitudeDeg, longitudeDeg) {
+    const toRadians = deg => deg * Math.PI / 180;
+    const toDegrees = rad => rad * 180 / Math.PI;
+
+    // 1. Convert RA to degrees
+    const raDeg = raHours * 15;
+
+    // 2. Julian Date
+    function getJulianDate(date) {
+        const time = date.getTime(); // ms since 1970-01-01
+        return time / 86400000 + 2440587.5;
+    }
+
+    const JD = getJulianDate(date);
+    const D = JD - 2451545.0; // Days since J2000.0
+
+    // 3. Greenwich Sidereal Time (in degrees)
+    let GST = 280.46061837 + 360.98564736629 * D;
+    GST = ((GST % 360) + 360) % 360; // Normalize between 0–360
+
+    // 4. Local Sidereal Time (LST)
+    const LST = ((GST + longitudeDeg) % 360 + 360) % 360;
+
+    // 5. Hour Angle (HA) in degrees
+    let HA = ((LST - raDeg) + 360) % 360;
+    if (HA > 180) HA -= 360; // Convert to [-180, 180]
+
+    // Convert angles to radians
+    const HA_rad = toRadians(HA);
+    const dec_rad = toRadians(decDeg);
+    const lat_rad = toRadians(latitudeDeg);
+
+    // 6. Elevation (Altitude)
+    const sinEl = Math.sin(dec_rad) * Math.sin(lat_rad) + 
+                  Math.cos(dec_rad) * Math.cos(lat_rad) * Math.cos(HA_rad);
+    const el = Math.asin(sinEl);
+
+    // 7. Azimuth
+    const cosAz = (Math.sin(dec_rad) - Math.sin(el) * Math.sin(lat_rad)) / 
+                  (Math.cos(el) * Math.cos(lat_rad));
+    let az = Math.acos(cosAz);
+
+    // Adjust Azimuth depending on HA
+    if (Math.sin(HA_rad) > 0) {
+        az = 2 * Math.PI - az;
+    }
+
+    return {
+        azimuth: toDegrees(az),      // in degrees [0, 360)
+        elevation: toDegrees(el)     // in degrees [-90, 90]
+    };
+}
+
+
+
+//const date = new Date(Date.UTC(2025, 7, 10, 0, 0, 0)); // UTC time (2025-07-10T00:00:00Z)
+
+
+const ra = 10.68470833;  // RA in hours (e.g., Andromeda Galaxy ~ 10h 41m)
+const dec = 41.26917;    // Dec in degrees
+const result = raDecToAzEl(ra, dec, date, lat, lon);
+console.log(`Azimuth: ${result.azimuth.toFixed(2)}°, Elevation: ${result.elevation.toFixed(2)}°`);
+
+
+function getZenithRAandDec(date, latitudeDeg, longitudeDeg) {
+    const toRadians = deg => deg * Math.PI / 180;
+    const toDegrees = rad => rad * 180 / Math.PI;
+
+    // 1. Julian Date
+    function getJulianDate(date) {
+        const time = date.getTime(); // ms since 1970-01-01
+        return time / 86400000 + 2440587.5;
+    }
+
+    const JD = getJulianDate(date);
+    const D = JD - 2451545.0; // Days since J2000.0
+
+    // 2. Greenwich Sidereal Time (in degrees)
+    let GST = 280.46061837 + 360.98564736629 * D;
+    GST = ((GST % 360) + 360) % 360;
+
+    // 3. Local Sidereal Time (LST) in degrees
+    const LST_deg = ((GST + longitudeDeg) % 360 + 360) % 360;
+
+    // 4. Convert LST to RA in hours
+    const RA_hours = LST_deg / 15;
+
+    // 5. Declination is the same as latitude
+    const Dec_deg = latitudeDeg;
+
+    return {
+        rightAscension: RA_hours,  // in hours [0, 24)
+        declination: Dec_deg       // in degrees [-90, 90]
+    };
+}
+
+function getLocalSiderealTime() {
+    date = new Date(); // current UTC time
+
+    // Helper conversions
+    const toRadians = deg => deg * Math.PI / 180;
+    const toDegrees = rad => rad * 180 / Math.PI;
+
+    // 1. Julian Date
+    function getJulianDate(d) {
+        return d.getTime() / 86400000 + 2440587.5;
+    }
+
+    const JD = getJulianDate(date);
+    const D = JD - 2451545.0; // Days since J2000.0
+
+    // 2. Calculate Greenwich Mean Sidereal Time (GMST) in degrees
+    let GMST = 280.46061837 + 360.98564736629 * D;
+    GMST = ((GMST % 360) + 360) % 360; // Normalize to [0, 360)
+
+    // 3. Add observer's longitude to get LST
+    let LST = (GMST + lon) % 360;
+    if (LST < 0) LST += 360;
+
+    const LST_hours = LST / 15; // Convert degrees to hours
+    return LST_hours; // In sidereal hours [0, 24)
+}
+
+
+const zenith = getZenithRAandDec(date, lat, lon);
+local_siderial_time = zenith.rightAscension;
+console.log(`Zenith RA: ${zenith.rightAscension.toFixed(4)} hours`);
+console.log(`Zenith Dec: ${zenith.declination.toFixed(4)}°`);
+
+var data_table;
 
 fetchJsonData(apiUrl)
   .then(jsonData => {
     console.log('Fetched JSON data:', jsonData);
 
-    const headers = Object.keys(jsonData[0]);
+    jsonData.forEach(entry => {
 
+      local_coords = raDecToAzEl(entry["R.A."], entry["Decl."], date, lat, lon);
+      entry.Az = local_coords.azimuth.toFixed(0);
+      entry.El = local_coords.elevation.toFixed(0);
+
+      entry.Max_El = (90 - Math.abs(lat - entry['Decl.'])).toFixed(1);
+      entry.Time_Until_Max_El = (entry['R.A.'] - LST_hours).toFixed(2);
+      
+      decimal_day = entry.Discovery_day;
+      whole_day = Math.floor(decimal_day);
+      decimal_hour = (decimal_day % 1) * 24;
+      whole_hour = Math.floor(decimal_hour);
+      decimal_minute = (decimal_hour % 1) * 60;
+      whole_minute = Math.floor(decimal_minute);
+      console.log(entry.Discovery_day, entry.Discovery_year, entry.Discovery_month-1, whole_day, whole_hour, whole_minute);
+      entry.Discovery_date = entry.Discovery_year +'-'+ String(entry.Discovery_month).padStart(2, '0') +'-'+ String(whole_day).padStart(2, '0') +' '+ String(whole_hour).padStart(2, '0') +':'+ String(whole_minute).padStart(2, '0');
+
+      entry.Not_Seen_dys = Math.floor( entry.Not_Seen_dys * 10) / 10
+    });
+
+
+    const headers = Object.keys(jsonData[0]);
+    
+    // concatenate json entries into string, one line per entry:
+    /*
     const rows = jsonData.map(obj =>
         headers.map(header => {
             const value = obj[header];
             // Handle potential special characters or commas within values
             return typeof value === 'string' && value.includes(',') ? `"${value}"` : value;
         }).join(',')
-    );    
-    
-    const csvContent = [headers.join(','), ...rows].join('\n');
+    );  
+    csvContent = [headers.join(','), ...rows].join('\n');
     document.getElementById('csvOutput').value = csvContent;
+    */
+    
+    // make sortable table from json data:
+    table_data = jsonData;
+    data_table = createTable();
+    document.body.appendChild(data_table); // Add table to the document
+    makeSortable(data_table); // Make the table sortable
+    
+    sortTable();
+    sortTable();
+
+    // Start refresh loop to update az/el periodically
+    setInterval(function() {
+        console.log('Updating table automatically...');
+        renderTable();
+    }, 10000); 
 
     
   })
@@ -66,6 +515,21 @@ fetchJsonData(apiUrl)
 
 
 
+
+
+
+
+
+
+const downloadFile = () => {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.setAttribute('download', 'neocp.csv');
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
 
 
