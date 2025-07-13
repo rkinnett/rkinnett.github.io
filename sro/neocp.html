@@ -3,43 +3,65 @@
 <head>
   <meta charset="UTF-8">
   <title>NEO Confirmation Priorities</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
   
   <style>
-      table {
-          width: 100%;
-          border-collapse: collapse; /* */
-      }
-      th, td {
-          border: 1px solid black; /* */
-          padding: 8px; /* */
-          text-align: left;
-      }
-      th {
-          background-color: #f2f2f2; /* */
-          font-weight: bold; /* */
-      }
-      tr:nth-child(even) {
-          background-color: #eee; /* */
-      }
-      .table-container {
-          overflow-x: auto; /* */
-      }
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      color: #e22;
+      background-color: black;
+    }
+    canvas {
+      max-height: 500px;
+      width: 100%;
+      margin: 0 auto;
+      display: block;
+    }  
+    table {
+      width: 100%;
+      border-collapse: collapse; /* */
+    }
+    th, td {
+      border: 1px solid gray; /* */
+      padding: 4px; /* */
+      text-align: left;
+    }
+    th {
+      background-color: #333; /* */
+      font-weight: bold; /* */
+    }
+    tr:nth-child(even) {
+      background-color: #222; /* */
+    }
+    .table-container {
+      overflow-x: auto; /* */
+    }
+      
+    a, a:link, a:visited, a:hover { 
+      color: red;
+      text-decoration: underline;
+    }
+      
   </style>
 </head>
     
 <body>
+
 <h1>Stony Ridge Observatory</h1>
 
-<div style="width:20ch; float:left;">Local Sidereal Time:</div>&nbsp;&nbsp;<div id="lst_text_area" style="float:left"> </div> <br/>
 <div style="width:20ch; float:left;">Local time:</div>  <div id="local_time_text_area" style="float:left">#</div> <br/>
-<div style="width:20ch; float:left;">UTC time:</div>  <div id="utc_time_text_area" style="float:left">#</div>
-<br/>
-<br/>
+<div style="width:20ch; float:left;">UTC time:</div>  <div id="utc_time_text_area" style="float:left">#</div> <br/>
+<div style="width:20ch; float:left;">Local Sidereal Time:</div>&nbsp;&nbsp;<div id="lst_text_area" style="float:left"> </div> <br/>
 
 <h2>Minor Planet Center NEO Confirmation Priorities</h2>
 
 Source:&nbsp;&nbsp;<a href="https://www.minorplanetcenter.net/iau/NEO/neocp.txt">Minor Planets Center NEO Confirmation Page text file</a>
 <br/>
+
 
 <!--
 <textarea id="csvOutput" cols="140" rows="5"> </textarea>
@@ -49,6 +71,8 @@ Source:&nbsp;&nbsp;<a href="https://www.minorplanetcenter.net/iau/NEO/neocp.txt"
 <br/>
 -->
 
+<h3>Elevation Chart</h3>
+<canvas id="timeSeriesChart"></canvas>
 
 
 <h3>Filters</h3>
@@ -67,17 +91,221 @@ const lst_text_area = document.getElementById('lst_text_area');
 const local_time_text_area = document.getElementById('local_time_text_area');
 const utc_time_text_area = document.getElementById('utc_time_text_area');
 
+const ctx = document.getElementById('timeSeriesChart').getContext('2d');
+
+const rad = Math.PI / 180;
+const deg = 180 / Math.PI;
+
 
 const apiUrl = 'https://www.minorplanetcenter.net/Extended_Files/neocp.json';
 
 const lat = 34.3018;     // Stony Ridge Observatory latitude
 const lon = -118.00;   // Stony Ridge Observatory longitude
 
-var date = new Date(); // current UTC time
+var load_time_date = new Date(); // current UTC time
+const load_time_hours = load_time_date.getHours();
+const tz = getTimeZoneAbbreviation(load_time_date);
+const today_noon = new Date(load_time_date.getFullYear(), load_time_date.getMonth(), load_time_date.getDate(), 12, 0, 0);
+const prev_noon = load_time_hours>=12 ? today_noon : new Date(today_noon.getTime() - 24*60*60*1000);
+const next_noon = new Date(prev_noon.getTime() + 24*60*60*1000);
 
 
 var LST_hours;
 updateSiderealTime();
+updatePacificTime();
+updateUTCTime();
+
+
+const sunset = getSunsetTime(prev_noon, lat, lon);
+const sunrise = getSunriseTime(next_noon, lat, lon);
+const twilight_minutes = 45 + 15*Math.cos((load_time_date.getMonth()-6)/12*2*Math.PI);
+const astronomical_sunset = new Date(sunset.getTime() + twilight_minutes*60*1000);
+const astronomical_sunrise = new Date(sunrise.getTime() - twilight_minutes*60*1000);
+
+const day_color = 'rgba(220, 210, 140, 0.6)';
+const night_color = 'rgba(20, 80, 170, 0.4)';
+
+const plot_dates = generateDateRange(sunset, sunrise, 10);
+const plot_time_serieses = [];
+const line_color = 'rgba(220, 40, 40, 0.8)';
+
+
+
+const gradientShadingPlugin = {
+  id: 'gradientShading',
+  beforeDatasetsDraw(chart, args, regions) {
+    const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+
+    (regions || []).forEach(region => {
+      const xStart = x.getPixelForValue(region.xMin);
+      const xEnd = x.getPixelForValue(region.xMax);
+
+      // Create horizontal gradient between xMin and xMax
+      const gradient = ctx.createLinearGradient(xStart, 0, xEnd, 0);
+      gradient.addColorStop(0, region.colorStart || 'rgba(255,255,0,0.3)');
+      gradient.addColorStop(1, region.colorEnd || 'rgba(255,0,0,0.3)');
+
+      ctx.save();
+      ctx.fillStyle = gradient;
+      ctx.fillRect(xStart, top, xEnd - xStart, bottom - top);
+      ctx.restore();
+    });
+  }
+};
+Chart.register(gradientShadingPlugin);
+
+
+const shadedRegionPlugin = {
+  id: 'shadedRegion',
+  beforeDatasetsDraw(chart, args, pluginOptionsArray) {
+    const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+    const xMinValue = x.min;
+    const xMaxValue = x.max;  
+
+    (pluginOptionsArray || []).forEach(opts => {
+      const clippedStart = Math.max(opts.xMin.getTime(), xMinValue.getTime ? xMinValue.getTime() : xMinValue);
+      const clippedEnd   = Math.min(opts.xMax.getTime(), xMaxValue.getTime ? xMaxValue.getTime() : xMaxValue);
+
+      if (clippedStart >= clippedEnd) return; // skip if no visible overlap
+
+      const xStartPx = x.getPixelForValue(clippedStart);
+      const xEndPx = x.getPixelForValue(clippedEnd);    
+    
+      ctx.save();
+      ctx.fillStyle = opts.color || 'rgba(200, 200, 200, 0.3)';
+      ctx.fillRect(xStartPx, top, xEndPx - xStartPx, bottom - top);
+      ctx.restore();
+    });
+  }
+};
+Chart.register(shadedRegionPlugin);
+
+
+
+const plot_config = {
+  type: 'line',
+  data: {datasets: []},
+  options: {
+    responsive: true,
+    interaction: {
+      mode: 'nearest',
+      intersect: false
+    },
+    plugins: {
+      tooltip: {
+        mode: 'nearest',
+        intersect: false,
+        fontColor: 'red',
+        color: 'red',
+        callbacks: {
+          label: (tooltipItem) => {
+            const label = tooltipItem.dataset.label || '';
+            const value = tooltipItem.formattedValue;
+            return `${label}: ${value}`;
+          }
+        }
+      },
+      legend: {
+        display: false,
+        position: 'top'
+      },
+      shadedRegion: [
+        {
+          xMin: prev_noon,
+          xMax: sunset,
+          color: day_color,
+        },
+        {
+          xMin: astronomical_sunset,
+          xMax: astronomical_sunrise,
+          color: night_color,
+        },
+        {
+          xMin: sunrise,
+          xMax: next_noon,
+          color: day_color,
+        }
+      ],
+      gradientShading: [
+        {
+          xMin: sunset,
+          xMax: astronomical_sunset,
+          colorStart: day_color,
+          colorEnd: night_color
+        },
+        {
+          xMin: astronomical_sunrise,
+          xMax: sunrise,
+          colorStart: night_color,
+          colorEnd: day_color
+        }
+      ],
+    },
+    scales: {
+      x: {
+        type: 'time',
+        time: {
+          unit: 'hour',
+          tooltipFormat: 'HH:mm',
+          displayFormats: {
+            hour: 'HH:mm' // Displays hours and minutes in 24-hour format
+          }          
+        },
+        ticks: {
+          font: {
+            size: 12,
+          },
+          color: 'red',
+        },
+        title: {
+          display: true,
+          text: 'Time (' + tz + ')',
+          font: {
+            size: 16,
+          },
+          color: 'red',
+        },
+        min: new Date(sunset.getTime() - 2*60*60*1000), 
+        max: new Date(sunrise.getTime() + 2*60*60*1000),
+      },
+      y: {
+        title: {
+          display: true,
+          text: 'Elevation (deg)',
+          size: 20,
+          font: {
+            size: 16,
+          },
+          color: 'red',
+        },
+        min: 0,
+        max: 90,
+        ticks: {
+          font: {
+            size: 12,
+          },
+          color: 'red',
+          stepSize: 10,
+        },
+      }
+    }
+  },
+  plugins: [gradientShadingPlugin],
+  plugins: [shadedRegionPlugin]
+  
+};
+
+
+
+
+function getTimeZoneAbbreviation(date = new Date()) {
+  const options = { timeZoneName: 'short' };
+  const formatter = new Intl.DateTimeFormat('en-US', options);
+  const parts = formatter.formatToParts(date);
+  const tz = parts.find(part => part.type === 'timeZoneName');
+  return tz ? tz.value : 'Unknown';
+}
+
 
 function updateSiderealTime(){
   LST_hours = getLocalSiderealTime();
@@ -93,7 +321,8 @@ function updatePacificTime() {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    timeZoneName: 'short'
+    timeZoneName: 'short',
+    hour12: false
   };
   const pacificTime = new Intl.DateTimeFormat('en-US', options).format(new Date());
   local_time_text_area.textContent = pacificTime;
@@ -105,7 +334,8 @@ function updateUTCTime() {
     minute: '2-digit',
     second: '2-digit',
     timeZone: 'UTC', 
-    timeZoneName: 'short'
+    timeZoneName: 'short',
+    hour12: false
   });
   utc_time_text_area.textContent = utcFormatter.format(date);
 }
@@ -193,7 +423,7 @@ function createTable() {
 }
 
 
-table_show_fields = ['Temp_Desig','Discovery_date','Not_Seen_dys','Score','NObs','V','R.A.','Decl.','Az','El','Max_El', 'Time_Until_Max_El'];
+table_show_fields = ['Temp_Desig','Discovery_date','Not_Seen_dys','Score','NObs','V','R.A.','Decl.','Az','El','Max_El', 'Max_El_Local_time','Time_Until_Max_El'];
 table_column_labels = {
   'Temp_Desig': 'Temporaty Designation',
   'Discovery_date': 'Discoery Date (UTC)',
@@ -207,6 +437,7 @@ table_column_labels = {
   'Az': 'Azimuth (deg)',
   'El': 'Elevation (deg)',
   'Max_El': 'Max Elevation (deg)',
+  'Max_El_Local_time': 'Max Elevation Local Time',
   'Time_Until_Max_El': 'Time until Max Elevation'
 }
 
@@ -284,8 +515,10 @@ function renderTable(){
 
 
 
-function lstToLocalTime(lstHours, date, longitudeDeg, timezoneOffsetMinutes = 0) {
+function lstToLocalTime(lstHours) {
     const LST_deg = lstHours * 15; // Convert LST to degrees
+
+    const timezoneOffsetMinutes = -date.getTimezoneOffset(); // convert to hours and flip sign
 
     // 1. Compute Julian Date
     function getJulianDate(d) {
@@ -300,7 +533,7 @@ function lstToLocalTime(lstHours, date, longitudeDeg, timezoneOffsetMinutes = 0)
     GMST = ((GMST % 360) + 360) % 360;
 
     // 3. Calculate the desired Greenwich Mean Sidereal Time from LST and longitude
-    let desiredGMST = ((LST_deg - longitudeDeg) % 360 + 360) % 360;
+    let desiredGMST = ((LST_deg - lon) % 360 + 360) % 360;
 
     // 4. Compute sidereal time difference
     let deltaDeg = ((desiredGMST - GMST + 360) % 360);
@@ -453,30 +686,54 @@ console.log(`Zenith Dec: ${zenith.declination.toFixed(4)}°`);
 
 var data_table;
 
+
+
 fetchJsonData(apiUrl)
   .then(jsonData => {
     console.log('Fetched JSON data:', jsonData);
+    
+    const local_time_display_options = {
+      timeZone: 'America/Los_Angeles',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short',
+      hour12: false
+    };
 
-    jsonData.forEach(entry => {
+    jsonData.forEach(neo => {
 
-      local_coords = raDecToAzEl(entry["R.A."], entry["Decl."], date, lat, lon);
-      entry.Az = local_coords.azimuth.toFixed(0);
-      entry.El = local_coords.elevation.toFixed(0);
+      date = new Date(); // current UTC time
 
-      entry.Max_El = (90 - Math.abs(lat - entry['Decl.'])).toFixed(1);
-      entry.Time_Until_Max_El = (entry['R.A.'] - LST_hours).toFixed(2);
+      local_coords = raDecToAzEl(neo["R.A."], neo["Decl."], date, lat, lon);
+      neo.Az = local_coords.azimuth.toFixed(0);
+      neo.El = local_coords.elevation.toFixed(0);
+
+      neo.Max_El = (90 - Math.abs(lat - neo['Decl.'])).toFixed(1);
+            
+      const hours_until_max_el = neo['R.A.'] - LST_hours;
+      neo.Time_Until_Max_El = hours_until_max_el.toFixed(2);
       
-      decimal_day = entry.Discovery_day;
+      const date_max_el = new Date(date.getTime() + hours_until_max_el * 60 * 60 * 1000);  // converts hours until max el into milliseconds to add to current date
+      neo.Max_El_Local_time = new Intl.DateTimeFormat('en-US', local_time_display_options).format(date_max_el);
+      
+      decimal_day = neo.Discovery_day;
       whole_day = Math.floor(decimal_day);
       decimal_hour = (decimal_day % 1) * 24;
       whole_hour = Math.floor(decimal_hour);
       decimal_minute = (decimal_hour % 1) * 60;
       whole_minute = Math.floor(decimal_minute);
-      console.log(entry.Discovery_day, entry.Discovery_year, entry.Discovery_month-1, whole_day, whole_hour, whole_minute);
-      entry.Discovery_date = entry.Discovery_year +'-'+ String(entry.Discovery_month).padStart(2, '0') +'-'+ String(whole_day).padStart(2, '0') +' '+ String(whole_hour).padStart(2, '0') +':'+ String(whole_minute).padStart(2, '0');
+      console.log(neo.Discovery_day, neo.Discovery_year, neo.Discovery_month-1, whole_day, whole_hour, whole_minute);
+      neo.Discovery_date = neo.Discovery_year +'-'+ String(neo.Discovery_month).padStart(2, '0') +'-'+ String(whole_day).padStart(2, '0') +' '+ String(whole_hour).padStart(2, '0') +':'+ String(whole_minute).padStart(2, '0');
 
-      entry.Not_Seen_dys = Math.floor( entry.Not_Seen_dys * 10) / 10
+      neo.Not_Seen_dys = Math.floor( neo.Not_Seen_dys * 10) / 10;
+      
+      plot_time_serieses.push( computeElevationTimeSeries(neo) );
     });
+
+    console.log(plot_config);
+    plot_config.data.datasets = plot_time_serieses;
+    new Chart(ctx, plot_config);
 
 
     const headers = Object.keys(jsonData[0]);
@@ -516,11 +773,105 @@ fetchJsonData(apiUrl)
   });
 
 
+function generateDateRange(startDate, endDate, incrementMinutes) {
+  const result = [];
+  const incremental_date = new Date(startDate);
+  while (incremental_date <= endDate) {
+    result.push(new Date(incremental_date)); // Push a copy
+    incremental_date.setMinutes(incremental_date.getMinutes() + incrementMinutes);
+  }
+  return result;
+}
+
+
+
+function computeElevationTimeSeries(neo){
+  data_series = {
+    label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
+    pointRadius: 0,
+    borderColor: line_color,
+    borderWidth: (neo.Score==100 ? 3 : 1 ), // px    
+    data: [],
+  };
+  plot_dates.forEach(plot_date => {
+    local_coords = raDecToAzEl(neo['R.A.'], neo['Decl.'], plot_date, lat, lon);
+    data_series.data.push({x: plot_date, y: local_coords.elevation});
+    console.log(local_coords.elevation);
+    
+  });
+  return data_series;
+}
 
 
 
 
+function getSunsetTime(date, latitude, longitude) {
 
+  // Helper: Day of year (1–366)
+  function getDayOfYear(d) {
+    const start = new Date(Date.UTC(d.getUTCFullYear(), 0, 0));
+    return Math.floor((d - start) / (1000 * 60 * 60 * 24));
+  }
+  const dayOfYear = getDayOfYear(date);
+
+  // Solar declination and equation of time (approximation)
+  const B = 2 * Math.PI * (dayOfYear - 81) / 364;
+  const EoT = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B); // in minutes
+  const decl = 23.45 * rad * Math.sin(2 * Math.PI * (284 + dayOfYear) / 365);
+
+  const latRad = latitude * rad;
+
+  // Hour angle for sunset
+  const ha = Math.acos(
+    Math.cos(90.833 * rad) / (Math.cos(latRad) * Math.cos(decl)) -
+    Math.tan(latRad) * Math.tan(decl)
+  );
+
+  // Solar noon in minutes from UTC midnight
+  const solarNoonUTC = 720 - 4 * longitude - EoT;
+
+  // Sunset time in minutes from UTC midnight
+  const sunsetUTC = solarNoonUTC + (deg * ha * 4);
+
+  // Convert to Date object
+  const sunsetHour = Math.floor(sunsetUTC / 60);
+  const sunsetMinute = Math.floor(sunsetUTC % 60);
+
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), sunsetHour, sunsetMinute));
+}
+
+
+function getSunriseTime(date, latitude, longitude) {
+  function getDayOfYear(d) {
+    const start = new Date(Date.UTC(d.getUTCFullYear(), 0, 0));
+    return Math.floor((d - start) / (1000 * 60 * 60 * 24));
+  }
+  const dayOfYear = getDayOfYear(date);
+
+  // Equation of Time and Solar Declination (approximate formulas)
+  const B = 2 * Math.PI * (dayOfYear - 81) / 364;
+  const EoT = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B); // in minutes
+  const decl = 23.45 * rad * Math.sin(2 * Math.PI * (284 + dayOfYear) / 365);
+
+  const latRad = latitude * rad;
+
+  // Hour angle for sunrise
+  const ha = Math.acos(
+    Math.cos(90.833 * rad) / (Math.cos(latRad) * Math.cos(decl)) -
+    Math.tan(latRad) * Math.tan(decl)
+  );
+
+  // Solar noon in UTC minutes from midnight
+  const solarNoonUTC = 720 - 4 * longitude - EoT;
+
+  // Sunrise = solar noon - hour angle in time
+  const sunriseUTC = solarNoonUTC - (deg * ha * 4); // in minutes
+
+  const sunriseHour = Math.floor(sunriseUTC / 60);
+  const sunriseMinute = Math.floor(sunriseUTC % 60);
+
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), sunriseHour, sunriseMinute));
+}
 
 
 const downloadFile = () => {
