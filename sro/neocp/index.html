@@ -48,14 +48,12 @@
       border-collapse: collapse;
     }
     #filters_table tr {
-      padding-top: 5px;
+      padding-top: 4px;
     }
     #filters_table td {
       /* border: 1px solid darkred; */
-      padding-top: 10px;
-      padding-right: 5px;
+      padding-right: 3px;
       vertical-align: top;
-      padding-left: 5px;
     }
     #filters_table td:nth-child(1), td:nth-child(2), td:nth-child(4) {
       padding-left: 25px;
@@ -108,7 +106,16 @@
       display: none;
     }
     
-   
+    #selected_object_callout_container {
+      float: right;
+      color: #811;
+    }
+    #selected_object_id_container {
+      float: right;
+      color: #811;
+      width: 10ch;
+      text-align: center;
+    }
       
   </style>
 </head>
@@ -137,14 +144,17 @@
 
 <h3>Local Coordinates</h3>
 <canvas id="local_coords_chart_canvas"></canvas>
-
+<div id="selected_object_callout_container">
+  Selected object:&nbsp;&nbsp;
+  <div id="selected_object_id_container">(none)</div>
+</div>
 
 
 <h3>Filters</h3>
 
 <table id="filters_table">
   <tr>
-    <td>Azimuth limits (degrees)</td>
+    <td>Azimuth limits (deg)</td>
     <td>min:</td>
     <td>
       <input type="number" id="min_azimuth_input" min="0" max="360" value="0">
@@ -155,7 +165,7 @@
     </td>
   </tr>
   <tr>
-    <td>Elevation limits (degrees)</td>
+    <td>Elevation limits (deg)</td>
     <td>min:</td>
     <td>
       <input type="number" id="min_elevation_input" min="-90" max="90" value="10">
@@ -166,7 +176,7 @@
     </td>
   </tr>
   <tr>
-    <td>within time range (local)</td>
+    <td>... within time range</td>
     <td>start:</td>
     <td>
       <select id="start_time_selection" onchange='startTimeSelectorChanged()'>
@@ -180,7 +190,7 @@
       <br/>
       <input type="time" id="start_time_input" value="12:00:00" >
     </td>
-    <td>End:</td>
+    <td>end:</td>
     <td>
       <select id="end_time_selection" onchange='endTimeSelectorChanged()'>
         <option value="now">Now</option>
@@ -238,6 +248,10 @@ const utc_time_text_area = document.getElementById('utc_time_text_area');
 
 const ctx_elevation_chart = document.getElementById('elevation_chart_canvas').getContext('2d');
 const ctx_local_coords_chart = document.getElementById('local_coords_chart_canvas').getContext('2d');
+
+const selected_object_id_span = document.getElementById('selected_object_id_container');
+const callout_color_deselected = '#811';
+const callout_color_selected = 'red'; 
 
 var elevation_chart;
 var local_coords_chart;
@@ -501,8 +515,12 @@ const elevation_plot_config = {
           clickedDataset.borderWidth = emphasized_border_width;
           clickedDataset.borderColor = 'rgba(255,128,32,0.6)';
           selected_object = clickedDataset.label.split(' ')[0];
+          selected_object_id_span.innerHTML = selected_object;
+          selected_object_id_span.style.color = callout_color_selected;
         } else {
           selected_object = null;
+          selected_object_id_span.innerHTML = '(none)';
+          selected_object_id_span.style.color = callout_color_deselected;
         }
         renderTable();
         chart.update();
@@ -641,8 +659,12 @@ const local_coords_chart_config = {
           clickedDataset.borderWidth = 5;
           clickedDataset.borderColor = 'rgba(255,128,32,0.6)';
           selected_object = clickedDataset.label.split(' ')[0];
+          selected_object_id_span.innerHTML = selected_object;
+          selected_object_id_span.style.color = callout_color_selected;
         } else {
           selected_object = null;
+          selected_object_id_span.innerHTML = '(none)';
+          selected_object_id_span.style.color = callout_color_deselected;
         }
         renderTable();
         chart.update();
