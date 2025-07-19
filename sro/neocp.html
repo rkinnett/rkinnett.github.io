@@ -9,6 +9,9 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
   
   <style>
+    :root {
+      color-scheme: dark;
+    }  
     body {
       font-family: sans-serif;
       padding: 20px;
@@ -21,46 +24,102 @@
       margin: 0 auto;
       display: block;
     }  
-    table {
+    input, select {
+      color-scheme: dark;
+      color: red;
+      background-color: black;
+      text-align: right;
+      border-color: #311;
+      border-style:solid;
+      padding: 2px;
+      box-sizing: border-box; /* Include padding and border in the element's total width */
+      width: 150px;
+    }
+    input:focus, select:focus {
+      outline: none !important;
+      border:1px solid red;
+      box-shadow: 0 0 10px #666;
+    }
+    option:hover, option:checked, option:active, option:focus {
+        background-color: #222;
+    }
+    #filters_table {
+      border-collapse: collapse;
+    }
+    #filters_table tr {
+      padding-top: 5px;
+    }
+    #filters_table td {
+      /* border: 1px solid darkred; */
+      padding-top: 10px;
+      padding-right: 5px;
+      vertical-align: top;
+      padding-left: 5px;
+    }
+    #filters_table td:nth-child(1), td:nth-child(2), td:nth-child(4) {
+      padding-left: 25px;
+    }    
+    #filters_table td:nth-child(n+2) {
+      text-align: right;
+    }    
+    
+    #apply_filter_button {
+      color-scheme: dark;
+      background-color: #222;
+      padding-left: 20px;
+      padding-right: 20px;
+      color: darkred;
+      font-weight: bold;
+      font-size: 120%;
+      border-color: #111;
       width: 100%;
-      border-collapse: collapse; /* */
     }
-    th, td {
-      border: 1px solid gray; /* */
-      padding: 4px; /* */
-      text-align: left;
+    
+    #data_table {
+      width: 100%;
+      border-collapse: collapse;
     }
-    th {
-      background-color: #333; /* */
-      font-weight: bold; /* */
+    #data_tableth, #data_table td {
+      border: 1px solid #333;
+      padding: 4px;
+      text-align: center;
     }
-    tr:nth-child(even) {
-      background-color: #222; /* */
+    #data_table th {
+      /* background-color: #333; */
+      color: darkred;
+      padding-bottom: 10px;
+      font-size: 130%;
+      font-weight: bold;
+    }
+    #data_table tr:nth-child(even) {
+      background-color: #111;
     }
     .table-container {
-      overflow-x: auto; /* */
+      overflow-x: auto;
     }
       
     a, a:link, a:visited, a:hover { 
       color: red;
       text-decoration: underline;
     }
+    
+    #start_time_input, #end_time_input {
+      display: none;
+    }
+    
       
   </style>
 </head>
     
 <body>
 
-<h1>Stony Ridge Observatory</h1>
+<h1>Minor Planet Center's <a href="https://www.minorplanetcenter.net/iau/NEO/neocp.txt">Near-Earth Objects Confirmation Priorities</a></h1>
 
+<h2>curated for Stony Ridge Observatory</h2>
 <div style="width:20ch; float:left;">Local time:</div>  <div id="local_time_text_area" style="float:left">#</div> <br/>
 <div style="width:20ch; float:left;">UTC time:</div>  <div id="utc_time_text_area" style="float:left">#</div> <br/>
 <div style="width:20ch; float:left;">Local Sidereal Time:</div>&nbsp;&nbsp;<div id="lst_text_area" style="float:left"> </div> <br/>
 
-<h2>Minor Planet Center NEO Confirmation Priorities</h2>
-
-Source:&nbsp;&nbsp;<a href="https://www.minorplanetcenter.net/iau/NEO/neocp.txt">Minor Planets Center NEO Confirmation Page text file</a>
-<br/>
 
 
 <!--
@@ -72,16 +131,88 @@ Source:&nbsp;&nbsp;<a href="https://www.minorplanetcenter.net/iau/NEO/neocp.txt"
 -->
 
 <h3>Elevation Chart</h3>
-<canvas id="timeSeriesChart"></canvas>
+<canvas id="elevation_chart_canvas"></canvas>
+
+<h3>Local Coordinates</h3>
+<canvas id="local_coords_chart_canvas"></canvas>
+
 
 
 <h3>Filters</h3>
 
-Minimum Elevation:&nbsp;
-<input type="number" id="elevation_input" name="elevation_input" min="-90" max="90" value="10">
+<table id="filters_table">
+  <tr>
+    <td>Azimuth limits (degrees)</td>
+    <td>min:</td>
+    <td>
+      <input type="number" id="min_azimuth_input" min="0" max="360" value="0">
+    </td>
+    <td>max:</td>
+    <td>
+      <input type="number" id="max_azimuth_input" min="0" max="360" value="360">
+    </td>
+  </tr>
+  <tr>
+    <td>Elevation limits (degrees)</td>
+    <td>min:</td>
+    <td>
+      <input type="number" id="min_elevation_input" min="-90" max="90" value="10">
+    </td>
+    <td>max:</td>
+    <td>
+      <input type="number" id="max_elevation_input" min="-90" max="90" value="60">
+    </td>
+  </tr>
+  <tr>
+    <td>within time range (local)</td>
+    <td>start:</td>
+    <td>
+      <select id="start_time_selection" onchange='startTimeSelectorChanged()'>
+        <option value="now">Now</option>
+        <option value="noon">Noon</option>
+        <option value="sunset" selected="selected">Sunset</option>
+        <option value="astronomical_sunset">Astronomical Sunset</option>
+        <option value="midnight">Midnight</option>
+        <option value="specific">Specific</option>
+      </select>   
+      <br/>
+      <input type="time" id="start_time_input" value="12:00:00" >
+    </td>
+    <td>End:</td>
+    <td>
+      <select id="end_time_selection" onchange='endTimeSelectorChanged()'>
+        <option value="now">Now</option>
+        <option value="now_plus_1hr">Now +1hr</option>
+        <option value="midnight">Midnight</option>
+        <option value="sunrise" selected="selected">Sunrise</option>
+        <option value="astronomical_sunrise">Astronomical Sunrise</option>
+        <option value="noon">Noon</option>
+        <option value="specific">Specific</option>
+      </select>
+      <br/>
+      <input type="time" id="end_time_input" value="12:00:00" >
+    </td>
+  </tr>
+  <tr>
+    <td/>
+    <td/>
+    <td/>
+    <td/>
+    <td>
+      <button id="apply_filter_button" onClick="applyFilters()">apply >></button>
+    </td>
+</table>
 
 <br/>
 <br/>
+
+<table id="data_table">
+<thead id="table_head">
+<tbody id="table_body">
+</table>
+
+<br/>
+
 
 
 <script>
@@ -91,7 +222,17 @@ const lst_text_area = document.getElementById('lst_text_area');
 const local_time_text_area = document.getElementById('local_time_text_area');
 const utc_time_text_area = document.getElementById('utc_time_text_area');
 
-const ctx = document.getElementById('timeSeriesChart').getContext('2d');
+const ctx_elevation_chart = document.getElementById('elevation_chart_canvas').getContext('2d');
+const ctx_local_coords_chart = document.getElementById('local_coords_chart_canvas').getContext('2d');
+
+var elevation_chart;
+var local_coords_chart;
+
+var neo_data;
+
+const table = document.getElementById('data_table');
+const table_head = document.getElementById('table_head');
+const table_body = document.getElementById('table_body');
 
 const rad = Math.PI / 180;
 const deg = 180 / Math.PI;
@@ -102,12 +243,13 @@ const apiUrl = 'https://www.minorplanetcenter.net/Extended_Files/neocp.json';
 const lat = 34.3018;     // Stony Ridge Observatory latitude
 const lon = -118.00;   // Stony Ridge Observatory longitude
 
-var load_time_date = new Date(); // current UTC time
+const load_time_date = new Date(); // current UTC time
 const load_time_hours = load_time_date.getHours();
 const tz = getTimeZoneAbbreviation(load_time_date);
 const today_noon = new Date(load_time_date.getFullYear(), load_time_date.getMonth(), load_time_date.getDate(), 12, 0, 0);
 const prev_noon = load_time_hours>=12 ? today_noon : new Date(today_noon.getTime() - 24*60*60*1000);
 const next_noon = new Date(prev_noon.getTime() + 24*60*60*1000);
+const midnight = new Date(load_time_date.getFullYear(), load_time_date.getMonth(), load_time_date.getDate() + (load_time_hours<=12 ? 0 : 1));
 
 
 var LST_hours;
@@ -122,12 +264,26 @@ const twilight_minutes = 45 + 15*Math.cos((load_time_date.getMonth()-6)/12*2*Mat
 const astronomical_sunset = new Date(sunset.getTime() + twilight_minutes*60*1000);
 const astronomical_sunrise = new Date(sunrise.getTime() - twilight_minutes*60*1000);
 
-const day_color = 'rgba(220, 210, 140, 0.6)';
-const night_color = 'rgba(20, 80, 170, 0.4)';
 
-const plot_dates = generateDateRange(sunset, sunrise, 10);
-const plot_time_serieses = [];
+const reference_dates = {
+  prev_noon:            prev_noon,
+  sunset:               getSunsetTime(prev_noon, lat, lon),
+  astronomical_sunset:  astronomical_sunset,
+  midnight:             midnight,
+  astronomical_sunrise: astronomical_sunrise,
+  sunrise:              sunrise,
+  next_noon:            next_noon,
+};
+
+//const day_color = 'rgba(220, 210, 140, 0.6)';
+const day_color = 'rgba(90, 110, 130, 0.5)';
+const night_color = 'rgba(20, 40, 70, 0.4)';
+
+const ephemeris_times = generateDateRange(prev_noon, next_noon, 10);
+var elevation_time_serieses = [];
+var local_coords_datasets = [];
 const line_color = 'rgba(220, 40, 40, 0.8)';
+
 
 
 
@@ -152,7 +308,6 @@ const gradientShadingPlugin = {
     });
   }
 };
-Chart.register(gradientShadingPlugin);
 
 
 const shadedRegionPlugin = {
@@ -178,30 +333,49 @@ const shadedRegionPlugin = {
     });
   }
 };
-Chart.register(shadedRegionPlugin);
+
+const drawBackgroundColor = {
+  beforeDraw: function (chart, easing) {
+    const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;  
+    if (chart.config.options.chartArea && chart.config.options.chartArea.backgroundColor) {
+      var chartArea = chart.chartArea;
+      ctx.save();
+      ctx.fillStyle = chart.config.options.chartArea.backgroundColor;
+      ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+      ctx.restore();
+    }
+  }
+}
 
 
 
-const plot_config = {
+const elevation_plot_config = {
   type: 'line',
   data: {datasets: []},
   options: {
     responsive: true,
     interaction: {
       mode: 'nearest',
-      intersect: false
+      intersect: true
     },
     plugins: {
       tooltip: {
         mode: 'nearest',
+        interset: true,
+        displayColors: false,        
         intersect: false,
-        fontColor: 'red',
+        bodyFontColor: 'red',
         color: 'red',
         callbacks: {
-          label: (tooltipItem) => {
-            const label = tooltipItem.dataset.label || '';
-            const value = tooltipItem.formattedValue;
-            return `${label}: ${value}`;
+          title: function(tooltipItem, data) {
+            return tooltipItem[0].dataset.label;
+          },
+          label: (tooltipItem, data) => {
+            //console.log(tooltipItem);
+            //console.log(data);
+            //const label = tooltipItem.dataset.label || '';
+            //const value = tooltipItem.formattedValue;
+            return `${tooltipItem.label}, ${tooltipItem.parsed.y.toFixed(0)} deg`;
           }
         }
       },
@@ -248,7 +422,7 @@ const plot_config = {
           unit: 'hour',
           tooltipFormat: 'HH:mm',
           displayFormats: {
-            hour: 'HH:mm' // Displays hours and minutes in 24-hour format
+            hour: 'HH:mm',
           }          
         },
         ticks: {
@@ -288,12 +462,158 @@ const plot_config = {
           stepSize: 10,
         },
       }
+    },
+    onClick: (e, elements) => {
+      const chart = e.chart;
+      const emphasized_border_width = 5;
+      const points = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+      if (points.length) {
+        const datasetIndex = points[0].datasetIndex;
+        const clickedDataset = chart.data.datasets[datasetIndex];
+        const clicked_dataset_previously_selected = (clickedDataset.borderWidth == emphasized_border_width);
+        // Reset all dataset styles
+        chart.data.datasets.forEach((ds, idx) => {
+          ds.borderWidth = 2;
+          ds.borderColor = ds._originalColor || ds.borderColor;
+        });
+        // Save original color if not already saved
+        if (!clickedDataset._originalColor) {
+          clickedDataset._originalColor = clickedDataset.borderColor;
+        }
+        // Highlight the clicked dataset
+        if ( !clicked_dataset_previously_selected ){
+          clickedDataset.borderWidth = emphasized_border_width;
+          clickedDataset.borderColor = 'rgba(255,128,32,0.6)';
+        }
+        chart.update();
+      }  
     }
   },
-  plugins: [gradientShadingPlugin],
-  plugins: [shadedRegionPlugin]
-  
+  plugins: [gradientShadingPlugin, shadedRegionPlugin],
 };
+
+
+
+const local_coords_chart_config = {
+  type: 'scatter',
+  data: {datasets: []},
+  options: {
+    responsive: true,
+    interaction: {
+      mode: 'point',
+      intersect: true
+    },
+    plugins: {
+      tooltip: {
+        mode: 'nearest',
+        interset: true,
+        displayColors: false,        
+        intersect: false,
+        bodyFontColor: 'red',
+        color: 'red',
+        callbacks: {
+          title: function(tooltipItem, data) {
+            return tooltipItem[0].dataset.label;
+          },
+          label: (tooltipItem) => {
+            return `Az: ${tooltipItem.parsed.x.toFixed(0)} deg, El: ${tooltipItem.parsed.y.toFixed(0)} deg`;
+          },
+          footer: (tooltipItem) => {
+            footer_label = [];
+            if (tooltipItem[0].dataset.data.length==1){
+              footer_label = load_time_date.toLocaleString();
+            } else {
+              const t = ephemeris_times[tooltipItem[0].dataIndex];
+              footer_label = t.toLocaleString();
+            }
+            return footer_label;
+          },
+        }
+      },
+      legend: {
+        display: false,
+      },
+      shadedRegion: [
+        {
+          xMin: 0,
+          xMax: 360,
+          color: 'rgba(10,10,60,0.3)',
+        },
+      ],
+    },
+    scales: {
+      x: {
+        ticks: {
+          font: {
+            size: 12,
+          },
+          color: 'red',
+          stepSize: 10,          
+        },
+        title: {
+          display: true,
+          text: 'Azimuth (deg)',
+          font: {
+            size: 16,
+          },
+          color: 'red',
+        },
+        min: 0, 
+        max: 360,
+      },
+      y: {
+        title: {
+          display: true,
+          text: 'Elevation (deg)',
+          size: 20,
+          font: {
+            size: 16,
+          },
+          color: 'red',
+        },
+        min: 0,
+        max: 90,
+        ticks: {
+          font: {
+            size: 12,
+          },
+          color: 'red',
+          stepSize: 10,
+        },
+      }
+    },
+    chartArea: {
+      backgroundColor: night_color,
+    },
+    onClick: (e, elements) => {
+      const chart = e.chart;
+      const emphasized_border_width = 5;
+      const points = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+      if (points.length) {
+        const datasetIndex = points[0].datasetIndex;
+        const clickedDataset = chart.data.datasets[datasetIndex];
+        const clicked_dataset_previously_selected = (clickedDataset.borderWidth == emphasized_border_width);
+        // Reset all dataset styles
+        chart.data.datasets.forEach((ds, idx) => {
+          ds.borderWidth = 2;
+          ds.borderColor = ds._originalColor || ds.borderColor;
+        });
+        // Save original color if not already saved
+        if (!clickedDataset._originalColor) {
+          clickedDataset._originalColor = clickedDataset.borderColor;
+        }
+        // Highlight the clicked dataset, or toggle
+        if ( !clicked_dataset_previously_selected ){
+          clickedDataset.borderWidth = 5;
+          clickedDataset.borderColor = 'rgba(255,128,32,0.6)';
+        }
+        chart.update();
+      }
+    }
+  },  
+  plugins: [drawBackgroundColor],
+};
+
 
 
 
@@ -349,6 +669,40 @@ setInterval(function() {
 }, 1000); 
 
 
+function setTimeInput(input_obj_name, date){
+  const input_obj = document.getElementById(input_obj_name);
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const formattedHours = hours.toString().padStart(2, '0');
+  const formattedMinutes = minutes.toString().padStart(2, '0');
+  input_obj.value = `${formattedHours}:${formattedMinutes}`;    
+}
+setTimeInput("start_time_input", sunset);
+setTimeInput("end_time_input", sunrise);
+
+
+function startTimeSelectorChanged(){
+  const time_selection_obj = document.getElementById('start_time_selection');
+  const time_input_obj = document.getElementById('start_time_input');
+  timeSelectorChanged(time_selection_obj, time_input_obj);
+}
+
+function endTimeSelectorChanged(){
+  const time_selection_obj = document.getElementById('end_time_selection');
+  const time_input_obj = document.getElementById('end_time_input');
+  timeSelectorChanged(time_selection_obj, time_input_obj);
+}
+
+function timeSelectorChanged(time_selection_obj, time_input_obj){
+  console.log(time_selection_obj.id + ' time selector changed to: ' + time_selection_obj.value);
+  if( time_selection_obj.value == "specific" ){
+    time_input_obj.style.display = "block";
+  } else {
+    time_input_obj.style.display = "none";  
+  }
+}
+
+
 
 async function fetchJsonData(url) {
   try {
@@ -380,46 +734,29 @@ const numeric_fields = ['Score','Discovery_year','Discovery_month','Discovery_da
 
 const hide_fields = ['Discovery_year','Discovery_month','Discovery_day'];
 
-function createTable() {
-    const table = document.createElement('table');
-    const thead = document.createElement('thead');
-    const tbody = document.createElement('tbody');
+function initializeTable() {
+  // Create table header
+  const headerRow = document.createElement('tr');
+  table_show_fields.forEach(key => {
+      const th = document.createElement('th');
+      th.textContent = table_column_labels[key];
+      th.dataset.key = key; // Store key for sorting
+      headerRow.appendChild(th);
+  });
+  table_head.appendChild(headerRow);
+  
+  makeSortable(); // Make the table sortable
+  
+  sortTable();
+  sortTable();
 
-    const min_elevation = document.getElementById('elevation_input').value*1;
-
-    // Create table header
-    const headerRow = document.createElement('tr');
-    table_show_fields.forEach(key => {
-        const th = document.createElement('th');
-        //th.textContent = key.charAt(0).toUpperCase() + key.slice(1); // Capitalize header
-        th.textContent = table_column_labels[key];
-        th.dataset.key = key; // Store key for sorting
-        headerRow.appendChild(th);
-    });
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-
-    // Populate table body
-    table_data.forEach(item => { 
-        if( item.El >= min_elevation ){
-          const row = document.createElement('tr');
-          table_show_fields.forEach(key => {          
-          //for (const key in item) {
-              const td = document.createElement('td');
-              value = item[key];
-              if (numeric_fields.includes(key)){
-                value = Number(value);
-                item[key] = value;
-              }
-              td.textContent = value;
-              row.appendChild(td);
-          });
-          tbody.appendChild(row);
-        }
-    });
-        
-    table.appendChild(tbody);
-    return table;
+  // Start refresh loop to update az/el periodically
+  setInterval(function() {
+      console.log('Updating table automatically...');
+      renderTable();
+  }, 10000);   
+  
+  return table;
 }
 
 
@@ -443,7 +780,6 @@ table_column_labels = {
 
 
 
-var table_data;
 var isAscending = true;
 var sortKey = 'Time_Until_Max_El';
 
@@ -463,52 +799,110 @@ function sortTable(){
   if (numeric_fields.includes(sortKey)){
     if (isAscending) {
       console.log('sorting by field ' + sortKey + ' in ascending numeric order');
-      table_data.sort((a, b) => a[sortKey] - b[sortKey]);
+      neo_data.sort((a, b) => a[sortKey] - b[sortKey]);
     } else {
       console.log('sorting by field ' + sortKey + ' in descending numeric order');
-      table_data.sort((a, b) => b[sortKey] - a[sortKey]);          
+      neo_data.sort((a, b) => b[sortKey] - a[sortKey]);          
     }
   } else {
     console.log('sorting by field ' + sortKey + ' in ' + (isAscending ? 'ascending' : 'descending') + ' string order');
-    table_data.sort((a, b) => {
-        if (a[sortKey] < b[sortKey]) return isAscending ? -1 : 1;
-        if (a[sortKey] > b[sortKey]) return isAscending ? 1 : -1;
-        return 0;
+    neo_data.sort((a, b) => {
+      if (a[sortKey] < b[sortKey]) return isAscending ? -1 : 1;
+      if (a[sortKey] > b[sortKey]) return isAscending ? 1 : -1;
+      return 0;
     });
-  }            
+  }
   renderTable();
 }
 
 
-function renderTable(){
-  const min_elevation = document.getElementById('elevation_input').value*1;            
-  const tbody = data_table.querySelector('tbody');  
-  date = new Date(); // current UTC time
+function getFilterTime(start_or_end){
+  const time_selection_obj = document.getElementById(start_or_end + "_time_selection");
+  const time_input_obj = document.getElementById(start_or_end + "_time_input");
+  const time_selection = time_selection_obj.value;
+  var filter_time;
+  if ( time_selection == "specific" ){
+    filter_time = time_input_obj.value;
+  } else if( time_selection == "now" ){
+    filter_time = new Date();  
+  } else if( time_selection == "now_plus_1hr" ){
+    const time_now = new Date();
+    filter_time = time_now.setHours(time_now.getHours() + 1);  
+  } else if( reference_dates.hasOwnProperty( time_selection )) {
+    filter_time = reference_dates[time_selection];
+  } else {
+    filter_time = start_or_end=="start" ? prev_noon : next_noon;
+  }
+  return filter_time;
+}
 
-  tbody.innerHTML = ''; // Clear existing rows
-  table_data.forEach(item => {
+
+function applyFilters(){
+  renderTable();
+  populateCharts();
+}
+
+function renderTable(){
+  const min_elevation = document.getElementById('min_elevation_input').value*1;            
+  const max_elevation = document.getElementById('max_elevation_input').value*1;
+  const min_azimuth = document.getElementById('min_azimuth_input').value*1;            
+  const max_azimuth = document.getElementById('max_azimuth_input').value*1;
+  const filter_start_time = getFilterTime("start");
+  const filter_end_time = getFilterTime("end");
   
-    local_coords = raDecToAzEl(item["R.A."], item["Decl."], date, lat, lon);
-    item.Az = local_coords.azimuth.toFixed(0);
-    item.El = local_coords.elevation.toFixed(0);
+  now = new Date(); // current UTC time
+
+  table_body.innerHTML = ''; // Clear existing rows
+  neo_data.forEach(neo => {
   
-    decimal_hours_to_max_el = ((item['R.A.'] - LST_hours) + 24) % 24;
+    // Update current coordinates:
+    local_coords = raDecToAzEl(neo["R.A."], neo["Decl."], date, lat, lon);
+    neo.Az = local_coords.azimuth.toFixed(0);
+    neo.El = local_coords.elevation.toFixed(0);
+  
+    decimal_hours_to_max_el = ((neo['R.A.'] - LST_hours) + 24) % 24;
     decimal_hours_to_max_el = decimal_hours_to_max_el<12? decimal_hours_to_max_el : decimal_hours_to_max_el-24;
     time_to_max_el_sign = Math.sign( decimal_hours_to_max_el );
     time_to_max_el_whole_hours = Math.floor( Math.abs( decimal_hours_to_max_el ) );
     time_to_max_el_whole_minutes =  Math.floor( (Math.abs( decimal_hours_to_max_el ) % 1) *60 );
-    item.Time_Until_Max_El = String(time_to_max_el_whole_hours).padStart(2,"0") + " h " + String(time_to_max_el_whole_minutes).padStart(2,"0") + " m   (" + (time_to_max_el_sign>0?"+":"-") + ")";
+    neo.Time_Until_Max_El = String(time_to_max_el_whole_hours).padStart(2,"0") + " h " + String(time_to_max_el_whole_minutes).padStart(2,"0") + " m   (" + (time_to_max_el_sign>0?"+":"-") + ")";
   
-    if( item.El >=  min_elevation){
+    var include_this_neo = false;
+
+    // handle "Now" & "Now" case:
+    if ( (filter_end_time-filter_start_time)==0 && (filter_start_time-now)==0 ){
+      if ( neo.Az >= min_azimuth && neo.Az <= max_azimuth ){      
+        if ( neo.El >= min_elevation && neo.El <= max_elevation ){
+          include_this_neo = true;
+        }
+      }
+    // Otherwise if a range is specified then 
+    // include this NEO if the ephemeris is
+    // within specified bounds at any moment
+    // within the specified time range.
+    } else {    
+      for ( ephemeris_point of neo.ephemeris ){
+        if (ephemeris_point.t >= filter_start_time && ephemeris_point.t <= filter_end_time ){
+          if ( ephemeris_point.az >= min_azimuth && ephemeris_point.az <= max_azimuth ){
+            if ( ephemeris_point.el >= min_elevation && ephemeris_point.el <= max_elevation ){
+              include_this_neo = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+      
+    if( include_this_neo ){
       const row = document.createElement('tr');
       table_show_fields.forEach(key => {
         if (!hide_fields.includes(key)){
           const td = document.createElement('td');
-          td.textContent = item[key];
+          td.textContent = neo[key];
           row.appendChild(td);
         }
       });
-      tbody.appendChild(row);
+      table_body.appendChild(row);
     }
   });
 }
@@ -610,15 +1004,6 @@ function raDecToAzEl(raHours, decDeg, date, latitudeDeg, longitudeDeg) {
 
 
 
-//const date = new Date(Date.UTC(2025, 7, 10, 0, 0, 0)); // UTC time (2025-07-10T00:00:00Z)
-
-
-const ra = 10.68470833;  // RA in hours (e.g., Andromeda Galaxy ~ 10h 41m)
-const dec = 41.26917;    // Dec in degrees
-const result = raDecToAzEl(ra, dec, date, lat, lon);
-console.log(`Azimuth: ${result.azimuth.toFixed(2)}°, Elevation: ${result.elevation.toFixed(2)}°`);
-
-
 function getZenithRAandDec(date, latitudeDeg, longitudeDeg) {
     const toRadians = deg => deg * Math.PI / 180;
     const toDegrees = rad => rad * 180 / Math.PI;
@@ -681,66 +1066,137 @@ function getLocalSiderealTime() {
 
 const zenith = getZenithRAandDec(date, lat, lon);
 local_siderial_time = zenith.rightAscension;
-console.log(`Zenith RA: ${zenith.rightAscension.toFixed(4)} hours`);
-console.log(`Zenith Dec: ${zenith.declination.toFixed(4)}°`);
 
 var data_table;
 
 
+function computeEphemeris(neo){
+  const ephemeris = [];
+  ephemeris_times.forEach(ephemeris_time => {
+    local_coords = raDecToAzEl(neo['R.A.'], neo['Decl.'], ephemeris_time, lat, lon);
+    ephemeris.push({t: ephemeris_time, az: local_coords.azimuth, el: local_coords.elevation});
+  });
+  return ephemeris;
+}
 
-fetchJsonData(apiUrl)
-  .then(jsonData => {
-    console.log('Fetched JSON data:', jsonData);
-    
-    const local_time_display_options = {
-      timeZone: 'America/Los_Angeles',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      timeZoneName: 'short',
-      hour12: false
-    };
+function formatElevationTimeSeries(neo){
+  const data_series = {
+    label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
+    pointRadius: 0,
+    borderColor: line_color,
+    borderWidth: (neo.Score==100 ? 3 : 1 ), // px    
+    pointHitRadius: 5,
+    data: [],
+  };
+  neo.ephemeris.forEach(ephemeris_point => {
+    data_series.data.push({x: ephemeris_point.t, y: ephemeris_point.el});
+  });
+  return data_series;
+}
 
-    jsonData.forEach(neo => {
-
-      date = new Date(); // current UTC time
-
-      local_coords = raDecToAzEl(neo["R.A."], neo["Decl."], date, lat, lon);
-      neo.Az = local_coords.azimuth.toFixed(0);
-      neo.El = local_coords.elevation.toFixed(0);
-
-      neo.Max_El = (90 - Math.abs(lat - neo['Decl.'])).toFixed(1);
-            
-      const hours_until_max_el = neo['R.A.'] - LST_hours;
-      neo.Time_Until_Max_El = hours_until_max_el.toFixed(2);
-      
-      const date_max_el = new Date(date.getTime() + hours_until_max_el * 60 * 60 * 1000);  // converts hours until max el into milliseconds to add to current date
-      neo.Max_El_Local_time = new Intl.DateTimeFormat('en-US', local_time_display_options).format(date_max_el);
-      
-      decimal_day = neo.Discovery_day;
-      whole_day = Math.floor(decimal_day);
-      decimal_hour = (decimal_day % 1) * 24;
-      whole_hour = Math.floor(decimal_hour);
-      decimal_minute = (decimal_hour % 1) * 60;
-      whole_minute = Math.floor(decimal_minute);
-      console.log(neo.Discovery_day, neo.Discovery_year, neo.Discovery_month-1, whole_day, whole_hour, whole_minute);
-      neo.Discovery_date = neo.Discovery_year +'-'+ String(neo.Discovery_month).padStart(2, '0') +'-'+ String(whole_day).padStart(2, '0') +' '+ String(whole_hour).padStart(2, '0') +':'+ String(whole_minute).padStart(2, '0');
-
-      neo.Not_Seen_dys = Math.floor( neo.Not_Seen_dys * 10) / 10;
-      
-      plot_time_serieses.push( computeElevationTimeSeries(neo) );
-    });
-
-    console.log(plot_config);
-    plot_config.data.datasets = plot_time_serieses;
-    new Chart(ctx, plot_config);
+function formatElevationCurrent(neo){
+  const data_series = {  
+    label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
+    pointRadius: 3,
+    borderColor: 'yellow',
+    pointHitRadius: 5,
+    showLine: false, // This connects the points with a line
+    data: [],
+  };
+  data_series.data.push({x: load_time_date, y: neo.El});
+  return data_series;
+}
 
 
-    const headers = Object.keys(jsonData[0]);
-    
+function formatLocalCoordsDataset(neo){
+  const min_elevation = document.getElementById('min_elevation_input').value*1;            
+  const max_elevation = document.getElementById('max_elevation_input').value*1;
+  const min_azimuth = document.getElementById('min_azimuth_input').value*1;            
+  const max_azimuth = document.getElementById('max_azimuth_input').value*1;
+  const filter_start_time = getFilterTime("start");
+  const filter_end_time = getFilterTime("end");
+
+  const data_series = {
+    label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
+    pointRadius: 0,
+    borderColor: line_color,
+    borderWidth: (neo.Score==100 ? 3 : 1 ), // px    
+    pointHitRadius: 5,
+    showLine: true, // This connects the points with a line
+    data: [],
+  };
+  prevAz = neo.ephemeris[0].az;
+  neo.ephemeris.forEach((ephemeris_point, index) => {
+    const ephemeris_time = ephemeris_times[index];
+    const data_point = {x: ephemeris_point.az, y: ephemeris_point.el};
+    if(prevAz < 90 && ephemeris_point.az > 270){
+      // handle wrap from left side to right side for objects passing north of zenith
+      // by nulling this data point to make the time series disjointed.
+      // If we were to instead add a null data point in betwee, then time array lookup 
+      // wouldn't work for tooltips.
+      data_point.x = null;
+    } else if( ephemeris_point.az < min_azimuth || ephemeris_point.az > max_azimuth ){
+      data_point.x = null;
+    } else if( ephemeris_point.el < min_elevation || ephemeris_point.el > max_elevation ){
+      data_point.x = null;
+    } else if( ephemeris_time < filter_start_time || ephemeris_time > filter_end_time ){
+      data_point.x = null;
+    }
+    data_series.data.push(data_point);
+    prevAz = ephemeris_point.az;
+  });
+  return data_series;
+}
+
+function formatLocalCoordsCurrent(neo){
+  const min_elevation = document.getElementById('min_elevation_input').value*1;            
+  const max_elevation = document.getElementById('max_elevation_input').value*1;
+  const min_azimuth = document.getElementById('min_azimuth_input').value*1;            
+  const max_azimuth = document.getElementById('max_azimuth_input').value*1;
+  const data_series = {  
+    label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
+    pointRadius: 3,
+    borderColor: 'yellow',
+    pointHitRadius: 5,
+    showLine: false, // This connects the points with a line
+    data: [],
+  };
+  if( neo.Az >= min_azimuth && neo.Az <= max_azimuth && neo.El >= min_elevation && neo.El <= max_elevation ){
+    data_series.data.push({x: neo.Az, y: neo.El});
+  } else {
+    data_series.data.push({x: null, y: null});
+  }
+  return data_series;
+}
+
+
+function getDataFromMPC(callback){
+  fetchJsonData(apiUrl)
+    .then(mpc_neo_data_json => {
+      console.log('Fetched JSON data:', mpc_neo_data_json);
+      neo_data = mpc_neo_data_json
+      callback(neo_data);
+    })
+    .catch(error => {
+      console.error('Failed to retrieve JSON data:', error);
+    }) 
+}
+
+
+function initializeCharts(){
+  elevation_chart = new Chart(ctx_elevation_chart, elevation_plot_config);
+  local_coords_chart = new Chart(ctx_local_coords_chart, local_coords_chart_config);
+}
+
+function firstRun(){
+  initializeCharts();
+  getDataFromMPC((mpc_neo_data) => {
+    populateCharts();
+        
     // concatenate json entries into string, one line per entry:
     /*
-    const rows = jsonData.map(obj =>
+    const headers = Object.keys(neo_data[0]);
+    const rows = neo_data.map(obj =>
         headers.map(header => {
             const value = obj[header];
             // Handle potential special characters or commas within values
@@ -749,28 +1205,81 @@ fetchJsonData(apiUrl)
     );  
     csvContent = [headers.join(','), ...rows].join('\n');
     document.getElementById('csvOutput').value = csvContent;
-    */
+    */    
     
-    // make sortable table from json data:
-    table_data = jsonData;
-    data_table = createTable();
-    document.body.appendChild(data_table); // Add table to the document
-    makeSortable(data_table); // Make the table sortable
-    
-    sortTable();
-    sortTable();
-
-    // Start refresh loop to update az/el periodically
-    setInterval(function() {
-        console.log('Updating table automatically...');
-        renderTable();
-    }, 10000); 
-
-    
-  })
-  .catch(error => {
-    console.error('Failed to retrieve JSON data:', error);
   });
+}
+firstRun();
+
+
+
+
+
+function populateCharts(){
+  date = new Date(); // current UTC time
+  local_coords_datasets = [];
+  elevation_time_serieses = [];
+  
+  
+  const local_time_display_options = {
+    timeZone: 'America/Los_Angeles',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'short',
+    hour12: false
+  };
+  
+  neo_data.forEach(neo => {
+    local_coords = raDecToAzEl(neo["R.A."], neo["Decl."], date, lat, lon);
+    neo.Az = local_coords.azimuth.toFixed(0);
+    neo.El = local_coords.elevation.toFixed(0);
+
+    neo.Max_El = (90 - Math.abs(lat - neo['Decl.'])).toFixed(1);
+          
+    const hours_until_max_el = neo['R.A.'] - LST_hours;
+    neo.Time_Until_Max_El = hours_until_max_el.toFixed(2);
+    
+    const date_max_el = new Date(date.getTime() + hours_until_max_el * 60 * 60 * 1000);  // converts hours until max el into milliseconds to add to current date
+    neo.Max_El_Local_time = new Intl.DateTimeFormat('en-US', local_time_display_options).format(date_max_el);
+    
+    decimal_day = neo.Discovery_day;
+    whole_day = Math.floor(decimal_day);
+    decimal_hour = (decimal_day % 1) * 24;
+    whole_hour = Math.floor(decimal_hour);
+    decimal_minute = (decimal_hour % 1) * 60;
+    whole_minute = Math.floor(decimal_minute);
+    //console.log(neo.Discovery_day, neo.Discovery_year, neo.Discovery_month-1, whole_day, whole_hour, whole_minute);
+    neo.Discovery_date = neo.Discovery_year +'-'+ String(neo.Discovery_month).padStart(2, '0') +'-'+ String(whole_day).padStart(2, '0') +' '+ String(whole_hour).padStart(2, '0') +':'+ String(whole_minute).padStart(2, '0');
+
+    neo.Not_Seen_dys = Math.floor( neo.Not_Seen_dys * 10) / 10;
+    
+    neo.ephemeris = computeEphemeris(neo);
+    
+    elevation_time_serieses.push( formatElevationTimeSeries(neo) );
+    elevation_time_serieses.push( formatElevationCurrent(neo) );
+    local_coords_datasets.push( formatLocalCoordsDataset(neo) );
+    local_coords_datasets.push( formatLocalCoordsCurrent(neo) );
+  });
+
+
+  clearChart(elevation_chart);
+  elevation_plot_config.data.datasets = elevation_time_serieses;
+  elevation_chart.update();
+  
+  clearChart(local_coords_chart);
+  local_coords_chart_config.data.datasets = local_coords_datasets;
+  local_coords_chart.update();
+  
+}
+
+
+function clearChart(chart_obj){
+  chart_obj.ctx.clearRect(0, 0, chart_obj.ctx.canvas.width, chart_obj.ctx.canvas.height);
+  chart_obj.ctx.beginPath();
+  chart_obj.ctx.save(); 
+}
+
 
 
 function generateDateRange(startDate, endDate, incrementMinutes) {
@@ -782,27 +1291,6 @@ function generateDateRange(startDate, endDate, incrementMinutes) {
   }
   return result;
 }
-
-
-
-function computeElevationTimeSeries(neo){
-  data_series = {
-    label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
-    pointRadius: 0,
-    borderColor: line_color,
-    borderWidth: (neo.Score==100 ? 3 : 1 ), // px    
-    data: [],
-  };
-  plot_dates.forEach(plot_date => {
-    local_coords = raDecToAzEl(neo['R.A.'], neo['Decl.'], plot_date, lat, lon);
-    data_series.data.push({x: plot_date, y: local_coords.elevation});
-    console.log(local_coords.elevation);
-    
-  });
-  return data_series;
-}
-
-
 
 
 function getSunsetTime(date, latitude, longitude) {
