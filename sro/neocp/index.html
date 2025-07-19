@@ -196,6 +196,17 @@
     </td>
   </tr>
   <tr>
+    <td>Visual Magnitude</td>
+    <td>min:</td>
+    <td>
+      <input type="number" id="min_visual_magnitude_input" min="0" max="30" value="0">
+    </td>
+    <td>max:</td>
+    <td>
+      <input type="number" id="max_visual_magnitude_input" min="0" max="30" value="25">
+    </td>
+  </tr>
+  <tr>
     <td/>
     <td/>
     <td/>
@@ -777,7 +788,8 @@ function initializeTable() {
 }
 
 
-table_show_fields = ['Temp_Desig','Discovery_date','Not_Seen_dys','Score','NObs','V','R.A.','Decl.','Az','El','Max_El', 'Max_El_Local_time','Time_Until_Max_El'];
+//table_show_fields = ['Temp_Desig','Discovery_date','Not_Seen_dys','Score','NObs','V','R.A.','Decl.','Az','El','Max_El', 'Max_El_Local_time','Time_Until_Max_El'];
+const table_show_fields = ['Temp_Desig','Score','NObs','Not_Seen_dys','V','R.A.','Decl.','Az','El','Max_El', 'Max_El_Local_time','Time_Until_Max_El','Discovery_date'];
 table_column_labels = {
   'Temp_Desig': 'Temporaty Designation',
   'Discovery_date': 'Discoery Date (UTC)',
@@ -864,6 +876,8 @@ function renderTable(){
   const max_elevation = document.getElementById('max_elevation_input').value*1;
   const min_azimuth = document.getElementById('min_azimuth_input').value*1;            
   const max_azimuth = document.getElementById('max_azimuth_input').value*1;
+  const min_magnitude = document.getElementById('min_visual_magnitude_input').value*1;            
+  const max_magnitude = document.getElementById('max_visual_magnitude_input').value*1;  
   const filter_start_time = getFilterTime("start");
   const filter_end_time = getFilterTime("end");
     
@@ -890,20 +904,24 @@ function renderTable(){
     if ( (filter_end_time-filter_start_time)==0 && (filter_start_time-now)==0 ){
       if ( neo.Az >= min_azimuth && neo.Az <= max_azimuth ){      
         if ( neo.El >= min_elevation && neo.El <= max_elevation ){
-          include_this_neo = true;
+          if (neo.V >= min_magnitude && neo.V <= max_magnitude) {
+            include_this_neo = true;
+          }
         }
       }
-    // Otherwise if a range is specified then 
-    // include this NEO if the ephemeris is
-    // within specified bounds at any moment
-    // within the specified time range.
     } else {    
+      // Otherwise if a range is specified then 
+      // include this NEO if the ephemeris is
+      // within specified bounds at any moment
+      // within the specified time range.
       for ( ephemeris_point of neo.ephemeris ){
         if (ephemeris_point.t >= filter_start_time && ephemeris_point.t <= filter_end_time ){
           if ( ephemeris_point.az >= min_azimuth && ephemeris_point.az <= max_azimuth ){
             if ( ephemeris_point.el >= min_elevation && ephemeris_point.el <= max_elevation ){
-              include_this_neo = true;
-              break;
+              if (neo.V >= min_magnitude && neo.V <= max_magnitude) {
+                include_this_neo = true;
+                break;
+              }
             }
           }
         }
@@ -1135,6 +1153,8 @@ function formatLocalCoordsDataset(neo){
   const max_elevation = document.getElementById('max_elevation_input').value*1;
   const min_azimuth = document.getElementById('min_azimuth_input').value*1;            
   const max_azimuth = document.getElementById('max_azimuth_input').value*1;
+  const min_magnitude = document.getElementById('min_visual_magnitude_input').value*1;            
+  const max_magnitude = document.getElementById('max_visual_magnitude_input').value*1;  
   const filter_start_time = getFilterTime("start");
   const filter_end_time = getFilterTime("end");
 
@@ -1162,6 +1182,8 @@ function formatLocalCoordsDataset(neo){
     } else if( ephemeris_point.el < min_elevation || ephemeris_point.el > max_elevation ){
       data_point.x = null;
     } else if( ephemeris_time < filter_start_time || ephemeris_time > filter_end_time ){
+      data_point.x = null;
+    } else if( neo.V < min_magnitude || neo.V > max_magnitude ){
       data_point.x = null;
     }
     data_series.data.push(data_point);
