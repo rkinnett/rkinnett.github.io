@@ -230,12 +230,14 @@ var local_coords_chart;
 
 var neo_data;
 
-const table = document.getElementById('data_table');
+const data_table = document.getElementById('data_table');
 const table_head = document.getElementById('table_head');
 const table_body = document.getElementById('table_body');
 
 const rad = Math.PI / 180;
 const deg = 180 / Math.PI;
+
+var selected_object = null;
 
 
 const apiUrl = 'https://www.minorplanetcenter.net/Extended_Files/neocp.json';
@@ -484,7 +486,11 @@ const elevation_plot_config = {
         if ( !clicked_dataset_previously_selected ){
           clickedDataset.borderWidth = emphasized_border_width;
           clickedDataset.borderColor = 'rgba(255,128,32,0.6)';
+          selected_object = clickedDataset.label.split(' ')[0];
+        } else {
+          selected_object = null;
         }
+        renderTable();
         chart.update();
       }  
     }
@@ -606,7 +612,11 @@ const local_coords_chart_config = {
         if ( !clicked_dataset_previously_selected ){
           clickedDataset.borderWidth = 5;
           clickedDataset.borderColor = 'rgba(255,128,32,0.6)';
+          selected_object = clickedDataset.label.split(' ')[0];
+        } else {
+          selected_object = null;
         }
+        renderTable();
         chart.update();
       }
     }
@@ -747,16 +757,6 @@ function initializeTable() {
   
   makeSortable(); // Make the table sortable
   
-  sortTable();
-  sortTable();
-
-  // Start refresh loop to update az/el periodically
-  setInterval(function() {
-      console.log('Updating table automatically...');
-      renderTable();
-  }, 10000);   
-  
-  return table;
 }
 
 
@@ -849,7 +849,7 @@ function renderTable(){
   const max_azimuth = document.getElementById('max_azimuth_input').value*1;
   const filter_start_time = getFilterTime("start");
   const filter_end_time = getFilterTime("end");
-  
+    
   now = new Date(); // current UTC time
 
   table_body.innerHTML = ''; // Clear existing rows
@@ -893,13 +893,19 @@ function renderTable(){
       }
     }
       
+      
     if( include_this_neo ){
       const row = document.createElement('tr');
+      if( neo.Temp_Desig == selected_object ){
+        console.log('found selected object');
+        row.style.color = "orange";
+      }
+      
       table_show_fields.forEach(key => {
         if (!hide_fields.includes(key)){
           const td = document.createElement('td');
           td.textContent = neo[key];
-          row.appendChild(td);
+          row.appendChild(td);          
         }
       });
       table_body.appendChild(row);
@@ -1067,7 +1073,6 @@ function getLocalSiderealTime() {
 const zenith = getZenithRAandDec(date, lat, lon);
 local_siderial_time = zenith.rightAscension;
 
-var data_table;
 
 
 function computeEphemeris(neo){
@@ -1191,6 +1196,55 @@ function initializeCharts(){
 function firstRun(){
   initializeCharts();
   getDataFromMPC((mpc_neo_data) => {
+    initializeTable();
+    
+    
+    const local_time_display_options = {
+      timeZone: 'America/Los_Angeles',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short',
+      hour12: false
+    };
+    
+    neo_data.forEach(neo => {
+      local_coords = raDecToAzEl(neo["R.A."], neo["Decl."], date, lat, lon);
+      neo.Az = local_coords.azimuth.toFixed(0);
+      neo.El = local_coords.elevation.toFixed(0);
+
+      neo.Max_El = (90 - Math.abs(lat - neo['Decl.'])).toFixed(1);
+            
+      const hours_until_max_el = neo['R.A.'] - LST_hours;
+      neo.Time_Until_Max_El = hours_until_max_el.toFixed(2);
+      
+      const date_max_el = new Date(date.getTime() + hours_until_max_el * 60 * 60 * 1000);  // converts hours until max el into milliseconds to add to current date
+      neo.Max_El_Local_time = new Intl.DateTimeFormat('en-US', local_time_display_options).format(date_max_el);
+      
+      decimal_day = neo.Discovery_day;
+      whole_day = Math.floor(decimal_day);
+      decimal_hour = (decimal_day % 1) * 24;
+      whole_hour = Math.floor(decimal_hour);
+      decimal_minute = (decimal_hour % 1) * 60;
+      whole_minute = Math.floor(decimal_minute);
+      //console.log(neo.Discovery_day, neo.Discovery_year, neo.Discovery_month-1, whole_day, whole_hour, whole_minute);
+      neo.Discovery_date = neo.Discovery_year +'-'+ String(neo.Discovery_month).padStart(2, '0') +'-'+ String(whole_day).padStart(2, '0') +' '+ String(whole_hour).padStart(2, '0') +':'+ String(whole_minute).padStart(2, '0');
+
+      neo.Not_Seen_dys = Math.floor( neo.Not_Seen_dys * 10) / 10;
+      
+      neo.ephemeris = computeEphemeris(neo);    
+    });
+    
+    renderTable();    
+    sortTable();
+    sortTable();
+
+    // Start refresh loop to update az/el periodically
+    setInterval(function() {
+        console.log('Updating table automatically...');
+        renderTable();
+    }, 10000); 
+    
     populateCharts();
         
     // concatenate json entries into string, one line per entry:
@@ -1221,41 +1275,7 @@ function populateCharts(){
   elevation_time_serieses = [];
   
   
-  const local_time_display_options = {
-    timeZone: 'America/Los_Angeles',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    timeZoneName: 'short',
-    hour12: false
-  };
-  
   neo_data.forEach(neo => {
-    local_coords = raDecToAzEl(neo["R.A."], neo["Decl."], date, lat, lon);
-    neo.Az = local_coords.azimuth.toFixed(0);
-    neo.El = local_coords.elevation.toFixed(0);
-
-    neo.Max_El = (90 - Math.abs(lat - neo['Decl.'])).toFixed(1);
-          
-    const hours_until_max_el = neo['R.A.'] - LST_hours;
-    neo.Time_Until_Max_El = hours_until_max_el.toFixed(2);
-    
-    const date_max_el = new Date(date.getTime() + hours_until_max_el * 60 * 60 * 1000);  // converts hours until max el into milliseconds to add to current date
-    neo.Max_El_Local_time = new Intl.DateTimeFormat('en-US', local_time_display_options).format(date_max_el);
-    
-    decimal_day = neo.Discovery_day;
-    whole_day = Math.floor(decimal_day);
-    decimal_hour = (decimal_day % 1) * 24;
-    whole_hour = Math.floor(decimal_hour);
-    decimal_minute = (decimal_hour % 1) * 60;
-    whole_minute = Math.floor(decimal_minute);
-    //console.log(neo.Discovery_day, neo.Discovery_year, neo.Discovery_month-1, whole_day, whole_hour, whole_minute);
-    neo.Discovery_date = neo.Discovery_year +'-'+ String(neo.Discovery_month).padStart(2, '0') +'-'+ String(whole_day).padStart(2, '0') +' '+ String(whole_hour).padStart(2, '0') +':'+ String(whole_minute).padStart(2, '0');
-
-    neo.Not_Seen_dys = Math.floor( neo.Not_Seen_dys * 10) / 10;
-    
-    neo.ephemeris = computeEphemeris(neo);
-    
     elevation_time_serieses.push( formatElevationTimeSeries(neo) );
     elevation_time_serieses.push( formatElevationCurrent(neo) );
     local_coords_datasets.push( formatLocalCoordsDataset(neo) );
