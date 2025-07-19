@@ -213,6 +213,7 @@
 
 <br/>
 
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 
 
 <script>
@@ -539,6 +540,20 @@ const local_coords_chart_config = {
       legend: {
         display: false,
       },
+      /*
+      datalabels: {
+          display: true, // Hide all datalabels by default      
+          color: '#fff', // Label text color
+          anchor: 'end', // Position relative to the data point
+          align: 'top', // Alignment relative to the anchor
+          formatter: function(value, context) {
+              return context.dataset.label;
+          }
+      },
+      */
+      datalabels: {
+        display: false,
+      },      
       shadedRegion: [
         {
           xMin: 0,
@@ -621,7 +636,7 @@ const local_coords_chart_config = {
       }
     }
   },  
-  plugins: [drawBackgroundColor],
+  plugins: [drawBackgroundColor, ChartDataLabels],
 };
 
 
@@ -1159,12 +1174,22 @@ function formatLocalCoordsCurrent(neo){
   const min_azimuth = document.getElementById('min_azimuth_input').value*1;            
   const max_azimuth = document.getElementById('max_azimuth_input').value*1;
   const data_series = {  
+    data: [],
     label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
     pointRadius: 3,
-    borderColor: 'yellow',
+    borderColor: 'orange',
     pointHitRadius: 5,
     showLine: false, // This connects the points with a line
-    data: [],
+    datalabels: {
+      display: true, // Show datalabels for this dataset
+      anchor: 'start',
+      align: '-45',
+      clamp: true,
+      color: "orange",
+      formatter: function(value, context) {
+        return context.dataset.label.split(' ')[0];
+      }
+    }        
   };
   if( neo.Az >= min_azimuth && neo.Az <= max_azimuth && neo.El >= min_elevation && neo.El <= max_elevation ){
     data_series.data.push({x: neo.Az, y: neo.El});
