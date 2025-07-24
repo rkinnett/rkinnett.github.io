@@ -169,11 +169,11 @@
     <td>Elevation limits (deg)</td>
     <td>min:</td>
     <td>
-      <input type="number" id="min_elevation_input" min="-90" max="90" value="10">
+      <input type="number" id="min_elevation_input" min="-90" max="90" value="12">
     </td>
     <td>max:</td>
     <td>
-      <input type="number" id="max_elevation_input" min="-90" max="90" value="60">
+      <input type="number" id="max_elevation_input" min="-90" max="90" value="65">
     </td>
   </tr>
   <tr>
@@ -268,6 +268,35 @@ const deg = 180 / Math.PI;
 
 var selected_object = null;
 
+var csvContent = '';
+
+const numeric_fields = ['Score','Discovery_year','Discovery_month','Discovery_day','R.A.','Decl.','V', 'NObs','Arc','H','Not_Seen_dys','Az','El'];
+const hide_fields = ['Discovery_year','Discovery_month','Discovery_day'];
+
+const table_show_fields = ['Temp_Desig','Score','NObs','Not_Seen_dys','V','R.A.','Decl.','Az','El','Max_El', 'Max_El_Local_time','Time_Until_Max_El','Discovery_date'];
+const table_column_labels = {
+  'Temp_Desig': 'Temporaty Designation',
+  'Discovery_date': 'Discoery Date (UTC)',
+  'Updated': 'Updated',
+  'Not_Seen_dys': 'Days since last seen',
+  'Score': 'Score',
+  'NObs': 'Number of Observations',
+  'V': 'Visual Magnitude',
+  'R.A.': 'Right Ascension (hrs)',
+  'Decl.': 'Declination (deg)',
+  'Az': 'Azimuth (deg)',
+  'El': 'Elevation (deg)',
+  'Max_El': 'Max Elevation (deg)',
+  'Max_El_Local_time': 'Max Elevation Local Time',
+  'Time_Until_Max_El': 'Time until Max Elevation'
+}
+
+
+
+var isAscending = true;
+var sortKey = 'Time_Until_Max_El';
+
+
 
 const apiUrl = 'https://www.minorplanetcenter.net/Extended_Files/neocp.json';
 
@@ -310,10 +339,12 @@ const reference_dates = {
 const day_color = 'rgba(90, 110, 130, 0.5)';
 const night_color = 'rgba(20, 40, 70, 0.4)';
 
-const ephemeris_times = generateDateRange(prev_noon, next_noon, 10);
+const ephemeris_increment = 5;
+const ephemeris_times = generateDateRange(prev_noon, next_noon, ephemeris_increment);
 var elevation_time_serieses = [];
 var local_coords_datasets = [];
 const line_color = 'rgba(220, 40, 40, 0.8)';
+const emphasized_border_width = 5;
 
 
 
@@ -495,41 +526,31 @@ const elevation_plot_config = {
       }
     },
     onClick: (e, elements) => {
-      const chart = e.chart;
-      const emphasized_border_width = 5;
-      const points = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
-      if (points.length) {
-        const datasetIndex = points[0].datasetIndex;
-        const clickedDataset = chart.data.datasets[datasetIndex];
-        const clicked_dataset_previously_selected = (clickedDataset.borderWidth == emphasized_border_width);
-        // Reset all dataset styles
-        chart.data.datasets.forEach((ds, idx) => {
-          ds.borderWidth = 2;
-          ds.borderColor = ds._originalColor || ds.borderColor;
-        });
-        // Save original color if not already saved
-        if (!clickedDataset._originalColor) {
-          clickedDataset._originalColor = clickedDataset.borderColor;
-        }
-        // Highlight the clicked dataset
-        if ( !clicked_dataset_previously_selected ){
-          clickedDataset.borderWidth = emphasized_border_width;
-          clickedDataset.borderColor = 'rgba(255,128,32,0.6)';
-          selected_object = clickedDataset.label.split(' ')[0];
-          selected_object_id_span.innerHTML = selected_object;
-          selected_object_id_span.style.color = callout_color_selected;
-        } else {
-          selected_object = null;
-          selected_object_id_span.innerHTML = '(none)';
-          selected_object_id_span.style.color = callout_color_deselected;
-        }
-        renderTable();
-        chart.update();
-      }  
+      handleClickedLine(e, elements)
     }
   },
   plugins: [gradientShadingPlugin, shadedRegionPlugin],
 };
+
+
+function handleClickedLine(e, elements){
+  const chart = e.chart;
+  const points = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+  var clicked_object_name = null;
+  console.log( points.length );
+  if (points.length) {
+    const datasetIndex = points[0].datasetIndex;
+    const clickedDataset = chart.data.datasets[datasetIndex];
+    const clicked_object_already_highlighted = ( clickedDataset.borderWidth == emphasized_border_width );
+    if( ! clicked_object_already_highlighted ){
+      clicked_object_name = clickedDataset.neo_id;        
+    }
+  }  
+  setSelectedObject( clicked_object_name );
+  highlightDataset( chart, clicked_object_name );
+  renderTable();
+}
+
 
 
 
@@ -639,43 +660,50 @@ const local_coords_chart_config = {
       backgroundColor: night_color,
     },
     onClick: (e, elements) => {
-      const chart = e.chart;
-      const emphasized_border_width = 5;
-      const points = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
-      if (points.length) {
-        const datasetIndex = points[0].datasetIndex;
-        const clickedDataset = chart.data.datasets[datasetIndex];
-        const clicked_dataset_previously_selected = (clickedDataset.borderWidth == emphasized_border_width);
-        // Reset all dataset styles
-        chart.data.datasets.forEach((ds, idx) => {
-          ds.borderWidth = 2;
-          ds.borderColor = ds._originalColor || ds.borderColor;
-        });
-        // Save original color if not already saved
-        if (!clickedDataset._originalColor) {
-          clickedDataset._originalColor = clickedDataset.borderColor;
-        }
-        // Highlight the clicked dataset, or toggle
-        if ( !clicked_dataset_previously_selected ){
-          clickedDataset.borderWidth = 5;
-          clickedDataset.borderColor = 'rgba(255,128,32,0.6)';
-          selected_object = clickedDataset.label.split(' ')[0];
-          selected_object_id_span.innerHTML = selected_object;
-          selected_object_id_span.style.color = callout_color_selected;
-        } else {
-          selected_object = null;
-          selected_object_id_span.innerHTML = '(none)';
-          selected_object_id_span.style.color = callout_color_deselected;
-        }
-        renderTable();
-        chart.update();
-      }
+      handleClickedLine(e, elements);
     }
   },  
   plugins: [drawBackgroundColor, ChartDataLabels],
 };
 
 
+
+function highlightDataset(chart, neo_id){
+  chart.data.datasets.forEach((data_set, idx) => {
+    // Save original color if not already saved
+    if (!data_set._originalColor) {
+      data_set._originalColor = data_set.borderColor;
+    }
+    if( neo_id != null && data_set.neo_id == neo_id ){
+      data_set.borderWidth = emphasized_border_width;
+      data_set.borderColor = 'rgba(255,128,32,0.6)';
+    } else {
+      data_set.borderWidth = 2;
+      data_set.borderColor = data_set._originalColor;
+    }
+  });
+  chart.update();
+}
+
+
+function setSelectedObject(object){
+  console.log('selected object: ' + object);
+  selected_object = object;  
+  if ( object == null ){
+    selected_object_id_span.innerHTML = '(none)';
+    selected_object_id_span.style.color = callout_color_deselected;  
+  } else {
+    selected_object_id_span.innerHTML = selected_object;
+    selected_object_id_span.style.color = "orange";
+  }
+  for( row_index=1; row_index < data_table.rows.length; row_index++ ){
+    row =  data_table.rows[row_index];
+    this_row_neo = row.cells[0].innerHTML;
+    row.style.color = ( this_row_neo == selected_object ) ? "orange" : "";
+  }
+  highlightDataset(elevation_chart, object);
+  highlightDataset(local_coords_chart, object);
+}
 
 
 
@@ -767,33 +795,18 @@ function timeSelectorChanged(time_selection_obj, time_input_obj){
 
 async function fetchJsonData(url) {
   try {
-    // 1. Make the fetch request to the specified URL.
     const response = await fetch(url);
-
-    // 2. Check if the request was successful (status code 200-299).
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-
-    // 3. Parse the response body as JSON.
     const data = await response.json();
-
-    // 4. Return the parsed JSON data.
     return data;
   } catch (error) {
-    // 5. Handle any errors that occur during the fetch operation.
     console.error('Error fetching JSON:', error);
     throw error; // Re-throw the error for further handling if needed.
   }
 }
 
-var csvContent = '';
-
-
-
-const numeric_fields = ['Score','Discovery_year','Discovery_month','Discovery_day','R.A.','Decl.','V', 'NObs','Arc','H','Not_Seen_dys','Az','El'];
-
-const hide_fields = ['Discovery_year','Discovery_month','Discovery_day'];
 
 function initializeTable() {
   // Create table header
@@ -805,35 +818,25 @@ function initializeTable() {
       headerRow.appendChild(th);
   });
   table_head.appendChild(headerRow);
-  
-  makeSortable(); // Make the table sortable
-  
-}
-
-
-//table_show_fields = ['Temp_Desig','Discovery_date','Not_Seen_dys','Score','NObs','V','R.A.','Decl.','Az','El','Max_El', 'Max_El_Local_time','Time_Until_Max_El'];
-const table_show_fields = ['Temp_Desig','Score','NObs','Not_Seen_dys','V','R.A.','Decl.','Az','El','Max_El', 'Max_El_Local_time','Time_Until_Max_El','Discovery_date'];
-table_column_labels = {
-  'Temp_Desig': 'Temporaty Designation',
-  'Discovery_date': 'Discoery Date (UTC)',
-  'Updated': 'Updated',
-  'Not_Seen_dys': 'Days since last seen',
-  'Score': 'Score',
-  'NObs': 'Number of Observations',
-  'V': 'Visual Magnitude',
-  'R.A.': 'Right Ascension (hrs)',
-  'Decl.': 'Declination (deg)',
-  'Az': 'Azimuth (deg)',
-  'El': 'Elevation (deg)',
-  'Max_El': 'Max Elevation (deg)',
-  'Max_El_Local_time': 'Max Elevation Local Time',
-  'Time_Until_Max_El': 'Time until Max Elevation'
+  makeSortable(); // Make the table sortable 
 }
 
 
 
-var isAscending = true;
-var sortKey = 'Time_Until_Max_El';
+data_table.addEventListener('click', function(event) {
+  if (event.target.tagName === 'TD') {
+    const clickedCell = event.target;
+    const cellValue = clickedCell.textContent; // Get the text content of the cell
+    const clickedRow = clickedCell.parentNode;
+    const rowIndex = clickedCell.parentNode.rowIndex; // Get the row index
+    const cellIndex = clickedCell.cellIndex; // Get the cell index within the row
+    console.log(`Cell clicked: Value - ${cellValue}, Row - ${rowIndex}, Cell Index - ${cellIndex}`);
+    clickedRow.style.color = "orange";
+    setSelectedObject(clickedRow.cells[0].innerHTML);
+  }
+});
+
+
 
 function makeSortable() {
     const headers = data_table.querySelectorAll('th');
@@ -845,6 +848,7 @@ function makeSortable() {
         });
     });
 }
+
 
 function sortTable(){
   // Sort the data array
@@ -893,6 +897,7 @@ function applyFilters(){
   renderTable();
   populateCharts();
 }
+
 
 function renderTable(){
   const min_elevation = document.getElementById('min_elevation_input').value*1;            
@@ -1100,6 +1105,7 @@ function getZenithRAandDec(date, latitudeDeg, longitudeDeg) {
     };
 }
 
+
 function getLocalSiderealTime() {
     date = new Date(); // current UTC time
 
@@ -1128,10 +1134,6 @@ function getLocalSiderealTime() {
 }
 
 
-const zenith = getZenithRAandDec(date, lat, lon);
-local_siderial_time = zenith.rightAscension;
-
-
 
 function computeEphemeris(neo){
   const ephemeris = [];
@@ -1142,9 +1144,11 @@ function computeEphemeris(neo){
   return ephemeris;
 }
 
+
 function formatElevationTimeSeries(neo){
   const data_series = {
     label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
+    neo_id: neo.Temp_Desig,
     pointRadius: 0,
     borderColor: line_color,
     borderWidth: (neo.Score==100 ? 3 : 1 ), // px    
@@ -1157,9 +1161,11 @@ function formatElevationTimeSeries(neo){
   return data_series;
 }
 
+
 function formatElevationCurrent(neo){
   const data_series = {  
     label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
+    neo_id: neo.Temp_Desig,
     pointRadius: 3,
     borderColor: 'yellow',
     pointHitRadius: 5,
@@ -1183,6 +1189,7 @@ function formatLocalCoordsDataset(neo){
 
   const data_series = {
     label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
+    neo_id: neo.Temp_Desig,
     pointRadius: 0,
     borderColor: line_color,
     borderWidth: (neo.Score==100 ? 3 : 1 ), // px    
@@ -1215,6 +1222,7 @@ function formatLocalCoordsDataset(neo){
   return data_series;
 }
 
+
 function formatLocalCoordsCurrent(neo){
   const min_elevation = document.getElementById('min_elevation_input').value*1;            
   const max_elevation = document.getElementById('max_elevation_input').value*1;
@@ -1223,6 +1231,7 @@ function formatLocalCoordsCurrent(neo){
   const data_series = {  
     data: [],
     label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
+    neo_id: neo.Temp_Desig,
     pointRadius: 3,
     borderColor: 'orange',
     pointHitRadius: 5,
@@ -1264,6 +1273,7 @@ function initializeCharts(){
   elevation_chart = new Chart(ctx_elevation_chart, elevation_plot_config);
   local_coords_chart = new Chart(ctx_local_coords_chart, local_coords_chart_config);
 }
+
 
 function firstRun(){
   initializeCharts();
@@ -1335,9 +1345,9 @@ function firstRun(){
     
   });
 }
+
+
 firstRun();
-
-
 
 
 
@@ -1346,14 +1356,12 @@ function populateCharts(){
   local_coords_datasets = [];
   elevation_time_serieses = [];
   
-  
   neo_data.forEach(neo => {
     elevation_time_serieses.push( formatElevationTimeSeries(neo) );
     elevation_time_serieses.push( formatElevationCurrent(neo) );
     local_coords_datasets.push( formatLocalCoordsDataset(neo) );
     local_coords_datasets.push( formatLocalCoordsCurrent(neo) );
   });
-
 
   clearChart(elevation_chart);
   elevation_plot_config.data.datasets = elevation_time_serieses;
@@ -1362,7 +1370,6 @@ function populateCharts(){
   clearChart(local_coords_chart);
   local_coords_chart_config.data.datasets = local_coords_datasets;
   local_coords_chart.update();
-  
 }
 
 
