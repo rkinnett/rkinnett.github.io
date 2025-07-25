@@ -63,7 +63,7 @@
       text-align: right;
     }    
     
-    #apply_filter_button {
+    button {
       color-scheme: dark;
       background-color: #222;
       padding-left: 20px;
@@ -75,11 +75,15 @@
       width: 100%;
     }
     
+    table {
+      padding-bottom: 10px;
+    }
     #data_table {
       width: 100%;
       border-collapse: collapse;
+      margin-top: 10px;
     }
-    #data_tableth, #data_table td {
+    #data_table th, #data_table td {
       border: 1px solid #333;
       padding: 4px;
       text-align: center;
@@ -106,16 +110,26 @@
     #start_time_input, #end_time_input {
       display: none;
     }
-    
-    #selected_object_callout_container {
+    #filters_container {
+      float: left;
+    }
+    #selected_object_container {
       float: right;
+      width: 250px;
+    }
+    #filters_and_selected_object_section {
+      display: inline-block;
+      width: 100%;
+      padding-bottom: 10px;
+    }
+    #selected_object_info_table td:nth-child(2) {
+      text-align: center;      
+      width: 12ch;
       color: #811;
     }
-    #selected_object_id_container {
-      float: right;
-      color: #811;
-      width: 10ch;
-      text-align: center;
+    #nina_api_address_input {
+      text-align: left;
+      color: #188;
     }
       
   </style>
@@ -129,7 +143,9 @@
 <div style="width:20ch; float:left;">Local time:</div>  <div id="local_time_text_area" style="float:left">#</div> <br/>
 <div style="width:20ch; float:left;">UTC time:</div>  <div id="utc_time_text_area" style="float:left">#</div> <br/>
 <div style="width:20ch; float:left;">Local Sidereal Time:</div>&nbsp;&nbsp;<div id="lst_text_area" style="float:left"> </div> <br/>
-
+<br/>
+<label for="">NINA Advanced API address:</label>
+<input type="text" id="nina_api_address_input" placeholder="http://localhost:1888" value="http://localhost:1888" />
 
 
 <!--
@@ -145,89 +161,137 @@
 
 <h3>Local Coordinates</h3>
 <canvas id="local_coords_chart_canvas"></canvas>
-<div id="selected_object_callout_container">
-  Selected object:&nbsp;&nbsp;
-  <div id="selected_object_id_container">(none)</div>
+
+
+<div id="filters_and_selected_object_section">
+  <div id="filters_container">
+    <h3>Filters</h3>
+
+    <table id="filters_table">
+      <tr>
+        <td>Azimuth limits (deg)</td>
+        <td>min:</td>
+        <td>
+          <input type="number" id="min_azimuth_input" min="0" max="360" value="0">
+        </td>
+        <td>max:</td>
+        <td>
+          <input type="number" id="max_azimuth_input" min="0" max="360" value="360">
+        </td>
+      </tr>
+      <tr>
+        <td>Elevation limits (deg)</td>
+        <td>min:</td>
+        <td>
+          <input type="number" id="min_elevation_input" min="-90" max="90" value="12">
+        </td>
+        <td>max:</td>
+        <td>
+          <input type="number" id="max_elevation_input" min="-90" max="90" value="65">
+        </td>
+      </tr>
+      <tr>
+        <td>... within time range</td>
+        <td>start:</td>
+        <td>
+          <select id="start_time_selection" onchange='startTimeSelectorChanged()'>
+            <option value="now">Now</option>
+            <option value="noon">Noon</option>
+            <option value="sunset" selected="selected">Sunset</option>
+            <option value="astronomical_sunset">Astronomical Sunset</option>
+            <option value="midnight">Midnight</option>
+            <option value="specific">Specific</option>
+          </select>   
+          <br/>
+          <input type="time" id="start_time_input" value="12:00:00" >
+        </td>
+        <td>end:</td>
+        <td>
+          <select id="end_time_selection" onchange='endTimeSelectorChanged()'>
+            <option value="now">Now</option>
+            <option value="now_plus_1hr">Now +1hr</option>
+            <option value="midnight">Midnight</option>
+            <option value="sunrise" selected="selected">Sunrise</option>
+            <option value="astronomical_sunrise">Astronomical Sunrise</option>
+            <option value="noon">Noon</option>
+            <option value="specific">Specific</option>
+          </select>
+          <br/>
+          <input type="time" id="end_time_input" value="12:00:00" >
+        </td>
+      </tr>
+      <tr>
+        <td>Visual Magnitude</td>
+        <td>min:</td>
+        <td>
+          <input type="number" id="min_visual_magnitude_input" min="0" max="30" value="0">
+        </td>
+        <td>max:</td>
+        <td>
+          <input type="number" id="max_visual_magnitude_input" min="0" max="30" value="25">
+        </td>
+      </tr>
+      <tr>
+        <td>Score</td>
+        <td>min:</td>
+        <td>
+          <input type="number" id="min_neo_score_input" min="0" max="100" value="0">
+        </td>
+        <td>max:</td>
+        <td>
+          <input type="number" id="max_neo_score_input" min="0" max="100" value="100">
+        </td>
+      </tr>
+      <tr>
+        <td/>
+        <td/>
+        <td/>
+        <td/>
+        <td>
+          <button id="apply_filter_button" onClick="applyFilters()">apply >></button>
+        </td>
+    </table>
+  </div>
+
+  <div id="selected_object_container">
+
+    <h3>Selected Object</h3>
+    <table id="selected_object_info_table">
+      <tbody>
+        <tr>
+          <td>
+            ID:
+          </td>
+          <td>
+            <div id="selected_object_id_container">(none)</div>
+          </td>
+        </tr>
+        <tr>
+          <td>R.A. (hrs):</td>
+          <td id="object_info_RA_cell">N/A</td>
+        </tr>
+        <tr>
+          <td>Dec. (deg):</td>
+          <td id="object_info_dec_cell">N/A</td>
+        </tr>
+        <tr>
+          <td>Az. (deg):</td>
+          <td id="object_info_az_cell">N/A</td>
+        </tr>
+        <tr>
+          <td>El. (deg):</td>
+          <td id="object_info_el_cell">N/A</td>
+        </tr>
+      </tbody>
+    </table>
+    <button id="clear_selection_button" onClick='setSelectedObject()'>Clear selection</button>
+    <button id="send_target_button" onClick='setNINATargetToSelectedObject()'>Send target to telescope</button>
+    <button id="slew_telescope_button" onClick='slewTelescopeToSelectedObject()'>Slew telescope to object</button>
+    
+
+  </div>
 </div>
 
-
-<h3>Filters</h3>
-
-<table id="filters_table">
-  <tr>
-    <td>Azimuth limits (deg)</td>
-    <td>min:</td>
-    <td>
-      <input type="number" id="min_azimuth_input" min="0" max="360" value="0">
-    </td>
-    <td>max:</td>
-    <td>
-      <input type="number" id="max_azimuth_input" min="0" max="360" value="360">
-    </td>
-  </tr>
-  <tr>
-    <td>Elevation limits (deg)</td>
-    <td>min:</td>
-    <td>
-      <input type="number" id="min_elevation_input" min="-90" max="90" value="12">
-    </td>
-    <td>max:</td>
-    <td>
-      <input type="number" id="max_elevation_input" min="-90" max="90" value="65">
-    </td>
-  </tr>
-  <tr>
-    <td>... within time range</td>
-    <td>start:</td>
-    <td>
-      <select id="start_time_selection" onchange='startTimeSelectorChanged()'>
-        <option value="now">Now</option>
-        <option value="noon">Noon</option>
-        <option value="sunset" selected="selected">Sunset</option>
-        <option value="astronomical_sunset">Astronomical Sunset</option>
-        <option value="midnight">Midnight</option>
-        <option value="specific">Specific</option>
-      </select>   
-      <br/>
-      <input type="time" id="start_time_input" value="12:00:00" >
-    </td>
-    <td>end:</td>
-    <td>
-      <select id="end_time_selection" onchange='endTimeSelectorChanged()'>
-        <option value="now">Now</option>
-        <option value="now_plus_1hr">Now +1hr</option>
-        <option value="midnight">Midnight</option>
-        <option value="sunrise" selected="selected">Sunrise</option>
-        <option value="astronomical_sunrise">Astronomical Sunrise</option>
-        <option value="noon">Noon</option>
-        <option value="specific">Specific</option>
-      </select>
-      <br/>
-      <input type="time" id="end_time_input" value="12:00:00" >
-    </td>
-  </tr>
-  <tr>
-    <td>Visual Magnitude</td>
-    <td>min:</td>
-    <td>
-      <input type="number" id="min_visual_magnitude_input" min="0" max="30" value="0">
-    </td>
-    <td>max:</td>
-    <td>
-      <input type="number" id="max_visual_magnitude_input" min="0" max="30" value="25">
-    </td>
-  </tr>
-  <tr>
-    <td/>
-    <td/>
-    <td/>
-    <td/>
-    <td>
-      <button id="apply_filter_button" onClick="applyFilters()">apply >></button>
-    </td>
-</table>
-
-<br/>
 <br/>
 
 <table id="data_table">
@@ -235,7 +299,6 @@
 <tbody id="table_body">
 </table>
 
-<br/>
 
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 
@@ -250,7 +313,14 @@ const utc_time_text_area = document.getElementById('utc_time_text_area');
 const ctx_elevation_chart = document.getElementById('elevation_chart_canvas').getContext('2d');
 const ctx_local_coords_chart = document.getElementById('local_coords_chart_canvas').getContext('2d');
 
-const selected_object_id_span = document.getElementById('selected_object_id_container');
+const nina_api_address_input = document.getElementById('nina_api_address_input');
+
+const selected_object_id_div = document.getElementById('selected_object_id_container');
+const object_info_RA_cell = document.getElementById('object_info_RA_cell');
+const object_info_dec_cell = document.getElementById('object_info_dec_cell');
+const object_info_az_cell = document.getElementById('object_info_az_cell');
+const object_info_el_cell = document.getElementById('object_info_el_cell');
+
 const callout_color_deselected = '#811';
 const callout_color_selected = 'red'; 
 
@@ -273,7 +343,7 @@ var csvContent = '';
 const numeric_fields = ['Score','Discovery_year','Discovery_month','Discovery_day','R.A.','Decl.','V', 'NObs','Arc','H','Not_Seen_dys','Az','El'];
 const hide_fields = ['Discovery_year','Discovery_month','Discovery_day'];
 
-const table_show_fields = ['Temp_Desig','Score','NObs','Not_Seen_dys','V','R.A.','Decl.','Az','El','Max_El', 'Max_El_Local_time','Time_Until_Max_El','Discovery_date'];
+const table_show_fields = ['Temp_Desig','Score','NObs','Not_Seen_dys','V','R.A.','Decl.','az_short','el_short','Max_El', 'Max_El_Local_time','Time_Until_Max_El','Discovery_date'];
 const table_column_labels = {
   'Temp_Desig': 'Temporaty Designation',
   'Discovery_date': 'Discoery Date (UTC)',
@@ -284,8 +354,8 @@ const table_column_labels = {
   'V': 'Visual Magnitude',
   'R.A.': 'Right Ascension (hrs)',
   'Decl.': 'Declination (deg)',
-  'Az': 'Azimuth (deg)',
-  'El': 'Elevation (deg)',
+  'az_short': 'Azimuth (deg)',
+  'el_short': 'Elevation (deg)',
   'Max_El': 'Max Elevation (deg)',
   'Max_El_Local_time': 'Max Elevation Local Time',
   'Time_Until_Max_El': 'Time until Max Elevation'
@@ -302,6 +372,8 @@ const apiUrl = 'https://www.minorplanetcenter.net/Extended_Files/neocp.json';
 
 const lat = 34.3018;     // Stony Ridge Observatory latitude
 const lon = -118.00;   // Stony Ridge Observatory longitude
+
+const min_el_slew_limit = 10;
 
 const load_time_date = new Date(); // current UTC time
 const load_time_hours = load_time_date.getHours();
@@ -686,23 +758,146 @@ function highlightDataset(chart, neo_id){
 }
 
 
-function setSelectedObject(object){
-  console.log('selected object: ' + object);
-  selected_object = object;  
-  if ( object == null ){
-    selected_object_id_span.innerHTML = '(none)';
-    selected_object_id_span.style.color = callout_color_deselected;  
-  } else {
-    selected_object_id_span.innerHTML = selected_object;
-    selected_object_id_span.style.color = "orange";
+function getNeoDataObject( neo_name ){
+  var neo_info = null;
+  for( neo_index = 0; neo_index < neo_data.length; neo_index++ ){
+    neo = neo_data[neo_index];
+    if( neo.Temp_Desig == neo_name ){
+      return neo;
+    }
   }
+}
+
+
+function setSelectedObject(object_name){
+  console.log('selected object: ' + object_name);
+  selected_object = object_name;
+  const selected_object_info = getNeoDataObject( object_name );
+  console.log('selected object info: ');
+  console.log(selected_object_info);
+  // Update selected object text:
+  if ( object_name == null ){
+    selected_object_id_div.innerHTML = '(none)';
+    selected_object_id_div.style.color = callout_color_deselected;
+    object_info_RA_cell.innerHTML = 'N/A';
+    object_info_dec_cell.innerHTML = 'N/A';
+    object_info_az_cell.innerHTML = 'N/A';
+    object_info_el_cell.innerHTML = 'N/A';
+  } else {
+    selected_object_id_div.innerHTML = object_name;
+    selected_object_id_div.style.color = "orange";
+    object_info_RA_cell.innerHTML = selected_object_info["R.A."];
+    object_info_dec_cell.innerHTML = selected_object_info["Decl."];
+    object_info_az_cell.innerHTML = selected_object_info["Az"].toFixed(1);
+    object_info_el_cell.innerHTML = selected_object_info["El"].toFixed(1);
+  }
+  // Highlight selected object in table:
   for( row_index=1; row_index < data_table.rows.length; row_index++ ){
     row =  data_table.rows[row_index];
     this_row_neo = row.cells[0].innerHTML;
     row.style.color = ( this_row_neo == selected_object ) ? "orange" : "";
   }
-  highlightDataset(elevation_chart, object);
-  highlightDataset(local_coords_chart, object);
+  // Highlight selected ephemeris in elevation and local coordinates charts:
+  highlightDataset(elevation_chart, object_name);
+  highlightDataset(local_coords_chart, object_name);
+}
+
+
+function setNINATargetToSelectedObject(callback){
+  var success = false;
+  if( selected_object == null ){
+    alert('no target selected');
+    return false;
+  }
+  const selected_object_info = getNeoDataObject( selected_object );
+  const RA = selected_object_info["R.A."];
+  const dec = selected_object_info["Decl."];
+  const az = selected_object_info.Az;
+  const el = selected_object_info.El;
+  console.log(selected_object_info);
+  if( el >= min_el_slew_limit && typeof RA === 'number' && typeof dec === 'number'){
+    console.log('sending target coordinates to NINA:  RA ' + RA + ' hrs, dec ' + dec + ' deg');
+    const RA_deg = RA*360/24;
+    if(typeof callback === "function"){
+      sendTargetCoords( RA_deg, dec, ()=>{callback(RA,dec)} );
+    } else {
+      sendTargetCoords( RA_deg, dec );
+    }
+  }
+  return success;
+}
+
+function slewTelescopeToSelectedObject(){
+  const api_base_addr = nina_api_address_input.value;
+  if( selected_object == null ){
+    alert('no target selected');
+    return false;
+  }
+  const selected_object_info = getNeoDataObject( selected_object );  
+  const RA = selected_object_info["R.A."];
+  const dec = selected_object_info["Decl."];
+  const az = selected_object_info.Az;
+  const el = selected_object_info.El;
+  setNINATargetToSelectedObject( ()=>{slewTelescopeToCoords(RA, dec)} );
+}
+
+function slewTelescopeToCoords(RA, dec, callback){
+  const api_base_addr = nina_api_address_input.value;
+  console.log('slewTelescopeToCoords ',RA,dec);
+  local_coords = raDecToAzEl(RA, dec, new Date(), lat, lon);
+  console.log('slewTelescopeToCoords local coords: ',local_coords);
+  const proceed_to_slew = confirm('Slew telescope to the following coordinates?\nR.A. ' + RA.toFixed(3) + ' hrs, dec ' + dec.toFixed(3) + ' deg\nAz ' + local_coords.azimuth.toFixed(0) + ' deg, el ' + local_coords.elevation.toFixed(0) + ' deg)?');
+  if( proceed_to_slew ){
+    setTimeout(() => {
+      sendGetRequest( api_base_addr + '/v2/api/framing/slew?slew_option=Slew', ()=>{
+        console.log('slewTelescopeToCoords .. I think the get request succeeded?');
+      });
+    }, 1000);
+  }
+}
+
+
+function sendTargetCoords(RA_deg, dec, callback){
+  const api_base_addr = nina_api_address_input.value;
+  const delay_before_callback = 3000; // milliseconds
+  if(typeof callback === "function"){
+    sendGetRequest( api_base_addr + '/v2/api/framing/set-coordinates?RAangle=' + RA_deg.toFixed(4) + '&DecAngle=' + dec , ()=>{
+      callback(RA_deg, dec);
+    });
+  } else {
+    sendGetRequest( api_base_addr + '/v2/api/framing/set-coordinates?RAangle=' + RA_deg.toFixed(4) + '&DecAngle=' + dec );
+  }
+}
+
+
+function sendGetRequest(address, callback){
+  console.log('Sending GET request to ' + address);
+  var succeeded = false;
+  fetch(address)
+    .then(response => {
+      // Check if the request was successful (status code 2xx)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      // Parse the response body as JSON
+      console.log('completed request; response: ');
+      console.log(response);      
+      return response.json();
+    })
+    .then(data => {
+      // Process the retrieved data
+      console.log('completed request; data: ');
+      console.log(data);
+      succeeded = data.Success;
+      if( typeof callback === 'function' ){
+        callback();
+      }
+    })
+    .catch(error => {
+      // Handle any errors that occurred during the fetch operation
+      console.error('Error fetching data:', error);
+    });
+  return succeeded;
 }
 
 
@@ -904,8 +1099,6 @@ function renderTable(){
   const max_elevation = document.getElementById('max_elevation_input').value*1;
   const min_azimuth = document.getElementById('min_azimuth_input').value*1;            
   const max_azimuth = document.getElementById('max_azimuth_input').value*1;
-  const min_magnitude = document.getElementById('min_visual_magnitude_input').value*1;            
-  const max_magnitude = document.getElementById('max_visual_magnitude_input').value*1;  
   const filter_start_time = getFilterTime("start");
   const filter_end_time = getFilterTime("end");
     
@@ -916,8 +1109,8 @@ function renderTable(){
   
     // Update current coordinates:
     local_coords = raDecToAzEl(neo["R.A."], neo["Decl."], date, lat, lon);
-    neo.Az = local_coords.azimuth.toFixed(0);
-    neo.El = local_coords.elevation.toFixed(0);
+    neo.Az = local_coords.azimuth;
+    neo.El = local_coords.elevation;
   
     decimal_hours_to_max_el = ((neo['R.A.'] - LST_hours) + 24) % 24;
     decimal_hours_to_max_el = decimal_hours_to_max_el<12? decimal_hours_to_max_el : decimal_hours_to_max_el-24;
@@ -926,16 +1119,15 @@ function renderTable(){
     time_to_max_el_whole_minutes =  Math.floor( (Math.abs( decimal_hours_to_max_el ) % 1) *60 );
     neo.Time_Until_Max_El = String(time_to_max_el_whole_hours).padStart(2,"0") + " h " + String(time_to_max_el_whole_minutes).padStart(2,"0") + " m   (" + (time_to_max_el_sign>0?"+":"-") + ")";
   
+    neo.az_short = neo.Az.toFixed(0);
+    neo.el_short = neo.El.toFixed(0);
+  
     var include_this_neo = false;
 
     // handle "Now" & "Now" case:
     if ( (filter_end_time-filter_start_time)==0 && (filter_start_time-now)==0 ){
-      if ( neo.Az >= min_azimuth && neo.Az <= max_azimuth ){      
-        if ( neo.El >= min_elevation && neo.El <= max_elevation ){
-          if (neo.V >= min_magnitude && neo.V <= max_magnitude) {
-            include_this_neo = true;
-          }
-        }
+      if( passesFilters(neo) ){
+        include_this_neo = true;
       }
     } else {    
       // Otherwise if a range is specified then 
@@ -946,7 +1138,7 @@ function renderTable(){
         if (ephemeris_point.t >= filter_start_time && ephemeris_point.t <= filter_end_time ){
           if ( ephemeris_point.az >= min_azimuth && ephemeris_point.az <= max_azimuth ){
             if ( ephemeris_point.el >= min_elevation && ephemeris_point.el <= max_elevation ){
-              if (neo.V >= min_magnitude && neo.V <= max_magnitude) {
+              if ( passesFilters(neo) ){
                 include_this_neo = true;
                 break;
               }
@@ -960,7 +1152,6 @@ function renderTable(){
     if( include_this_neo ){
       const row = document.createElement('tr');
       if( neo.Temp_Desig == selected_object ){
-        console.log('found selected object');
         row.style.color = "orange";
       }
       
@@ -1155,7 +1346,7 @@ function formatElevationTimeSeries(neo){
     pointHitRadius: 5,
     data: [],
   };
-  neo.ephemeris.forEach(ephemeris_point => {
+  neo.ephemeris.forEach(ephemeris_point => {  
     data_series.data.push({x: ephemeris_point.t, y: ephemeris_point.el});
   });
   return data_series;
@@ -1182,8 +1373,6 @@ function formatLocalCoordsDataset(neo){
   const max_elevation = document.getElementById('max_elevation_input').value*1;
   const min_azimuth = document.getElementById('min_azimuth_input').value*1;            
   const max_azimuth = document.getElementById('max_azimuth_input').value*1;
-  const min_magnitude = document.getElementById('min_visual_magnitude_input').value*1;            
-  const max_magnitude = document.getElementById('max_visual_magnitude_input').value*1;  
   const filter_start_time = getFilterTime("start");
   const filter_end_time = getFilterTime("end");
 
@@ -1207,13 +1396,12 @@ function formatLocalCoordsDataset(neo){
       // If we were to instead add a null data point in betwee, then time array lookup 
       // wouldn't work for tooltips.
       data_point.x = null;
-    } else if( ephemeris_point.az < min_azimuth || ephemeris_point.az > max_azimuth ){
-      data_point.x = null;
-    } else if( ephemeris_point.el < min_elevation || ephemeris_point.el > max_elevation ){
-      data_point.x = null;
-    } else if( ephemeris_time < filter_start_time || ephemeris_time > filter_end_time ){
-      data_point.x = null;
-    } else if( neo.V < min_magnitude || neo.V > max_magnitude ){
+    } else if( 
+      ephemeris_time < filter_start_time || ephemeris_time > filter_end_time
+      || ephemeris_point.az < min_azimuth || ephemeris_point.az > max_azimuth
+      || ephemeris_point.el < min_elevation || ephemeris_point.el > max_elevation
+      || !passesFilters(neo)
+    ){
       data_point.x = null;
     }
     data_series.data.push(data_point);
@@ -1223,11 +1411,24 @@ function formatLocalCoordsDataset(neo){
 }
 
 
-function formatLocalCoordsCurrent(neo){
+function passesFilters(neo){
   const min_elevation = document.getElementById('min_elevation_input').value*1;            
   const max_elevation = document.getElementById('max_elevation_input').value*1;
   const min_azimuth = document.getElementById('min_azimuth_input').value*1;            
   const max_azimuth = document.getElementById('max_azimuth_input').value*1;
+  const min_magnitude = document.getElementById('min_visual_magnitude_input').value*1;            
+  const max_magnitude = document.getElementById('max_visual_magnitude_input').value*1;
+  const min_score = document.getElementById('min_neo_score_input').value*1;            
+  const max_score = document.getElementById('max_neo_score_input').value*1;
+  return true &&
+    neo.El >= min_elevation && neo.El <= max_elevation &&
+    neo.Az >= min_azimuth && neo.Az <= max_azimuth &&
+    neo.V >= min_magnitude && neo.V  <= max_magnitude &&
+    neo.Score >= min_score && neo.Score <= max_score;
+}
+
+
+function formatLocalCoordsCurrent(neo){
   const data_series = {  
     data: [],
     label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
@@ -1247,7 +1448,7 @@ function formatLocalCoordsCurrent(neo){
       }
     }        
   };
-  if( neo.Az >= min_azimuth && neo.Az <= max_azimuth && neo.El >= min_elevation && neo.El <= max_elevation ){
+  if( passesFilters(neo) ){
     data_series.data.push({x: neo.Az, y: neo.El});
   } else {
     data_series.data.push({x: null, y: null});
@@ -1292,8 +1493,8 @@ function firstRun(){
     
     neo_data.forEach(neo => {
       local_coords = raDecToAzEl(neo["R.A."], neo["Decl."], date, lat, lon);
-      neo.Az = local_coords.azimuth.toFixed(0);
-      neo.El = local_coords.elevation.toFixed(0);
+      neo.Az = local_coords.azimuth;
+      neo.El = local_coords.elevation;
 
       neo.Max_El = (90 - Math.abs(lat - neo['Decl.'])).toFixed(1);
             
