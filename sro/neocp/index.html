@@ -3,10 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>NEO Confirmation Priorities</title>
-
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
   
   <style>
     :root {
@@ -133,6 +129,11 @@
     }
       
   </style>
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+  
 </head>
     
 <body>
@@ -248,7 +249,7 @@
         <td/>
         <td/>
         <td>
-          <button id="apply_filter_button" onClick="applyFilters()">apply >></button>
+          <button id="apply_filter_button" onClick="applyFiltersAndUpdate()">apply >></button>
         </td>
     </table>
   </div>
@@ -285,8 +286,9 @@
       </tbody>
     </table>
     <button id="clear_selection_button" onClick='setSelectedObject()'>Clear selection</button>
-    <button id="send_target_button" onClick='setNINATargetToSelectedObject()'>Send target to telescope</button>
-    <button id="slew_telescope_button" onClick='slewTelescopeToSelectedObject()'>Slew telescope to object</button>
+    <button id="send_target_button" onClick='setNINATargetToSelectedObject()'>Send to Framing Assistant</button>    
+    <button id="slew_telescope_button" onClick='slewTelescopeToSelectedObject("blind")'>Blind slew</button>
+    <button id="slew_telescope_button" onClick='slewTelescopeToSelectedObject("center")'>Centering slew</button>
     
 
   </div>
@@ -365,6 +367,17 @@ const table_column_labels = {
 
 var isAscending = true;
 var sortKey = 'Time_Until_Max_El';
+
+var filter_min_elevation;
+var filter_max_elevation;
+var filter_min_azimuth;
+var filter_max_azimuth;
+var filter_min_magnitude;
+var filter_max_magnitude;
+var filter_min_score;
+var filter_max_score;
+var filter_start_time;
+var filter_end_time;
 
 
 
@@ -762,7 +775,7 @@ function getNeoDataObject( neo_name ){
   var neo_info = null;
   for( neo_index = 0; neo_index < neo_data.length; neo_index++ ){
     neo = neo_data[neo_index];
-    if( neo.Temp_Desig == neo_name ){
+    if( neo.id == neo_name ){
       return neo;
     }
   }
@@ -788,8 +801,8 @@ function setSelectedObject(object_name){
     selected_object_id_div.style.color = "orange";
     object_info_RA_cell.innerHTML = selected_object_info["R.A."];
     object_info_dec_cell.innerHTML = selected_object_info["Decl."];
-    object_info_az_cell.innerHTML = selected_object_info["Az"].toFixed(1);
-    object_info_el_cell.innerHTML = selected_object_info["El"].toFixed(1);
+    object_info_az_cell.innerHTML = selected_object_info.az.toFixed(1);
+    object_info_el_cell.innerHTML = selected_object_info.el.toFixed(1);
   }
   // Highlight selected object in table:
   for( row_index=1; row_index < data_table.rows.length; row_index++ ){
@@ -812,8 +825,8 @@ function setNINATargetToSelectedObject(callback){
   const selected_object_info = getNeoDataObject( selected_object );
   const RA = selected_object_info["R.A."];
   const dec = selected_object_info["Decl."];
-  const az = selected_object_info.Az;
-  const el = selected_object_info.El;
+  const az = selected_object_info.az;
+  const el = selected_object_info.el;
   console.log(selected_object_info);
   if( el >= min_el_slew_limit && typeof RA === 'number' && typeof dec === 'number'){
     console.log('sending target coordinates to NINA:  RA ' + RA + ' hrs, dec ' + dec + ' deg');
@@ -827,8 +840,10 @@ function setNINATargetToSelectedObject(callback){
   return success;
 }
 
-function slewTelescopeToSelectedObject(){
-  const api_base_addr = nina_api_address_input.value;
+
+
+
+function slewTelescopeToSelectedObject(blind_or_center){
   if( selected_object == null ){
     alert('no target selected');
     return false;
@@ -836,20 +851,23 @@ function slewTelescopeToSelectedObject(){
   const selected_object_info = getNeoDataObject( selected_object );  
   const RA = selected_object_info["R.A."];
   const dec = selected_object_info["Decl."];
-  const az = selected_object_info.Az;
-  const el = selected_object_info.El;
-  setNINATargetToSelectedObject( ()=>{slewTelescopeToCoords(RA, dec)} );
+  const az = selected_object_info.az;
+  const el = selected_object_info.el;
+  setNINATargetToSelectedObject( ()=>{slewTelescopeToCoords(RA, dec, blind_or_center)} );
 }
 
-function slewTelescopeToCoords(RA, dec, callback){
+
+
+function slewTelescopeToCoords(RA, dec, blind_or_center){
   const api_base_addr = nina_api_address_input.value;
   console.log('slewTelescopeToCoords ',RA,dec);
   local_coords = raDecToAzEl(RA, dec, new Date(), lat, lon);
   console.log('slewTelescopeToCoords local coords: ',local_coords);
-  const proceed_to_slew = confirm('Slew telescope to the following coordinates?\nR.A. ' + RA.toFixed(3) + ' hrs, dec ' + dec.toFixed(3) + ' deg\nAz ' + local_coords.azimuth.toFixed(0) + ' deg, el ' + local_coords.elevation.toFixed(0) + ' deg)?');
+  const proceed_to_slew = confirm('Slew telescope to the following coordinates?\nR.A. ' + RA.toFixed(1) + ' hrs, dec ' + dec.toFixed(1) + ' deg\nAz ' + local_coords.az.toFixed(0) + ' deg, el ' + local_coords.el.toFixed(0) + ' deg?');
+  const api_full_addr = api_base_addr + '/v2/api/framing/slew?slew_option=' + (blind_or_center=="center"? "Center" : "Blind");
   if( proceed_to_slew ){
     setTimeout(() => {
-      sendGetRequest( api_base_addr + '/v2/api/framing/slew?slew_option=Slew', ()=>{
+      sendGetRequest(api_full_addr, ()=>{
         console.log('slewTelescopeToCoords .. I think the get request succeeded?');
       });
     }, 1000);
@@ -919,6 +937,7 @@ function updateSiderealTime(){
   lst_text_area.innerHTML = LST_whole_hours + " hr " + LST_whole_minutes + " m " + LST_whole_seconds + " s";
 }
 
+
 function updatePacificTime() {
   const options = {
     timeZone: 'America/Los_Angeles',
@@ -931,6 +950,7 @@ function updatePacificTime() {
   const pacificTime = new Intl.DateTimeFormat('en-US', options).format(new Date());
   local_time_text_area.textContent = pacificTime;
 }
+
 
 function updateUTCTime() {
   const utcFormatter = new Intl.DateTimeFormat('en-US', {
@@ -1088,29 +1108,16 @@ function getFilterTime(start_or_end){
 }
 
 
-function applyFilters(){
-  renderTable();
-  populateCharts();
-}
 
 
 function renderTable(){
-  const min_elevation = document.getElementById('min_elevation_input').value*1;            
-  const max_elevation = document.getElementById('max_elevation_input').value*1;
-  const min_azimuth = document.getElementById('min_azimuth_input').value*1;            
-  const max_azimuth = document.getElementById('max_azimuth_input').value*1;
-  const filter_start_time = getFilterTime("start");
-  const filter_end_time = getFilterTime("end");
-    
-  now = new Date(); // current UTC time
-
   table_body.innerHTML = ''; // Clear existing rows
   neo_data.forEach(neo => {
   
     // Update current coordinates:
     local_coords = raDecToAzEl(neo["R.A."], neo["Decl."], date, lat, lon);
-    neo.Az = local_coords.azimuth;
-    neo.El = local_coords.elevation;
+    neo.az = local_coords.az;
+    neo.el = local_coords.el;
   
     decimal_hours_to_max_el = ((neo['R.A.'] - LST_hours) + 24) % 24;
     decimal_hours_to_max_el = decimal_hours_to_max_el<12? decimal_hours_to_max_el : decimal_hours_to_max_el-24;
@@ -1119,39 +1126,12 @@ function renderTable(){
     time_to_max_el_whole_minutes =  Math.floor( (Math.abs( decimal_hours_to_max_el ) % 1) *60 );
     neo.Time_Until_Max_El = String(time_to_max_el_whole_hours).padStart(2,"0") + " h " + String(time_to_max_el_whole_minutes).padStart(2,"0") + " m   (" + (time_to_max_el_sign>0?"+":"-") + ")";
   
-    neo.az_short = neo.Az.toFixed(0);
-    neo.el_short = neo.El.toFixed(0);
-  
-    var include_this_neo = false;
-
-    // handle "Now" & "Now" case:
-    if ( (filter_end_time-filter_start_time)==0 && (filter_start_time-now)==0 ){
-      if( passesFilters(neo) ){
-        include_this_neo = true;
-      }
-    } else {    
-      // Otherwise if a range is specified then 
-      // include this NEO if the ephemeris is
-      // within specified bounds at any moment
-      // within the specified time range.
-      for ( ephemeris_point of neo.ephemeris ){
-        if (ephemeris_point.t >= filter_start_time && ephemeris_point.t <= filter_end_time ){
-          if ( ephemeris_point.az >= min_azimuth && ephemeris_point.az <= max_azimuth ){
-            if ( ephemeris_point.el >= min_elevation && ephemeris_point.el <= max_elevation ){
-              if ( passesFilters(neo) ){
-                include_this_neo = true;
-                break;
-              }
-            }
-          }
-        }
-      }
-    }
-      
-      
-    if( include_this_neo ){
+    neo.az_short = neo.az.toFixed(0);
+    neo.el_short = neo.el.toFixed(0);
+        
+    if( neo.show ){
       const row = document.createElement('tr');
-      if( neo.Temp_Desig == selected_object ){
+      if( neo.id == selected_object ){
         row.style.color = "orange";
       }
       
@@ -1257,8 +1237,8 @@ function raDecToAzEl(raHours, decDeg, date, latitudeDeg, longitudeDeg) {
     }
 
     return {
-        azimuth: toDegrees(az),      // in degrees [0, 360)
-        elevation: toDegrees(el)     // in degrees [-90, 90]
+        az: toDegrees(az),      // in degrees [0, 360)
+        el: toDegrees(el)     // in degrees [-90, 90]
     };
 }
 
@@ -1330,7 +1310,7 @@ function computeEphemeris(neo){
   const ephemeris = [];
   ephemeris_times.forEach(ephemeris_time => {
     local_coords = raDecToAzEl(neo['R.A.'], neo['Decl.'], ephemeris_time, lat, lon);
-    ephemeris.push({t: ephemeris_time, az: local_coords.azimuth, el: local_coords.elevation});
+    ephemeris.push({t: ephemeris_time, az: local_coords.az, el: local_coords.el, show: true});
   });
   return ephemeris;
 }
@@ -1338,47 +1318,44 @@ function computeEphemeris(neo){
 
 function formatElevationTimeSeries(neo){
   const data_series = {
-    label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
-    neo_id: neo.Temp_Desig,
+    label: neo.id + ' (Score: ' + neo.Score + ')',
+    neo_id: neo.id,
     pointRadius: 0,
     borderColor: line_color,
     borderWidth: (neo.Score==100 ? 3 : 1 ), // px    
     pointHitRadius: 5,
     data: [],
   };
-  neo.ephemeris.forEach(ephemeris_point => {  
-    data_series.data.push({x: ephemeris_point.t, y: ephemeris_point.el});
-  });
+  if( neo.show ){
+    neo.ephemeris.forEach((ephemeris_point, index) => {
+      data_series.data.push({x: ephemeris_point.t, y: ephemeris_point.el});
+    });
+  }
   return data_series;
 }
 
 
 function formatElevationCurrent(neo){
   const data_series = {  
-    label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
-    neo_id: neo.Temp_Desig,
+    label: neo.id + ' (Score: ' + neo.Score + ')',
+    neo_id: neo.id,
     pointRadius: 3,
     borderColor: 'yellow',
     pointHitRadius: 5,
     showLine: false, // This connects the points with a line
     data: [],
   };
-  data_series.data.push({x: load_time_date, y: neo.El});
+  if( neo.show ){
+    data_series.data.push({x: load_time_date, y: neo.el});
+  }
   return data_series;
 }
 
 
 function formatLocalCoordsDataset(neo){
-  const min_elevation = document.getElementById('min_elevation_input').value*1;            
-  const max_elevation = document.getElementById('max_elevation_input').value*1;
-  const min_azimuth = document.getElementById('min_azimuth_input').value*1;            
-  const max_azimuth = document.getElementById('max_azimuth_input').value*1;
-  const filter_start_time = getFilterTime("start");
-  const filter_end_time = getFilterTime("end");
-
   const data_series = {
-    label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
-    neo_id: neo.Temp_Desig,
+    label: neo.id + ' (Score: ' + neo.Score + ')',
+    neo_id: neo.id,
     pointRadius: 0,
     borderColor: line_color,
     borderWidth: (neo.Score==100 ? 3 : 1 ), // px    
@@ -1386,53 +1363,86 @@ function formatLocalCoordsDataset(neo){
     showLine: true, // This connects the points with a line
     data: [],
   };
-  prevAz = neo.ephemeris[0].az;
-  neo.ephemeris.forEach((ephemeris_point, index) => {
-    const ephemeris_time = ephemeris_times[index];
-    const data_point = {x: ephemeris_point.az, y: ephemeris_point.el};
-    if(prevAz < 90 && ephemeris_point.az > 270){
-      // handle wrap from left side to right side for objects passing north of zenith
-      // by nulling this data point to make the time series disjointed.
-      // If we were to instead add a null data point in betwee, then time array lookup 
-      // wouldn't work for tooltips.
-      data_point.x = null;
-    } else if( 
-      ephemeris_time < filter_start_time || ephemeris_time > filter_end_time
-      || ephemeris_point.az < min_azimuth || ephemeris_point.az > max_azimuth
-      || ephemeris_point.el < min_elevation || ephemeris_point.el > max_elevation
-      || !passesFilters(neo)
-    ){
-      data_point.x = null;
-    }
-    data_series.data.push(data_point);
-    prevAz = ephemeris_point.az;
-  });
+  if( neo.show ){
+    prevAz = neo.ephemeris[0].az;
+    neo.ephemeris.forEach((ephemeris_point, index) => {
+      var data_point = {x: null, y: null};
+      if( ephemeris_point.show ){
+        const ephemeris_time = ephemeris_times[index];
+        data_point = {x: ephemeris_point.az, y: ephemeris_point.el};
+        if(prevAz < 90 && ephemeris_point.az > 270){
+          // handle wrap from left side to right side for objects passing north of zenith
+          // by nulling this data point to make the time series disjointed.
+          // If we were to instead add a null data point in betwee, then time array lookup 
+          // wouldn't work for tooltips.
+          data_point.x = null;
+        } 
+      }
+      data_series.data.push(data_point);
+      prevAz = ephemeris_point.az;
+    });
+  }
   return data_series;
 }
 
 
-function passesFilters(neo){
-  const min_elevation = document.getElementById('min_elevation_input').value*1;            
-  const max_elevation = document.getElementById('max_elevation_input').value*1;
-  const min_azimuth = document.getElementById('min_azimuth_input').value*1;            
-  const max_azimuth = document.getElementById('max_azimuth_input').value*1;
-  const min_magnitude = document.getElementById('min_visual_magnitude_input').value*1;            
-  const max_magnitude = document.getElementById('max_visual_magnitude_input').value*1;
-  const min_score = document.getElementById('min_neo_score_input').value*1;            
-  const max_score = document.getElementById('max_neo_score_input').value*1;
-  return true &&
-    neo.El >= min_elevation && neo.El <= max_elevation &&
-    neo.Az >= min_azimuth && neo.Az <= max_azimuth &&
-    neo.V >= min_magnitude && neo.V  <= max_magnitude &&
-    neo.Score >= min_score && neo.Score <= max_score;
+function applyFiltersAndUpdate(){
+  neo_data.forEach(neo => {
+    applyFilters(neo);
+  });
+  renderTable();
+  populateCharts();
 }
+
+
+function updateFilterValues(){
+  filter_min_elevation = document.getElementById('min_elevation_input').value*1;            
+  filter_max_elevation = document.getElementById('max_elevation_input').value*1;
+  filter_min_azimuth = document.getElementById('min_azimuth_input').value*1;            
+  filter_max_azimuth = document.getElementById('max_azimuth_input').value*1;
+  filter_min_magnitude = document.getElementById('min_visual_magnitude_input').value*1;            
+  filter_max_magnitude = document.getElementById('max_visual_magnitude_input').value*1;
+  filter_min_score = document.getElementById('min_neo_score_input').value*1;            
+  filter_max_score = document.getElementById('max_neo_score_input').value*1;
+  filter_start_time = getFilterTime("start");
+  filter_end_time = getFilterTime("end");
+}
+
+
+function applyFilters(neo){
+  updateFilterValues();
+  neo.show = false;
+
+  ephemeris_times.forEach((ephemeris_time, ephem_index) => {
+    ephemeris_point = neo.ephemeris[ephem_index];
+    /*
+    console.log(
+      ephemeris_time >= filter_start_time, ephemeris_time <= filter_end_time,
+      ephemeris_point.az >= min_azimuth, ephemeris_point.az <= max_azimuth,
+      ephemeris_point.el >= min_elevation, ephemeris_point.el <= max_elevation,
+      neo.V >= min_magnitude, neo.V  <= max_magnitude,
+      neo.Score >= min_score, neo.Score <= max_score    
+    )
+    */
+    neo.ephemeris[ephem_index].show = (
+      ephemeris_time >= filter_start_time && ephemeris_time <= filter_end_time &&
+      ephemeris_point.az >= filter_min_azimuth && ephemeris_point.az <= filter_max_azimuth &&
+      ephemeris_point.el >= filter_min_elevation && ephemeris_point.el <= filter_max_elevation &&
+      neo.V >= filter_min_magnitude && neo.V  <= filter_max_magnitude &&
+      neo.Score >= filter_min_score && neo.Score <= filter_max_score
+    );
+    neo.show |= neo.ephemeris[ephem_index].show;
+  });
+}
+
+
 
 
 function formatLocalCoordsCurrent(neo){
   const data_series = {  
     data: [],
-    label: neo.Temp_Desig + ' (Score: ' + neo.Score + ')',
-    neo_id: neo.Temp_Desig,
+    label: neo.id + ' (Score: ' + neo.Score + ')',
+    neo_id: neo.id,
     pointRadius: 3,
     borderColor: 'orange',
     pointHitRadius: 5,
@@ -1448,11 +1458,15 @@ function formatLocalCoordsCurrent(neo){
       }
     }        
   };
-  if( passesFilters(neo) ){
-    data_series.data.push({x: neo.Az, y: neo.El});
-  } else {
-    data_series.data.push({x: null, y: null});
-  }
+  
+  var data_point = {x: null, y: null};
+  if( neo.show &&
+      neo.az >= filter_min_azimuth && neo.az <= filter_max_azimuth &&
+      neo.el >= filter_min_elevation && neo.el <= filter_max_elevation &&
+      neo.V >= filter_min_magnitude && neo.V  <= filter_max_magnitude &&
+      neo.Score >= filter_min_score && neo.Score <= filter_max_score
+  ) data_point = {x: neo.az, y: neo.el};
+  data_series.data.push(data_point);
   return data_series;
 }
 
@@ -1492,9 +1506,11 @@ function firstRun(){
     };
     
     neo_data.forEach(neo => {
+      neo.id = neo.Temp_Desig;
+
       local_coords = raDecToAzEl(neo["R.A."], neo["Decl."], date, lat, lon);
-      neo.Az = local_coords.azimuth;
-      neo.El = local_coords.elevation;
+      neo.az = local_coords.az;
+      neo.el = local_coords.el;
 
       neo.Max_El = (90 - Math.abs(lat - neo['Decl.'])).toFixed(1);
             
@@ -1515,10 +1531,12 @@ function firstRun(){
 
       neo.Not_Seen_dys = Math.floor( neo.Not_Seen_dys * 10) / 10;
       
-      neo.ephemeris = computeEphemeris(neo);    
+      neo.ephemeris = computeEphemeris(neo);
+      
+      applyFilters(neo);
     });
     
-    renderTable();    
+    renderTable();
     sortTable();
     sortTable();
 
