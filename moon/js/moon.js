@@ -1,0 +1,1002 @@
+
+//import * as THREE from './three.module.js';
+//import { OrbitControls } from './OrbitControls.js';
+
+//import * as THREE from "https://cdnjs.cloudflare.com/ajax/libs/three.js/r121/three.module.js";
+//import { OrbitControls } from "https://threejs.org/examples/jsm/controls/OrbitControls.js";
+
+import * as THREE from 'https://unpkg.com/three@0.121.1/build/three.module.js';
+import { OrbitControls } from 'https://unpkg.com/three@0.121.1/examples/jsm/controls/OrbitControls.js';
+
+let camera, controls, scene, renderer, ephem, options, sun, globe, labels, PointsOfInterest, stars, GlobeGroup, fakeSun, sunVec, canvas;
+
+let selectedObject = null;
+const raycaster = new THREE.Raycaster();
+const mouseVector = new THREE.Vector3();
+
+const ephemFile = 'js/ephem_2026_to_2036.json';
+const craterFile = 'data/craters.csv';
+const featuresFile = 'data/features.csv';
+const landingSitesFile = 'data/landing_sites.csv';
+
+const mapFiles = [
+  'lroc_color_2k.jpg',
+  'lroc_color_16bit_srgb_8k.jpg',
+  'lroc_color_poles_16k.jpg',
+];
+
+
+const webglEl = document.getElementById('webgl');
+/*if (!Detector.webgl) {
+  Detector.addGetWebGLMessage(webglEl);
+  return;
+}*/
+
+const touch_enabled = ( 'ontouchstart' in window ) ||  ( navigator.maxTouchPoints > 0 ) || ( navigator.msMaxTouchPoints > 0 ); 
+console.log("touch enabled: " + touch_enabled);
+
+
+var width  = document.documentElement.clientWidth,
+  height = document.documentElement.clientHeight;
+
+  
+// Global params
+var globe_radius   = 0.5,
+  segments = 512,
+  rotation = 0,
+  globeLoaded = false,
+  labelsLoaded = false,
+  craterCsvText = null,
+  featuresCsvText = null,
+  landingSitesCsvText = null,
+  craterRecords = [],
+  displacementImageData = null,
+  displacementImageWidth = 0,
+  displacementImageHeight = 0,
+  radsPerDeg = Math.PI/180,
+  dialogOpen = false;
+
+options = {
+  mirror:  false,
+  mapFile: 'lroc_color_2k.jpg',
+  bumpScale: 0.005,
+  displacementScale: 0.01,
+  cameraDist: 7,
+  sunPlaneDist: 60,
+  rotation: 0,
+  r: 1,
+  g: 1,
+  b: 1,
+  craterLabelScale: 0.02,
+  craterLabelFontSize: 16,
+  craterLabelTextColor: '#ffffff',
+  craterLabelStrokeColor: '#000000',
+  craterLabelBackgroundOpacity: 0.0,
+  craterLabelOpacity: 0.8,
+  craterLabelStrokeWidth: 2,
+  initToCurrent: false,
+  showStars: true,
+  showMoon: true,
+  shininess: 15,
+  northUp: true,
+  showCoordFrame: false,
+  subSunLat: 0,
+  subSunLon: 0,
+};
+
+ephem = {
+  loaded: false,
+  data: null,
+  ObsSubLat: null,
+  ObsSubLon: null,
+  SunSubLat: null,
+  SunSubLon: null,
+}
+
+
+init();
+
+
+function init(){
+  startLoadingManager();
+  
+  window.addEventListener('mousemove',  onDocumentMouseMove, {passive: true}, false ); // show POI info when mouse-over
+  window.addEventListener('dblclick',   onDoubleClick, false);  // center view on clicked lat/lon position
+  window.addEventListener('touchend',   onTouch, false);  // show point-of-interest info if touched
+  window.addEventListener('keydown',    onKeyDown, false);  // handle key controls:  arrow keys, ctrl-f, etc
+  window.addEventListener('resize',     onWindowResize, {passive: true}, false );
+
+  console.log("initializing renderer");
+  renderer = new THREE.WebGLRenderer(); 
+  renderer.setSize(width, height);
+  window.renderer = renderer;
+  webglEl.appendChild(renderer.domElement);
+  console.log(renderer);
+  var context = renderer.getContext();
+  canvas = context.canvas;
+  renderer.domElement.addEventListener("webglcontextlost", function(event){  
+    event.preventDefault();
+    //cancelRequestAnimationFrame(requestId);
+    alert("webgl crashed?");
+    console.log("webgl crashed?");
+    console.log(event);
+  }, false);
+
+  
+  scene = new THREE.Scene();
+  window.scene = scene;
+  
+  camera = new THREE.PerspectiveCamera(15, width/height, 0.01, 250);
+  camera.position.x = options.cameraDist;
+  camera.up.set(0,0,1);
+  console.log(camera);
+  scene.add(camera);
+
+  scene.add(new THREE.AmbientLight(0x111111));  // faint background light
+  
+  GlobeGroup = new THREE.Group();
+  scene.add(GlobeGroup);
+  // createCoordAxes(GlobeGroup, globe_radius*1.5);
+
+  globe = new THREE.Mesh();
+  createGlobe(globe_radius, segments);
+  // createCoordAxes(globe, globe_radius*1.1);
+
+  const GlobeCoordAxes = createCoordAxes(scene, globe_radius*1.2);
+  GlobeCoordAxes.visible = options.showCoordFrame;
+  scene.remove(GlobeCoordAxes);
+  GlobeGroup.add(GlobeCoordAxes);
+
+  // make a fake sun (useful for troubleshooting sun positioning):
+  fakeSun = new THREE.Mesh(new THREE.SphereBufferGeometry(0.1, 32, 24), new THREE.MeshBasicMaterial({ color: "yellow" }));
+  fakeSun.position.set(globe_radius*1.2, 0, 0);
+  //scene.add(fakeSun);
+  
+  sun = new THREE.PointLight(0xffffff, 1, 1000, 1);
+  sun.rotateX(Math.PI/2);  // reorient to z-up
+  sun.position.set(options.sunPlaneDist,0,0);
+  camera.add(sun);
+  //placeSun();
+
+  sunVec = fakeSun.position;
+
+  var stars = createStars(200);
+
+
+  controls = new OrbitControls(camera, renderer.domElement );
+  //controls.enablePan = false;
+  controls.enableKeys = false;
+
+  // need these for gui controls:
+  var ephemQueryNowFcn = { add:function(){ showNow() }};
+  var ephemQueryUtcFcn = { add:function(){ showSpecificTime()  }};
+  var searchForFeatureFcn = { add:function(){ searchForFeature()  }};
+  var screenshotFcn = { add:function(){ screenShot() }};
+
+
+  var gui = new dat.GUI();
+  gui.add(options, 'subSunLon', -360, 360).listen().name("sun az").onChange(function(val){placeSun()});
+  gui.add(options, 'subSunLat', -26, 26).listen().name("sun el").onChange(function(val){placeSun()});
+  gui.add(options, 'rotation', 0, 6.2832).listen().name("planet rotation").onChange(function(val){ GlobeGroup.rotation.z = val; });
+  gui.add(options, 'northUp').listen().name("north up").onChange(function(){ setPoleOrientation() });
+  gui.add(options, 'mirror').listen().onChange(function(boolMirror){ setMirroring(boolMirror) });
+  // gui.add(options, 'showMoon').listen().name("Moon").onChange(function(){ toggleMoon() });
+  // gui.add(options, 'showStars').listen().name("Stars").onChange(function(){ toggleStars() });
+  gui.add(options, 'showCoordFrame').listen().name("Coordinate Axes").onChange(function(val){ GlobeCoordAxes.visible = val });
+  gui.add(options, 'mapFile',mapFiles).listen().name("Base map").onChange(function(){changeMap()});
+  gui.add(options, 'bumpScale',0,0.1).listen().name("texture scale").onChange(function(val){globe.material.bumpScale=val;});
+  gui.add(options, 'displacementScale',0,0.1).listen().name("displacement scale").onChange(function(val){
+    globe.material.displacementScale = val;
+    updateCraterLabelPositions();
+  });
+  // gui.add(options, 'r',0.6,1).listen().name("red").onChange(function(val){globe.material.color.r=val;});
+  // gui.add(options, 'g',0.6,1).listen().name("green").onChange(function(val){globe.material.color.g=val;});
+  // gui.add(options, 'b',0.6,1).listen().name("blue").onChange(function(val){globe.material.color.b=val;});
+  gui.add(options, 'craterLabelScale', 0.01, 0.2).listen().name("crater label size").onChange(function(){ refreshCraterLabels(); });
+  gui.add(options, 'craterLabelFontSize', 12, 96).step(1).listen().name("crater font size").onChange(function(){ refreshCraterLabels(); });
+  gui.add(options, 'craterLabelOpacity', 0, 1).listen().name("crater labels opacity").onChange(function(){ refreshCraterLabels(); });
+  gui.add(options, 'craterLabelBackgroundOpacity', 0, 1).listen().name("crater labels bg opacity").onChange(function(){ refreshCraterLabels(); });
+  gui.add(options, 'craterLabelStrokeWidth', 0, 14).step(1).listen().name("crater labels outline width").onChange(function(){ refreshCraterLabels(); });
+  // gui.addColor(options, 'craterLabelTextColor').name("crater text color").onChange(function(){ refreshCraterLabels(); });
+  // gui.addColor(options, 'craterLabelStrokeColor').name("crater labels outline color").onChange(function(){ refreshCraterLabels(); });
+  gui.add(ephemQueryNowFcn,'add').name("Show now");
+  gui.add(ephemQueryUtcFcn,'add').name("Show specific time");
+  gui.add(searchForFeatureFcn,'add').name("Search");
+  gui.add(screenshotFcn,'add').name('Screenshot');
+
+
+  PointsOfInterest = new THREE.Group();
+  PointsOfInterest.name = 'featureLabels';
+  PointsOfInterest.visible = options.showMoon;
+  GlobeGroup.add(PointsOfInterest);
+
+  loadCraterData();
+
+  render();
+
+  console.log(scene);
+  
+  loadEphemData(showNow);
+
+  // make key variables accessible in console:
+  window.globals = {webglEl, camera, controls, scene, renderer, ephem, options, sun, globe, labels, GlobeGroup, fakeSun, sunVec};
+}
+
+
+
+
+function onDoubleClick(event){
+  console.log("double click event");
+  // Center camera position at double-clicked position:
+  const intersects = getIntersects( event.layerX, event.layerY, globe );
+  if(intersects.length>0){
+    var pointOfIntersection = intersects[0].point;
+    var lat = Math.asin(pointOfIntersection.z/globe_radius)/radsPerDeg;
+    var lon = Math.atan2(pointOfIntersection.y, pointOfIntersection.x)/radsPerDeg*-1;
+    console.log("lat: " + lat.toFixed(2) + "N, lon: " + lon.toFixed(2) + "W");
+    placeCamera(lat, lon);
+  }
+}
+
+function onDocumentMouseMove( event ) {
+  if(dialogOpen){
+    return; 
+  } else {
+  }
+}
+
+function onTouch(event) {
+  if(dialogOpen) return;  
+  console.log("touch event");
+  var foundMatch = false;
+}
+
+function onKeyDown(event) {
+  if(dialogOpen) return;
+  
+  console.log("Button pressed: " + (event.shiftKey?"shift+":"") + event.keyCode);
+  
+  // holding shift with arrow moves faster, holding control with arrow moves slower:
+  const nudgeAngle = event.shiftKey? 0.01 : event.ctrlKey? 0.0002 : 0.001;
+  switch (event.keyCode) {
+    case 37:  // left arrow
+      nudgeCamera("left", nudgeAngle);
+      break;
+    case 38: // up arrow
+      nudgeCamera("up", nudgeAngle);      
+      //GlobeGroup.rotation.y -= 0.1;
+      break;
+    case 39: // right arrow
+      nudgeCamera("right", nudgeAngle);
+      //GlobeGroup.rotateZ(-0.01);
+      break;
+    case 40: //down arrow
+      nudgeCamera("down", nudgeAngle);
+      //GlobeGroup.rotation.y += 0.1;
+      break;
+    case 70: // f key
+      if(event.ctrlKey) searchForFeature();
+      event.preventDefault();
+      break; 
+    default:
+      console.log("unregistered key");
+  }
+}
+
+function onWindowResize(){
+  width = document.documentElement.clientWidth;
+  height = document.documentElement.clientHeight;
+  console.log("resizing to " + width + " x " + height + " px");
+  camera.aspect = document.documentElement.clientWidth / document.documentElement.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize( width, height );
+}
+
+function startLoadingManager(){
+  const status = document.getElementById('status_container');
+  THREE.DefaultLoadingManager.onStart = function ( url, itemsLoaded, itemsTotal ) {
+    console.log( 'Started loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+    status.style.color = "orange";
+    status.innerText = "Loading";
+  };
+  THREE.DefaultLoadingManager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
+    console.log( 'Loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+  };
+  THREE.DefaultLoadingManager.onLoad = function ( ) {
+    console.log( 'Loading Complete!');
+    status.style.color = "green";
+    status.innerText = "Ready";
+  };
+}
+
+
+
+function render() {
+  controls.update();
+  requestAnimationFrame(render);
+  renderer.render(scene, camera);
+}
+
+
+
+function nudgeCamera(direction, angle){
+  const rotAxis = new THREE.Vector3();
+  switch(direction){
+    case "up":
+      rotAxis.set(camera.position.y, -1*camera.position.x, 0);
+      break;
+    case "down":
+      rotAxis.set(-1*camera.position.y, camera.position.x, 0);
+      break;
+    case "left":
+      rotAxis.set(0, 0, -1);
+      break;
+    case "right":
+      rotAxis.set(0, 0, 1);
+      break;
+    default:
+      return;
+  }
+  GlobeGroup.rotateOnAxis( rotAxis.normalize(), angle);
+}
+
+function searchForFeature(){
+  dialogOpen = true;
+  var searchPhrase = prompt("Search feature name:");
+  dialogOpen = false;
+  console.log("Search function input dialog response:  " + searchPhrase);
+
+  // handle empty response (cancel)
+  if(searchPhrase == null || searchPhrase.length == 0){
+    console.log("empty response");
+    return;
+  }
+
+  searchPhrase = searchPhrase.toLowerCase().trim().replace(/^['\"]+|['\"]+$/g, '');
+  if(searchPhrase.length === 0){
+    return;
+  }
+  if(!craterRecords || craterRecords.length === 0){
+    alert("Sorry, feature data is not loaded yet.");
+    return;
+  }
+
+  console.log("searching feature list..");
+  var bestMatch = null;
+  var bestMatchPos = Number.POSITIVE_INFINITY;
+
+  for(var i = 0; i < craterRecords.length; i++){
+    var craterName = craterRecords[i].name.toLowerCase();
+    var matchPos = craterName.indexOf(searchPhrase);
+    if(matchPos > -1 && matchPos < bestMatchPos){
+      bestMatch = craterRecords[i];
+      bestMatchPos = matchPos;
+    }
+  }
+
+  if(bestMatch){
+    console.log("going to feature " + bestMatch.name + " at " + bestMatch.lat + "N, " + bestMatch.lon + "W");
+    placeCamera(bestMatch.lat, bestMatch.lon);
+  } else {
+    alert("Sorry, could not find requested feature.");
+  }
+}
+
+
+function screenShot(){
+  render();
+  canvas.toBlob((blob) => {
+    saveBlob(blob, 'moon_globe.png');
+  });    
+}
+
+
+const saveBlob = (function() {
+  const a = document.createElement('a');
+  document.body.appendChild(a);
+  a.style.display = 'none';
+  return function saveData(blob, fileName) {
+     const url = window.URL.createObjectURL(blob);
+     a.href = url;
+     a.download = fileName;
+     a.click();
+  };
+}());
+
+
+function toggleStars(){
+  stars.visible = options.showStars;
+}
+
+function toggleMoon(){
+  globe.visible = options.showMoon;
+  if(PointsOfInterest) PointsOfInterest.visible = options.showMoon;
+}
+
+
+function displayLatLon(event){
+  const intersects = getIntersects( event.layerX, event.layerY, globe );
+  if(intersects.length>0){
+    var pointOfIntersection = intersects[0].point;
+    //console.log(pointOfIntersection);
+    document.getElementById('poi_image').src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; //1px transparent image
+    const poiCaption = document.getElementById('poi_info');
+    poiCaption.innerHTML = "";
+    //poiCaption.innerHTML += "x:   " + pointOfIntersection.x.toFixed(5) + ' <br>';
+    //poiCaption.innerHTML += "y:   " + pointOfIntersection.y.toFixed(5) + ' <br>';
+    //poiCaption.innerHTML += "z:   " + pointOfIntersection.z.toFixed(5) + ' <br>';
+    poiCaption.innerHTML += "lat: " + (Math.asin(pointOfIntersection.z/globe_radius)/radsPerDeg).toFixed(2) + 'N <br>';
+    poiCaption.innerHTML += "lon: " + ((Math.atan2(pointOfIntersection.y, pointOfIntersection.x)/radsPerDeg*-1+360)%360).toFixed(2) + 'W <br>';
+  }
+}
+
+
+function getIntersects(x, y, group) {
+  x = ( x / window.innerWidth ) * 2 - 1;
+  y = - ( y / window.innerHeight ) * 2 + 1;
+  mouseVector.set( x, y, 0.5 );
+  raycaster.setFromCamera( mouseVector, camera );
+  return raycaster.intersectObject( group, true );
+}
+
+
+function showNow(){
+  var dateQuery = new Date();
+  console.log("Time now:  " + dateQuery);
+  interpolateEphemeris(dateQuery);
+  renderEphemeris();
+}
+
+function showSpecificTime(){
+  console.log("ephemQueryUtcFcn");
+  dialogOpen = true;
+  var strResponse = prompt("UTC time  (YYYY-MM-DD HH:MM):");
+  dialogOpen = false;
+  console.log("Time input dialog response:  " + strResponse);
+
+  // handle empty response (cancel)
+  if(strResponse == null){
+    console.log("empty response");
+    return;
+  }
+
+  // if received a response, then make sure user input meets required format:
+  if(! (new RegExp('20[0-9]{2}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}').test(strResponse) )){
+    alert("Error, invalid format");
+    return;
+  }
+  
+  // convert to date object:
+  var dateQuery = new Date(strResponse.replace(' ','T') + ":00Z") || 0;
+  if(dateQuery>0){
+    console.log("query time:  " + dateQuery.toISOString());
+    interpolateEphemeris(dateQuery);
+    renderEphemeris();
+  } else {
+    console.log("error, invalid date");
+  }
+}
+
+function interpolateEphemeris(dateQuery){
+  var strQueryDate = dateQuery.toISOString().substring(0,10);
+  var dayFrac = (dateQuery.getTime()/1000/60/60/24) % 1;
+  console.log(strQueryDate + ' ' + dayFrac*24 + ' hours');
+
+  // round down to start of day:
+  var ephem_period = 24;
+  var hourRoundedDown = Math.floor(dayFrac*24/ephem_period)*ephem_period;
+  var strDateInterpBelow = strQueryDate + " " + (hourRoundedDown<10?"0":"") + hourRoundedDown + ":00";
+  console.log("strDateInterpBelow: " + strDateInterpBelow);
+  var interpRatio = (dayFrac*24 % ephem_period) / ephem_period;
+  console.log("interp ratio: " + interpRatio);
+  
+  // get interp upper bound:
+  var strDateInterpAbove = new Date(new Date(strDateInterpBelow.replace(" ","T") + ":00Z").valueOf() + ephem_period*60*60*1000).toISOString().substring(0,16).replace(/T/g, " ");
+  console.log("interp bounds:  " + strDateInterpBelow + ", " + strDateInterpAbove);
+
+  // get entries before and after query time:
+  // fixme:  handle lookup errors
+  var ephemBelow = ephem.data[strDateInterpBelow][0];
+  console.log(ephemBelow);
+  var ephemAbove = ephem.data[strDateInterpAbove][0];
+  console.log(ephemAbove);
+  
+  // interpolate sub-observer longitude:
+  ephem.ObsSubLon = interpolateLongitude(ephemBelow.ObsSubLon, ephemAbove.ObsSubLon, interpRatio);
+  console.log(ephem.ObsSubLon);
+
+  // interpolate sub-observer latitude:
+  ephem.ObsSubLat = (ephemBelow.ObsSubLat + interpRatio*(ephemAbove.ObsSubLat - ephemBelow.ObsSubLat));
+  
+  // interpolate sub-sun point
+  ephem.SunSubLon = interpolateLongitude(ephemBelow.SunSubLon, ephemAbove.SunSubLon, interpRatio);
+  ephem.SunSubLat = (ephemBelow.SunSubLat + interpRatio*(ephemAbove.SunSubLat - ephemBelow.SunSubLat));
+
+  console.log("calculated ephemeris:");
+  console.log(ephem);
+}
+
+function interpolateLongitude(lonStart, lonEnd, ratio){
+  var start = ((lonStart % 360) + 360) % 360;
+  var end = ((lonEnd % 360) + 360) % 360;
+  var delta = ((end - start + 540) % 360) - 180;
+  return ((start + ratio * delta) % 360 + 360) % 360;
+}
+
+function loadEphemData(callback){
+  console.log("callback: " + callback);
+  console.log("typeof callback: " + (typeof callback));
+  console.log("loading ephemeris file");
+  $.getJSON(ephemFile)
+  .done(function(data) { 
+    console.log("done"); 
+    ephem.data = data;
+    console.log("testing ephem lookup:  ");
+    console.log(data["2027-01-01 00:00"][0]); // test	
+    ephem.loaded = true;
+    if(typeof callback == 'function' ) callback();
+  })
+  .fail(function(jqXHR, textStatus, errorThrown) {
+    console.log("error " + textStatus);
+    console.log(errorThrown);
+    console.log("incoming Text " + jqXHR.responseText);
+  })
+}
+
+function loadCraterData(){
+  console.log("loading feature data files");
+  Promise.all([
+    fetchCsvText(craterFile),
+    fetchCsvText(featuresFile),
+    fetchCsvText(landingSitesFile),
+  ])
+    .then(function(csvTexts){
+      craterCsvText = csvTexts[0];
+      featuresCsvText = csvTexts[1];
+      landingSitesCsvText = csvTexts[2];
+      createCraterLabels();
+      console.log("loaded feature labels");
+    })
+    .catch(function(error){
+      console.log("error loading feature data");
+      console.log(error);
+    });
+}
+
+function fetchCsvText(filePath){
+  return fetch(filePath)
+    .then(function(response){
+      if(!response.ok){
+        throw new Error("failed to load data file " + filePath + ": " + response.status + " " + response.statusText);
+      }
+      return response.text();
+    });
+}
+
+function appendFeatureRecordsFromCsv(csvText){
+  if(!csvText){
+    return;
+  }
+
+  var rows = csvText.split(/\r?\n/);
+  if(rows.length < 2){
+    return;
+  }
+
+  var headers = rows[0].split(',').map(function(header){ return header.trim().toLowerCase(); });
+  var nameIndex = headers.findIndex(function(header){
+    return header.indexOf('name') >= 0 || header.indexOf('mission') >= 0 || header.indexOf('site') >= 0 || header.indexOf('feature') >= 0;
+  });
+  var latIndex = headers.findIndex(function(header){ return header.indexOf('lat') >= 0; });
+  var lonIndex = headers.findIndex(function(header){ return header.indexOf('long') >= 0; });
+  var diameterIndex = headers.findIndex(function(header){ return header.indexOf('diam') >= 0 || header.indexOf('width') >= 0; });
+
+  if(nameIndex < 0 && headers.length > 0){
+    nameIndex = 0;
+  }
+
+  if(nameIndex < 0 || latIndex < 0 || lonIndex < 0){
+    return;
+  }
+
+  for(var i = 1; i < rows.length; i++){
+    var row = rows[i].trim();
+    if(row.length === 0){
+      continue;
+    }
+
+    var columns = row.split(',');
+    var featureName = (columns[nameIndex] || '').trim();
+    var latString = (columns[latIndex] || '').trim();
+    var lonString = (columns[lonIndex] || '').trim();
+    var featureDiameter = diameterIndex >= 0 ? parseFloat(columns[diameterIndex]) : NaN;
+
+    var featureLat = parseLatitude(latString);
+    var featureLon = parseLongitude(lonString);
+
+    if(isNaN(featureLat) || isNaN(featureLon) || featureName.length === 0){
+      continue;
+    }
+
+    craterRecords.push({
+      name: featureName,
+      lat: featureLat,
+      lon: featureLon,
+      diameter: isNaN(featureDiameter) ? null : featureDiameter,
+    });
+  }
+}
+
+function createCraterLabels(){
+  if(!PointsOfInterest){
+    return;
+  }
+
+  clearCraterLabels();
+  craterRecords = [];
+
+  appendFeatureRecordsFromCsv(craterCsvText);
+  appendFeatureRecordsFromCsv(featuresCsvText);
+  appendFeatureRecordsFromCsv(landingSitesCsvText);
+
+  var minDiameter = Infinity;
+  var maxDiameter = -Infinity;
+
+  for(var i = 0; i < craterRecords.length; i++){
+    var featureDiameter = craterRecords[i].diameter;
+    if(featureDiameter !== null){
+      minDiameter = Math.min(minDiameter, featureDiameter);
+      maxDiameter = Math.max(maxDiameter, featureDiameter);
+    }
+  }
+
+  if(minDiameter === Infinity || maxDiameter === -Infinity){
+    minDiameter = 0;
+    maxDiameter = 0;
+  }
+
+  var duplicateCoordCounts = {};
+  for(var j = 0; j < craterRecords.length; j++){
+
+    var feature = craterRecords[j];
+    var coordKey = feature.lat.toFixed(4) + ',' + feature.lon.toFixed(4);
+    var duplicateIndex = duplicateCoordCounts[coordKey] || 0;
+    duplicateCoordCounts[coordKey] = duplicateIndex + 1;
+    var duplicateOffset = duplicateIndex * globe_radius * 0.004;
+
+    var labelSprite = createCraterLabelSprite(feature.name, feature.diameter, minDiameter, maxDiameter);
+    var featurePosition = latLonToGlobePoint(feature.lat, feature.lon, getCraterLabelRadius(feature.lat, feature.lon) + duplicateOffset);
+    labelSprite.position.copy(featurePosition);
+    labelSprite.userData = {
+      name: feature.name,
+      lat: feature.lat,
+      lon: feature.lon,
+      diameter: feature.diameter,
+      duplicateOffset: duplicateOffset,
+    };
+    PointsOfInterest.add(labelSprite);
+  }
+}
+
+function getCraterLabelRadius(lat, lon){
+  var displacementOffset = getSurfaceDisplacementAtLatLon(lat, lon);
+  var labelClearance = globe_radius * 0.005;
+  return globe_radius + displacementOffset + labelClearance;
+}
+
+function updateCraterLabelPositions(){
+  if(!PointsOfInterest){
+    return;
+  }
+
+  for(var i = 0; i < PointsOfInterest.children.length; i++){
+    var craterLabel = PointsOfInterest.children[i];
+    if(!craterLabel.userData){
+      continue;
+    }
+    var lat = craterLabel.userData.lat;
+    var lon = craterLabel.userData.lon;
+    var duplicateOffset = craterLabel.userData.duplicateOffset || 0;
+    if(isNaN(lat) || isNaN(lon)){
+      continue;
+    }
+    craterLabel.position.copy(latLonToGlobePoint(lat, lon, getCraterLabelRadius(lat, lon) + duplicateOffset));
+  }
+}
+
+function getSurfaceDisplacementAtLatLon(lat, lon){
+  var displacementBias = (globe && globe.material) ? globe.material.displacementBias : 0;
+  if(!displacementImageData || displacementImageWidth === 0 || displacementImageHeight === 0){
+    return displacementBias;
+  }
+
+  var normalizedLon = ((lon % 360) + 360) % 360;
+  var u = 0.5 - normalizedLon / 360;
+  u = ((u % 1) + 1) % 1;
+  var v = (90 - lat) / 180;
+  v = Math.min(1, Math.max(0, v));
+
+  var pixelX = Math.min(displacementImageWidth - 1, Math.max(0, Math.floor(u * (displacementImageWidth - 1))));
+  var pixelY = Math.min(displacementImageHeight - 1, Math.max(0, Math.floor(v * (displacementImageHeight - 1))));
+  var pixelIndex = (pixelY * displacementImageWidth + pixelX) * 4;
+
+  var r = displacementImageData[pixelIndex];
+  var g = displacementImageData[pixelIndex + 1];
+  var b = displacementImageData[pixelIndex + 2];
+  var displacementValue = (r + g + b) / (3 * 255);
+  return displacementValue * options.displacementScale + displacementBias;
+}
+
+function initializeDisplacementSampler(mapFile){
+  var imageLoader = new THREE.ImageLoader();
+  imageLoader.load(
+    mapFile,
+    function(image){
+      var samplerCanvas = document.createElement('canvas');
+      samplerCanvas.width = image.width;
+      samplerCanvas.height = image.height;
+      var samplerContext = samplerCanvas.getContext('2d');
+      samplerContext.drawImage(image, 0, 0);
+
+      var imageData = samplerContext.getImageData(0, 0, image.width, image.height);
+      displacementImageData = imageData.data;
+      displacementImageWidth = image.width;
+      displacementImageHeight = image.height;
+      updateCraterLabelPositions();
+    },
+    undefined,
+    function(error){
+      console.log('failed to initialize displacement sampler');
+      console.log(error);
+    }
+  );
+}
+
+function clearCraterLabels(){
+  for(var i = PointsOfInterest.children.length - 1; i >= 0; i--){
+    var child = PointsOfInterest.children[i];
+    if(child.material){
+      if(child.material.map){
+        child.material.map.dispose();
+      }
+      child.material.dispose();
+    }
+    PointsOfInterest.remove(child);
+  }
+}
+
+function refreshCraterLabels(){
+  if(craterCsvText || featuresCsvText || landingSitesCsvText){
+    createCraterLabels();
+  }
+}
+
+function parseLatitude(latString){
+  var value = parseFloat(latString);
+  if(isNaN(value)){
+    return NaN;
+  }
+  return latString.toUpperCase().indexOf('S') >= 0 ? -value : value;
+}
+
+function parseLongitude(lonString){
+  var value = parseFloat(lonString);
+  if(isNaN(value)){
+    return NaN;
+  }
+  return lonString.toUpperCase().indexOf('W') >= 0 ? value : -value;
+}
+
+function latLonToGlobePoint(lat, lon, radius){
+  return new THREE.Vector3(
+    radius * Math.cos(-1 * lon * radsPerDeg) * Math.cos(lat * radsPerDeg),
+    radius * Math.sin(-1 * lon * radsPerDeg) * Math.cos(lat * radsPerDeg),
+    radius * Math.sin(lat * radsPerDeg)
+  );
+}
+
+function createCraterLabelSprite(labelText, craterDiameter, minDiameter, maxDiameter){
+  var canvasLabel = document.createElement('canvas');
+  var context = canvasLabel.getContext('2d');
+  var fontSize = options.craterLabelFontSize;
+  var padding = 20;
+
+  context.font = fontSize + 'px Arial, sans-serif';
+  var textWidth = Math.ceil(context.measureText(labelText).width);
+  canvasLabel.width = textWidth + padding * 2;
+  canvasLabel.height = fontSize + padding * 2;
+
+  context = canvasLabel.getContext('2d');
+  context.font = fontSize + 'px Arial, sans-serif';
+  context.textBaseline = 'middle';
+  context.lineJoin = 'round';
+  context.lineWidth = options.craterLabelStrokeWidth;
+
+  context.fillStyle = 'rgba(0, 0, 0, ' + options.craterLabelBackgroundOpacity + ')';
+  context.fillRect(0, 0, canvasLabel.width, canvasLabel.height);
+
+  context.strokeStyle = options.craterLabelStrokeColor;
+  context.strokeText(labelText, padding, canvasLabel.height / 2);
+
+  context.fillStyle = options.craterLabelTextColor;
+  context.fillText(labelText, padding, canvasLabel.height / 2);
+
+  var texture = new THREE.CanvasTexture(canvasLabel);
+  texture.needsUpdate = true;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+
+  var material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    opacity: options.craterLabelOpacity,
+    depthTest: true,
+    depthWrite: false,
+  });
+
+  var sprite = new THREE.Sprite(material);
+  var diameterRange = maxDiameter - minDiameter;
+  var normalizedDiameter = (craterDiameter === null || diameterRange <= 0) ? 0.5 : (craterDiameter - minDiameter) / diameterRange;
+  var scaledDiameter = Math.pow(normalizedDiameter, 0.65);
+  var sizeMultiplier = 0.5 + scaledDiameter;
+  var labelHeight = globe_radius * options.craterLabelScale * sizeMultiplier;
+  var labelAspect = canvasLabel.width / canvasLabel.height;
+  sprite.scale.set(labelHeight * labelAspect, labelHeight, 1);
+  sprite.renderOrder = 10;
+  return sprite;
+}
+
+function renderEphemeris(){
+  console.log("Rendering ephemeris");
+  console.log(ephem);
+  
+  // place camera to sub-observer lat/lon
+  placeCamera(ephem.ObsSubLat, ephem.ObsSubLon);
+    
+  // move sun to sub-sun lat/lon
+  options.subSunLat = ephem.SunSubLat;
+  options.subSunLon = ephem.SunSubLon;
+  placeSun();
+}
+
+function placeCamera(lat, lon){
+  GlobeGroup.rotation.set(0, 0, 0); // re-center globe from prior manual rotations
+  var cameraDistToOrigin = Math.sqrt( camera.position.x*camera.position.x + camera.position.y*camera.position.y + camera.position.z*camera.position.z);
+  var normalizedLon = ((lon % 360) + 360) % 360;
+  var cameraPos = latLonToGlobePoint(lat, normalizedLon, cameraDistToOrigin);
+
+  console.log("setting camera position to lat " + lat + ", lon " + lon);
+  camera.position.copy(cameraPos);
+  controls.target.set(0, 0, 0);
+  controls.update(); // force coord frames update before transfering sun to cam frame
+  console.log(camera.position);
+}
+
+function placeSun(){
+  console.log("setting sun position to lat " + options.subSunLat + ", lon " + options.subSunLon);
+  scene.add(sun);
+  var normalizedSunLon = ((options.subSunLon % 360) + 360) % 360;
+  // Sun longitude input is opposite sign convention to feature/camera west-positive longitudes.
+  var sunPos = latLonToGlobePoint(options.subSunLat, -normalizedSunLon, options.sunPlaneDist);
+  sun.position.copy(sunPos);
+  camera.attach(sun);
+  console.log(fakeSun.position);
+}
+
+function changeMap(){
+  var mapfile = 'data/' + options.mapFile;
+  console.log("changing base map to: " + mapfile);
+  globe.material.map = new THREE.TextureLoader().load(mapfile);
+  globe.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  if(options.mirror){
+    reverseTexture();
+  }
+}
+
+
+function setMirroring(boolMirror){
+  if(boolMirror){
+    labels.material.map = new THREE.TextureLoader().load('images/labels_inv.png');
+    controls.rotateSpeed = -1;
+    controls.dynamicDampingFactor = -0.2;
+    webglEl.style.transform = "scaleX(-1)";
+  } else {
+    controls.rotateSpeed = 1;
+    controls.dynamicDampingFactor = 0.2;
+    labels.material.map = new THREE.TextureLoader().load('images/' + options.labels_sel + '_labels.png');
+    webglEl.style.transform = "scaleX(1)";
+  }
+}
+
+function setPoleOrientation(){
+  var sceneRotatedBefore = (scene.rotation.y != 0);
+  console.log("setting view orientation to north-up: " + options.northUp);
+  scene.rotation.y = options.northUp ? 0 : Math.PI;
+  controls.rotateSpeed = options.northUp ? 1 : -1;
+  console.log("controls rotate speed:  " + controls.rotateSpeed);
+  var sceneRotatedAfter = (scene.rotation.y != 0);
+  var toggled = (sceneRotatedBefore != sceneRotatedAfter);
+  console.log("scene rotated");
+  if(toggled) {
+    sun.position.y *= -1;
+    sun.position.x *= -1;
+  }
+}
+
+
+function createGlobe(radius, segments) {
+  console.log("making globe");
+  const geometry = new THREE.SphereGeometry(radius, segments, segments);
+  const material = new THREE.MeshPhongMaterial({
+    shininess:  options.shininess,
+    bumpScale:  options.bumpScale,
+    side:       THREE.DoubleSide,
+  });
+  globe = new THREE.Mesh(geometry, material);
+  globe.rotateX(Math.PI/2);  // reorient to z-up
+  globe.rotation.z = options.rotation; 
+  GlobeGroup.add(globe);
+  globeLoaded = true;
+
+  if(options.initToCurrent && labelsLoaded) {console.log("calling showNow from createGlobe"); showNow(); }
+
+  // Load elevation model:  
+  const bumpMapFile = 'data/lola_dem_smaller.jpg';
+  //const bumpMapFile = 'images/mgs_mola_elevation_map_reduced.jpg';
+  
+  console.log("loading bump map " + bumpMapFile);
+  globe.material.bumpMap = new THREE.TextureLoader().load(bumpMapFile);
+  globe.material.displacementMap = new THREE.TextureLoader().load(bumpMapFile);
+  globe.material.displacementScale = options.displacementScale;
+  globe.material.displacementBias = -0.01;
+  initializeDisplacementSampler(bumpMapFile);
+
+  // Load base map
+  changeMap();
+  //console.log(globe);
+}
+
+
+function createStars(radius) {
+  console.log("making stars");		
+  const loader = new THREE.TextureLoader();
+  loader.load('images/starfield.jpg', (texture) => {
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4,4);
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      side: THREE.BackSide
+    });
+    const geometry = new THREE.SphereGeometry(radius, 64, 64);
+    stars = new THREE.Mesh(geometry, material);
+    stars.rotateX(Math.PI/2);  // reorient to z-up
+    console.log(stars);
+    stars.rotation.z = rotation; 
+    scene.add(stars);
+  });
+}
+
+
+function createCoordAxes(parent, vector_length){ 
+  const coord_axes = new THREE.Group();
+
+  var geom = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(0,0,0), new THREE.Vector3(vector_length,0,0)] );
+  var matl = new THREE.LineBasicMaterial({color: 0xff0000, opacity: 0.2});
+  var coord_axis = new THREE.Line( geom, matl );
+  coord_axes.add(coord_axis);
+
+  var geom = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(0,0,0), new THREE.Vector3(0,vector_length,0)] );
+  var matl = new THREE.LineBasicMaterial({ 	color: 0x00ff00, opacity: 0.2 });
+  var coord_axis = new THREE.Line( geom, matl );
+  coord_axes.add(coord_axis);
+  
+  var geom = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,vector_length)] );
+  var matl = new THREE.LineBasicMaterial({ 	color: 0x0000ff, opacity: 0.2 });
+  var coord_axis = new THREE.Line( geom, matl );
+  coord_axes.add(coord_axis);
+
+  parent.add(coord_axes);
+  return coord_axes;
+}
+

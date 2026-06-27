@@ -1,0 +1,239 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+	<link rel="apple-touch-icon" sizes="180x180" href="images/favicon/apple-touch-icon.png">
+	<link rel="icon" type="image/png" sizes="32x32" href="images/favicon/favicon-32x32.png">
+	<link rel="icon" type="image/png" sizes="16x16" href="images/favicon/favicon-16x16.png">
+	<link rel="manifest" href="images/favicon/site.webmanifest">
+	<link rel="mask-icon" href="images/favicon/safari-pinned-tab.svg" color="#5bbad5">
+	<link rel="shortcut icon" href="images/favicon/favicon.ico">
+	<meta name="msapplication-TileColor" content="#da532c">
+	<meta name="msapplication-config" content="images/favicon/browserconfig.xml">
+	<meta name="theme-color" content="#ffffff">
+	
+	<title>Moon Globe</title>
+	<style>
+		body { margin: 0; overflow: hidden; background-color: #000; 
+      font-family: "Lucida Console", Monaco, monospace;
+			-webkit-user-select: none;
+			-webkit-touch-callout: none;
+			-moz-user-select: none;
+			-ms-user-select: none;
+			user-select: none;
+			width:  100%;
+			height: 100%;
+			margin: 0;
+		}
+		.tm  { position: absolute; top: 10px; right: 10px; }
+		.webgl-error { font: 15px/30px monospace; text-align: center; color: #fff; margin: 50px; }
+		.webgl-error a { color: #fff; }
+		.unselectable {
+		}
+    
+    a:link {
+      color: #adf;
+    }
+    a:visited {
+      color: #adf;
+    }
+    a:hover {
+      color: #4ff;
+    }
+    
+    #webgl {
+      position: fixed;
+      width: 100%; /* Full width (cover the whole page) */
+      height: 100%; /* Full height (cover the whole page) */
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: -1;
+    }
+    
+    #overlay {
+      position: fixed; /* Sit on top of the page content */
+      display: none; /* Hidden by default */
+      width: 100%; /* Full width (cover the whole page) */
+      height: 100%; /* Full height (cover the whole page) */
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.8); /* Black background with opacity */
+      z-index: 2; /* Specify a stack order in case you're using a different order for other elements */
+      cursor: pointer; /* Add a pointer on hover */
+    }
+    .astext {
+      background:none;
+      border:none;
+      margin: 5px;
+      padding:0;
+      cursor: pointer;
+      outline:none;
+      user-select: none;
+      -webkit-user-select: none; /* Safari */        
+      -moz-user-select: none; /* Firefox */
+    }
+    #ack_button {
+      z-index: 99;
+      font-family: Monospace;
+      text-shadow: 0px 0px 8px #3DF;
+      color: #3DF;
+      position: absolute;
+      left: 0px;
+      bottom: 0px;
+    }
+    
+    #info {
+      position: absolute;
+      width: 50%;
+      height: 50%;
+      top: 50%;
+      left: 50%;
+      font-size: 14px;
+      color: #aaa;
+      transform: translate(-50%,-50%);
+      -ms-transform: translate(-50%,-50%);
+    }
+    h {
+      text-indent: 0px;
+      font-size: 24px;
+      padding-top: 3em;
+      color: white;
+      text-decoration-line: underline;
+      text-decoration-style: solid;
+    }
+
+    p {
+      padding: 0px;
+      margin-top: 0px;
+      margin-bottom: 0.5em;
+    }
+    
+    canvas {
+      width: 100%;
+      height: 100px;
+      display: block;
+    }
+
+    #annotation {
+      position: absolute;
+      padding: 5px;
+      color: #ddd;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: .5em;
+      font-size: 12px;
+      line-height: 1.2;
+      transition: opacity .5s;
+    }
+
+    #status_container {
+      text-shadow: 0px 0px 8px rgba(255, 255, 255, 0.1);
+      color: orange;
+      margin: 5px;
+      position: absolute;
+      right: 0px;
+      z-index: 98;
+      bottom: 0px;
+      opacity: 0.5;
+      font-size: 12px;
+    }
+
+    #poi_container {
+      position: absolute;
+      padding: 10px;
+      margin-left: 10px;
+      margin-top: 10px;
+      color: #eee;
+      background: rgba(0, 0, 0, 0.6);
+      top: 0;
+      left: 0;
+      padding: 4px;
+      z-index: 50;
+      border-radius: 8px;
+    }    
+    #poi_info {
+      float: left;
+      color: #aaa;
+      font-size: 12px;
+      margin: 8px;
+    }
+    #poi_image {
+      background-color: transparent;
+      border: 1px solid transparent;
+      float: right;
+      margin: 8px;
+    }
+    
+    
+    </style>
+	
+	<script>
+		/* The following prevents browsers from interpreting pinch gestures as global zoom */
+		document.addEventListener('gesturestart', function(e) {
+			e.preventDefault();
+			document.body.style.zoom = 0.99;
+		});
+
+		document.addEventListener('gesturechange', function(e) {
+			e.preventDefault();
+			document.body.style.zoom = 0.99;
+		});
+
+		document.addEventListener('gestureend', function(e) {
+			e.preventDefault();
+			document.body.style.zoom = 0.99;
+		});
+	</script>
+	
+
+  
+</head>
+<body>
+  <!-- Make Acknowledgments Panel -->
+  <button class="astext" id="ack_button" onclick="overlayOn()">About</button>
+  <div id="overlay" onclick="overlayOff()">
+    <div id="info">
+      <h>Moon Globe</h>
+      <p>This open-source Moon viewer is intended to help amateur astronomers and planetary photographers identify surface features they see in an eyepiece or in images.</p>
+      <br/>
+      <hr/>
+      <br/>
+      <h>Acknowledgements</h>
+      <p>Created by Ryan Kinnett.</p>
+      <p>Points of interest provided by <a href="https://planetarynames.wr.usgs.gov/Page/MOON/target">IAU Gazetteer of PLanetary Nomenclature </a> (USGS).</p>
+      <p>2025 color map via <a href="https://svs.gsfc.nasa.gov/4720">Scientific Visualization Studio</a>, NASA Goddard Space Flight Center, derived from LROC (NASA) </p>
+      <p>Displacement map via <a href="https://svs.gsfc.nasa.gov/4720">Scientific Visualization Studio</a>, NASA Goddard Space Flight Center, derived from LOLA (NASA) </p>
+    </div>
+  </div>
+
+  <!-- Make Point-of-Interest Label Object -->  
+  <div class="annotation" id="poi_container">
+    <div id="poi_info">Information</div>
+    <img src="" id="poi_image">
+  </div>  
+  
+  <!-- Make Loading Status Object -->  
+  <div class="annotation" id="status_container">Initializing</div>  
+  
+  <!-- Make webgl canvas for Moon scene -->
+	<div id="webgl"></div>
+  
+  
+  
+	<script src="js/jquery.min.js"></script>
+	<script src="js/dat.gui.min.js"></script>
+	<script src="js/Detector.js"></script>		
+	<script type="module" src="js/moon.js"></script>  
+  
+  <script>
+  function overlayOn() {  document.getElementById("overlay").style.display = "block"; }
+  function overlayOff() { document.getElementById("overlay").style.display = "none";  }
+  </script>
+  
+</body>
+</html>
