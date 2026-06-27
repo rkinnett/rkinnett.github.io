@@ -53,6 +53,12 @@ var globe_radius   = 0.5,
   radsPerDeg = Math.PI/180,
   dialogOpen = false;
 
+const loadingState = {
+  assetsLoaded: false,
+  featureDataLoaded: false,
+  ephemLoaded: false,
+};
+
 options = {
   mirror:  false,
   mapFile: 'lroc_color_2k.jpg',
@@ -287,18 +293,39 @@ function onWindowResize(){
 
 function startLoadingManager(){
   const status = document.getElementById('status_container');
+  function setStatus(text, color){
+    if(!status) return;
+    status.style.color = color;
+    status.innerText = text;
+  }
+
+  function updateReadyStatus(){
+    if(loadingState.assetsLoaded && loadingState.featureDataLoaded && loadingState.ephemLoaded){
+      setStatus("Ready", "#6f6");
+      return;
+    }
+
+    var pending = [];
+    if(!loadingState.assetsLoaded) pending.push("assets");
+    if(!loadingState.featureDataLoaded) pending.push("features");
+    if(!loadingState.ephemLoaded) pending.push("ephemeris");
+    setStatus("Loading " + pending.join(", "), "orange");
+  }
+
+  window.updateLoadingStatus = updateReadyStatus;
+
   THREE.DefaultLoadingManager.onStart = function ( url, itemsLoaded, itemsTotal ) {
     console.log( 'Started loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
-    status.style.color = "orange";
-    status.innerText = "Loading";
+    setStatus("Loading assets 0/" + itemsTotal, "orange");
   };
   THREE.DefaultLoadingManager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
     console.log( 'Loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+    setStatus("Loading assets " + itemsLoaded + "/" + itemsTotal, "orange");
   };
   THREE.DefaultLoadingManager.onLoad = function ( ) {
     console.log( 'Loading Complete!');
-    status.style.color = "green";
-    status.innerText = "Ready";
+    loadingState.assetsLoaded = true;
+    updateReadyStatus();
   };
 }
 
@@ -516,12 +543,19 @@ function loadEphemData(callback){
     console.log("testing ephem lookup:  ");
     console.log(data["2027-01-01 00:00"][0]); // test	
     ephem.loaded = true;
+    loadingState.ephemLoaded = true;
+    if(window.updateLoadingStatus) window.updateLoadingStatus();
     if(typeof callback == 'function' ) callback();
   })
   .fail(function(jqXHR, textStatus, errorThrown) {
     console.log("error " + textStatus);
     console.log(errorThrown);
     console.log("incoming Text " + jqXHR.responseText);
+    const status = document.getElementById('status_container');
+    if(status){
+      status.style.color = "#f66";
+      status.innerText = "Error loading ephemeris";
+    }
   })
 }
 
@@ -537,11 +571,18 @@ function loadFeatureData(){
       featuresCsvText = csvTexts[1];
       landingSitesCsvText = csvTexts[2];
       createLabels();
+      loadingState.featureDataLoaded = true;
+      if(window.updateLoadingStatus) window.updateLoadingStatus();
       console.log("loaded feature labels");
     })
     .catch(function(error){
       console.log("error loading feature data");
       console.log(error);
+      const status = document.getElementById('status_container');
+      if(status){
+        status.style.color = "#f66";
+        status.innerText = "Error loading feature data";
+      }
     });
 }
 
