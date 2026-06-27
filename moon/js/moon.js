@@ -967,11 +967,13 @@ function createGlobe(radius, segments) {
   globeLoaded = true;
 
   // Load elevation model:  
-  const bumpMapFile = 'data/lola_dem_smaller.jpg';
-  //const bumpMapFile = 'images/mgs_mola_elevation_map_reduced.jpg';
-  
+  const bumpMapFile = 'data/lola_dem_8192.png';
   console.log("loading bump map " + bumpMapFile);
   globe.material.bumpMap = new THREE.TextureLoader().load(bumpMapFile);
+  globe.material.bumpMap.minFilter = THREE.LinearMipMapLinearFilter;
+  globe.material.bumpMap.magFilter = THREE.LinearFilter;
+  globe.material.bumpMap.anisotropy = 0;
+
   globe.material.displacementMap = new THREE.TextureLoader().load(bumpMapFile);
   globe.material.displacementScale = options.displacementScale;
   globe.material.displacementBias = -0.01;
