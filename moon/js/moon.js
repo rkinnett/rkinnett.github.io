@@ -592,7 +592,17 @@ function fetchCsvText(filePath){
       if(!response.ok){
         throw new Error("failed to load data file " + filePath + ": " + response.status + " " + response.statusText);
       }
-      return response.text();
+      return response.arrayBuffer();
+    })
+    .then(function(buffer){
+      // Prefer UTF-8, but some source CSVs are legacy Windows-1252.
+      var utf8Text = new TextDecoder('utf-8').decode(buffer);
+      if(utf8Text.indexOf('\uFFFD') === -1){
+        return utf8Text.normalize('NFC');
+      }
+
+      var fallbackText = new TextDecoder('windows-1252').decode(buffer);
+      return fallbackText.normalize('NFC');
     });
 }
 
