@@ -49,7 +49,7 @@ var globe_radius   = 0.5,
   craterCsvText = null,
   featuresCsvText = null,
   landingSitesCsvText = null,
-  craterRecords = [],
+  featureRecords = [],
   displacementImageData = null,
   displacementImageWidth = 0,
   displacementImageHeight = 0,
@@ -67,13 +67,14 @@ options = {
   r: 1,
   g: 1,
   b: 1,
-  craterLabelScale: 0.02,
-  craterLabelFontSize: 16,
-  craterLabelTextColor: '#ffffff',
-  craterLabelStrokeColor: '#000000',
-  craterLabelBackgroundOpacity: 0.0,
-  craterLabelOpacity: 0.8,
-  craterLabelStrokeWidth: 2,
+  labelScale: 0.02,
+  labelFontSize: 16,
+  labelTextColor: '#ffffff',
+  labelStrokeColor: '#000000',
+  labelBackgroundOpacity: 0.0,
+  labelOpacity: 0.8,
+  labelStrokeWidth: 2,
+  showLabels: true,
   initToCurrent: false,
   showStars: true,
   showMoon: true,
@@ -175,30 +176,38 @@ function init(){
 
 
   var gui = new dat.GUI();
-  gui.add(options, 'subSunLon', -360, 360).listen().name("sun az").onChange(function(val){placeSun()});
-  gui.add(options, 'subSunLat', -26, 26).listen().name("sun el").onChange(function(val){placeSun()});
-  gui.add(options, 'rotation', 0, 6.2832).listen().name("planet rotation").onChange(function(val){ GlobeGroup.rotation.z = val; });
-  gui.add(options, 'northUp').listen().name("north up").onChange(function(){ setPoleOrientation() });
-  gui.add(options, 'mirror').listen().onChange(function(boolMirror){ setMirroring(boolMirror) });
-  // gui.add(options, 'showMoon').listen().name("Moon").onChange(function(){ toggleMoon() });
-  // gui.add(options, 'showStars').listen().name("Stars").onChange(function(){ toggleStars() });
-  gui.add(options, 'showCoordFrame').listen().name("Coordinate Axes").onChange(function(val){ GlobeCoordAxes.visible = val });
-  gui.add(options, 'mapFile',mapFiles).listen().name("Base map").onChange(function(){changeMap()});
-  gui.add(options, 'bumpScale',0,0.1).listen().name("texture scale").onChange(function(val){globe.material.bumpScale=val;});
-  gui.add(options, 'displacementScale',0,0.1).listen().name("displacement scale").onChange(function(val){
+
+  const gui_folder_illumination = gui.addFolder('Illumination');
+  gui_folder_illumination.add(options, 'subSunLon', -360, 360).listen().name("sun az").onChange(function(val){placeSun()});
+  gui_folder_illumination.add(options, 'subSunLat', -26, 26).listen().name("sun el").onChange(function(val){placeSun()});
+
+  const gui_folder_orientation = gui.addFolder('Orientation');
+  gui_folder_orientation.add(options, 'rotation', 0, 6.2832).listen().name("planet rotation").onChange(function(val){ GlobeGroup.rotation.z = val; });
+  gui_folder_orientation.add(options, 'northUp').listen().name("north up").onChange(function(){ setPoleOrientation() });
+  gui_folder_orientation.add(options, 'mirror').listen().onChange(function(boolMirror){ setMirroring(boolMirror) });
+
+  const gui_folder_appearance = gui.addFolder('Appearance');
+  gui_folder_appearance.add(options, 'showCoordFrame').listen().name("Coordinate Axes").onChange(function(val){ GlobeCoordAxes.visible = val });
+  gui_folder_appearance.add(options, 'mapFile',mapFiles).listen().name("Base map").onChange(function(){changeMap()});
+  gui_folder_appearance.add(options, 'bumpScale',0,0.1).listen().name("texture scale").onChange(function(val){globe.material.bumpScale=val;});
+  gui_folder_appearance.add(options, 'displacementScale',0,0.1).listen().name("displacement scale").onChange(function(val){
     globe.material.displacementScale = val;
-    updateCraterLabelPositions();
+    updateLabelsPosition();
   });
-  // gui.add(options, 'r',0.6,1).listen().name("red").onChange(function(val){globe.material.color.r=val;});
-  // gui.add(options, 'g',0.6,1).listen().name("green").onChange(function(val){globe.material.color.g=val;});
-  // gui.add(options, 'b',0.6,1).listen().name("blue").onChange(function(val){globe.material.color.b=val;});
-  gui.add(options, 'craterLabelScale', 0.01, 0.2).listen().name("crater label size").onChange(function(){ refreshCraterLabels(); });
-  gui.add(options, 'craterLabelFontSize', 12, 96).step(1).listen().name("crater font size").onChange(function(){ refreshCraterLabels(); });
-  gui.add(options, 'craterLabelOpacity', 0, 1).listen().name("crater labels opacity").onChange(function(){ refreshCraterLabels(); });
-  gui.add(options, 'craterLabelBackgroundOpacity', 0, 1).listen().name("crater labels bg opacity").onChange(function(){ refreshCraterLabels(); });
-  gui.add(options, 'craterLabelStrokeWidth', 0, 14).step(1).listen().name("crater labels outline width").onChange(function(){ refreshCraterLabels(); });
-  // gui.addColor(options, 'craterLabelTextColor').name("crater text color").onChange(function(){ refreshCraterLabels(); });
-  // gui.addColor(options, 'craterLabelStrokeColor').name("crater labels outline color").onChange(function(){ refreshCraterLabels(); });
+  // gui_folder_appearance.add(options, 'r',0.6,1).listen().name("red").onChange(function(val){globe.material.color.r=val;});
+  // gui_folder_appearance.add(options, 'g',0.6,1).listen().name("green").onChange(function(val){globe.material.color.g=val;});
+  // gui_folder_appearance.add(options, 'b',0.6,1).listen().name("blue").onChange(function(val){globe.material.color.b=val;});
+
+  const gui_folder_labels = gui.addFolder('Labels');
+  gui_folder_labels.add(options, 'showLabels').listen().name("show labels").onChange(function(){ updateLabelsVisibility(); });
+  gui_folder_labels.add(options, 'labelScale', 0.01, 0.2).listen().name("size").onChange(function(){ refreshLabels(); });
+  gui_folder_labels.add(options, 'labelFontSize', 12, 96).step(1).listen().name("font size").onChange(function(){ refreshLabels(); });
+  gui_folder_labels.add(options, 'labelOpacity', 0, 1).listen().name("opacity").onChange(function(){ refreshLabels(); });
+  gui_folder_labels.add(options, 'labelBackgroundOpacity', 0, 1).listen().name("bg opacity").onChange(function(){ refreshLabels(); });
+  gui_folder_labels.add(options, 'labelStrokeWidth', 0, 14).step(1).listen().name("outline width").onChange(function(){ refreshLabels(); });
+  // gui_folder_labels.addColor(options, 'labelTextColor').name("text color").onChange(function(){ refreshLabels(); });
+  // gui_folder_labels.addColor(options, 'labelStrokeColor').name("outline color").onChange(function(){ refreshLabels(); });
+  
   gui.add(ephemQueryNowFcn,'add').name("Show now");
   gui.add(ephemQueryUtcFcn,'add').name("Show specific time");
   gui.add(searchForFeatureFcn,'add').name("Search");
@@ -207,10 +216,10 @@ function init(){
 
   PointsOfInterest = new THREE.Group();
   PointsOfInterest.name = 'featureLabels';
-  PointsOfInterest.visible = options.showMoon;
+  PointsOfInterest.visible = options.showMoon && options.showLabels;
   GlobeGroup.add(PointsOfInterest);
 
-  loadCraterData();
+  loadFeatureData();
 
   render();
 
@@ -356,7 +365,7 @@ function searchForFeature(){
   if(searchPhrase.length === 0){
     return;
   }
-  if(!craterRecords || craterRecords.length === 0){
+  if(!featureRecords || featureRecords.length === 0){
     alert("Sorry, feature data is not loaded yet.");
     return;
   }
@@ -365,11 +374,11 @@ function searchForFeature(){
   var bestMatch = null;
   var bestMatchPos = Number.POSITIVE_INFINITY;
 
-  for(var i = 0; i < craterRecords.length; i++){
-    var craterName = craterRecords[i].name.toLowerCase();
-    var matchPos = craterName.indexOf(searchPhrase);
+  for(var i = 0; i < featureRecords.length; i++){
+    var featureName = featureRecords[i].name.toLowerCase();
+    var matchPos = featureName.indexOf(searchPhrase);
     if(matchPos > -1 && matchPos < bestMatchPos){
-      bestMatch = craterRecords[i];
+      bestMatch = featureRecords[i];
       bestMatchPos = matchPos;
     }
   }
@@ -410,7 +419,13 @@ function toggleStars(){
 
 function toggleMoon(){
   globe.visible = options.showMoon;
-  if(PointsOfInterest) PointsOfInterest.visible = options.showMoon;
+  updateLabelsVisibility();
+}
+
+function updateLabelsVisibility(){
+  if(PointsOfInterest){
+    PointsOfInterest.visible = options.showMoon && options.showLabels;
+  }
 }
 
 
@@ -543,7 +558,7 @@ function loadEphemData(callback){
   })
 }
 
-function loadCraterData(){
+function loadFeatureData(){
   console.log("loading feature data files");
   Promise.all([
     fetchCsvText(craterFile),
@@ -554,7 +569,7 @@ function loadCraterData(){
       craterCsvText = csvTexts[0];
       featuresCsvText = csvTexts[1];
       landingSitesCsvText = csvTexts[2];
-      createCraterLabels();
+      createLabels();
       console.log("loaded feature labels");
     })
     .catch(function(error){
@@ -618,7 +633,7 @@ function appendFeatureRecordsFromCsv(csvText){
       continue;
     }
 
-    craterRecords.push({
+    featureRecords.push({
       name: featureName,
       lat: featureLat,
       lon: featureLon,
@@ -627,13 +642,13 @@ function appendFeatureRecordsFromCsv(csvText){
   }
 }
 
-function createCraterLabels(){
+function createLabels(){
   if(!PointsOfInterest){
     return;
   }
 
-  clearCraterLabels();
-  craterRecords = [];
+  clearLabels();
+  featureRecords = [];
 
   appendFeatureRecordsFromCsv(craterCsvText);
   appendFeatureRecordsFromCsv(featuresCsvText);
@@ -642,8 +657,8 @@ function createCraterLabels(){
   var minDiameter = Infinity;
   var maxDiameter = -Infinity;
 
-  for(var i = 0; i < craterRecords.length; i++){
-    var featureDiameter = craterRecords[i].diameter;
+  for(var i = 0; i < featureRecords.length; i++){
+    var featureDiameter = featureRecords[i].diameter;
     if(featureDiameter !== null){
       minDiameter = Math.min(minDiameter, featureDiameter);
       maxDiameter = Math.max(maxDiameter, featureDiameter);
@@ -656,16 +671,16 @@ function createCraterLabels(){
   }
 
   var duplicateCoordCounts = {};
-  for(var j = 0; j < craterRecords.length; j++){
+  for(var j = 0; j < featureRecords.length; j++){
 
-    var feature = craterRecords[j];
+    var feature = featureRecords[j];
     var coordKey = feature.lat.toFixed(4) + ',' + feature.lon.toFixed(4);
     var duplicateIndex = duplicateCoordCounts[coordKey] || 0;
     duplicateCoordCounts[coordKey] = duplicateIndex + 1;
     var duplicateOffset = duplicateIndex * globe_radius * 0.004;
 
-    var labelSprite = createCraterLabelSprite(feature.name, feature.diameter, minDiameter, maxDiameter);
-    var featurePosition = latLonToGlobePoint(feature.lat, feature.lon, getCraterLabelRadius(feature.lat, feature.lon) + duplicateOffset);
+    var labelSprite = createLabelSprite(feature.name, feature.diameter, minDiameter, maxDiameter);
+    var featurePosition = latLonToGlobePoint(feature.lat, feature.lon, getLabelRadius(feature.lat, feature.lon) + duplicateOffset);
     labelSprite.position.copy(featurePosition);
     labelSprite.userData = {
       name: feature.name,
@@ -678,29 +693,29 @@ function createCraterLabels(){
   }
 }
 
-function getCraterLabelRadius(lat, lon){
+function getLabelRadius(lat, lon){
   var displacementOffset = getSurfaceDisplacementAtLatLon(lat, lon);
   var labelClearance = globe_radius * 0.005;
   return globe_radius + displacementOffset + labelClearance;
 }
 
-function updateCraterLabelPositions(){
+function updateLabelsPosition(){
   if(!PointsOfInterest){
     return;
   }
 
   for(var i = 0; i < PointsOfInterest.children.length; i++){
-    var craterLabel = PointsOfInterest.children[i];
-    if(!craterLabel.userData){
+    var label = PointsOfInterest.children[i];
+    if(!label.userData){
       continue;
     }
-    var lat = craterLabel.userData.lat;
-    var lon = craterLabel.userData.lon;
-    var duplicateOffset = craterLabel.userData.duplicateOffset || 0;
+    var lat = label.userData.lat;
+    var lon = label.userData.lon;
+    var duplicateOffset = label.userData.duplicateOffset || 0;
     if(isNaN(lat) || isNaN(lon)){
       continue;
     }
-    craterLabel.position.copy(latLonToGlobePoint(lat, lon, getCraterLabelRadius(lat, lon) + duplicateOffset));
+    label.position.copy(latLonToGlobePoint(lat, lon, getLabelRadius(lat, lon) + duplicateOffset));
   }
 }
 
@@ -742,7 +757,7 @@ function initializeDisplacementSampler(mapFile){
       displacementImageData = imageData.data;
       displacementImageWidth = image.width;
       displacementImageHeight = image.height;
-      updateCraterLabelPositions();
+      updateLabelsPosition();
     },
     undefined,
     function(error){
@@ -752,7 +767,7 @@ function initializeDisplacementSampler(mapFile){
   );
 }
 
-function clearCraterLabels(){
+function clearLabels(){
   for(var i = PointsOfInterest.children.length - 1; i >= 0; i--){
     var child = PointsOfInterest.children[i];
     if(child.material){
@@ -765,9 +780,9 @@ function clearCraterLabels(){
   }
 }
 
-function refreshCraterLabels(){
+function refreshLabels(){
   if(craterCsvText || featuresCsvText || landingSitesCsvText){
-    createCraterLabels();
+    createLabels();
   }
 }
 
@@ -795,10 +810,10 @@ function latLonToGlobePoint(lat, lon, radius){
   );
 }
 
-function createCraterLabelSprite(labelText, craterDiameter, minDiameter, maxDiameter){
+function createLabelSprite(labelText, featureDiameter, minDiameter, maxDiameter){
   var canvasLabel = document.createElement('canvas');
   var context = canvasLabel.getContext('2d');
-  var fontSize = options.craterLabelFontSize;
+  var fontSize = options.labelFontSize;
   var padding = 20;
 
   context.font = fontSize + 'px Arial, sans-serif';
@@ -810,15 +825,15 @@ function createCraterLabelSprite(labelText, craterDiameter, minDiameter, maxDiam
   context.font = fontSize + 'px Arial, sans-serif';
   context.textBaseline = 'middle';
   context.lineJoin = 'round';
-  context.lineWidth = options.craterLabelStrokeWidth;
+  context.lineWidth = options.labelStrokeWidth;
 
-  context.fillStyle = 'rgba(0, 0, 0, ' + options.craterLabelBackgroundOpacity + ')';
+  context.fillStyle = 'rgba(0, 0, 0, ' + options.labelBackgroundOpacity + ')';
   context.fillRect(0, 0, canvasLabel.width, canvasLabel.height);
 
-  context.strokeStyle = options.craterLabelStrokeColor;
+  context.strokeStyle = options.labelStrokeColor;
   context.strokeText(labelText, padding, canvasLabel.height / 2);
 
-  context.fillStyle = options.craterLabelTextColor;
+  context.fillStyle = options.labelTextColor;
   context.fillText(labelText, padding, canvasLabel.height / 2);
 
   var texture = new THREE.CanvasTexture(canvasLabel);
@@ -829,17 +844,17 @@ function createCraterLabelSprite(labelText, craterDiameter, minDiameter, maxDiam
   var material = new THREE.SpriteMaterial({
     map: texture,
     transparent: true,
-    opacity: options.craterLabelOpacity,
+    opacity: options.labelOpacity,
     depthTest: true,
     depthWrite: false,
   });
 
   var sprite = new THREE.Sprite(material);
   var diameterRange = maxDiameter - minDiameter;
-  var normalizedDiameter = (craterDiameter === null || diameterRange <= 0) ? 0.5 : (craterDiameter - minDiameter) / diameterRange;
+  var normalizedDiameter = (featureDiameter === null || diameterRange <= 0) ? 0.5 : (featureDiameter - minDiameter) / diameterRange;
   var scaledDiameter = Math.pow(normalizedDiameter, 0.65);
   var sizeMultiplier = 0.5 + scaledDiameter;
-  var labelHeight = globe_radius * options.craterLabelScale * sizeMultiplier;
+  var labelHeight = globe_radius * options.labelScale * sizeMultiplier;
   var labelAspect = canvasLabel.width / canvasLabel.height;
   sprite.scale.set(labelHeight * labelAspect, labelHeight, 1);
   sprite.renderOrder = 10;
