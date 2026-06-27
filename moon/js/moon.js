@@ -8,9 +8,7 @@
 import * as THREE from 'https://unpkg.com/three@0.121.1/build/three.module.js';
 import { OrbitControls } from 'https://unpkg.com/three@0.121.1/examples/jsm/controls/OrbitControls.js';
 
-let camera, controls, scene, renderer, ephem, options, sun, globe, labels, PointsOfInterest, stars, GlobeGroup, fakeSun, sunVec, canvas;
-
-let selectedObject = null;
+let camera, controls, scene, renderer, ephem, options, sun, globe, PointsOfInterest, stars, GlobeGroup, fakeSun, sunVec, canvas;
 const raycaster = new THREE.Raycaster();
 const mouseVector = new THREE.Vector3();
 
@@ -45,7 +43,6 @@ var globe_radius   = 0.5,
   segments = 512,
   rotation = 0,
   globeLoaded = false,
-  labelsLoaded = false,
   craterCsvText = null,
   featuresCsvText = null,
   landingSitesCsvText = null,
@@ -101,9 +98,7 @@ init();
 function init(){
   startLoadingManager();
   
-  window.addEventListener('mousemove',  onDocumentMouseMove, {passive: true}, false ); // show POI info when mouse-over
   window.addEventListener('dblclick',   onDoubleClick, false);  // center view on clicked lat/lon position
-  window.addEventListener('touchend',   onTouch, false);  // show point-of-interest info if touched
   window.addEventListener('keydown',    onKeyDown, false);  // handle key controls:  arrow keys, ctrl-f, etc
   window.addEventListener('resize',     onWindowResize, {passive: true}, false );
 
@@ -187,6 +182,8 @@ function init(){
   gui_folder_orientation.add(options, 'mirror').listen().onChange(function(boolMirror){ setMirroring(boolMirror) });
 
   const gui_folder_appearance = gui.addFolder('Appearance');
+  gui_folder_appearance.add(options, 'showMoon').listen().name("Moon").onChange(function(){ toggleMoon(); });
+  gui_folder_appearance.add(options, 'showStars').listen().name("Stars").onChange(function(){ toggleStars(); });
   gui_folder_appearance.add(options, 'showCoordFrame').listen().name("Coordinate Axes").onChange(function(val){ GlobeCoordAxes.visible = val });
   gui_folder_appearance.add(options, 'mapFile',mapFiles).listen().name("Base map").onChange(function(){changeMap()});
   gui_folder_appearance.add(options, 'bumpScale',0,0.1).listen().name("texture scale").onChange(function(val){globe.material.bumpScale=val;});
@@ -228,7 +225,7 @@ function init(){
   loadEphemData(showNow);
 
   // make key variables accessible in console:
-  window.globals = {webglEl, camera, controls, scene, renderer, ephem, options, sun, globe, labels, GlobeGroup, fakeSun, sunVec};
+  window.globals = {webglEl, camera, controls, scene, renderer, ephem, options, sun, globe, GlobeGroup, fakeSun, sunVec};
 }
 
 
@@ -245,19 +242,6 @@ function onDoubleClick(event){
     console.log("lat: " + lat.toFixed(2) + "N, lon: " + lon.toFixed(2) + "W");
     placeCamera(lat, lon);
   }
-}
-
-function onDocumentMouseMove( event ) {
-  if(dialogOpen){
-    return; 
-  } else {
-  }
-}
-
-function onTouch(event) {
-  if(dialogOpen) return;  
-  console.log("touch event");
-  var foundMatch = false;
 }
 
 function onKeyDown(event) {
@@ -425,23 +409,6 @@ function toggleMoon(){
 function updateLabelsVisibility(){
   if(PointsOfInterest){
     PointsOfInterest.visible = options.showMoon && options.showLabels;
-  }
-}
-
-
-function displayLatLon(event){
-  const intersects = getIntersects( event.layerX, event.layerY, globe );
-  if(intersects.length>0){
-    var pointOfIntersection = intersects[0].point;
-    //console.log(pointOfIntersection);
-    document.getElementById('poi_image').src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; //1px transparent image
-    const poiCaption = document.getElementById('poi_info');
-    poiCaption.innerHTML = "";
-    //poiCaption.innerHTML += "x:   " + pointOfIntersection.x.toFixed(5) + ' <br>';
-    //poiCaption.innerHTML += "y:   " + pointOfIntersection.y.toFixed(5) + ' <br>';
-    //poiCaption.innerHTML += "z:   " + pointOfIntersection.z.toFixed(5) + ' <br>';
-    poiCaption.innerHTML += "lat: " + (Math.asin(pointOfIntersection.z/globe_radius)/radsPerDeg).toFixed(2) + 'N <br>';
-    poiCaption.innerHTML += "lon: " + ((Math.atan2(pointOfIntersection.y, pointOfIntersection.x)/radsPerDeg*-1+360)%360).toFixed(2) + 'W <br>';
   }
 }
 
@@ -903,22 +870,17 @@ function changeMap(){
   console.log("changing base map to: " + mapfile);
   globe.material.map = new THREE.TextureLoader().load(mapfile);
   globe.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  if(options.mirror){
-    reverseTexture();
-  }
 }
 
 
 function setMirroring(boolMirror){
   if(boolMirror){
-    labels.material.map = new THREE.TextureLoader().load('images/labels_inv.png');
     controls.rotateSpeed = -1;
     controls.dynamicDampingFactor = -0.2;
     webglEl.style.transform = "scaleX(-1)";
   } else {
     controls.rotateSpeed = 1;
     controls.dynamicDampingFactor = 0.2;
-    labels.material.map = new THREE.TextureLoader().load('images/' + options.labels_sel + '_labels.png');
     webglEl.style.transform = "scaleX(1)";
   }
 }
@@ -952,8 +914,6 @@ function createGlobe(radius, segments) {
   globe.rotation.z = options.rotation; 
   GlobeGroup.add(globe);
   globeLoaded = true;
-
-  if(options.initToCurrent && labelsLoaded) {console.log("calling showNow from createGlobe"); showNow(); }
 
   // Load elevation model:  
   const bumpMapFile = 'data/lola_dem_smaller.jpg';
