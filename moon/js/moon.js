@@ -61,7 +61,7 @@ const loadingState = {
 
 options = {
   mirror:  false,
-  mapFile: 'lroc_color_2k.jpg',
+  mapFile: 'lroc_color_4k.jpg',
   bumpScale: 0.005,
   displacementScale: 0.01,
   cameraDist: 7,
