@@ -967,7 +967,7 @@ function createGlobe(radius, segments) {
   globeLoaded = true;
 
   // Load elevation model:  
-  const bumpMapFile = 'data/lola_dem_8192.jpg';
+  const bumpMapFile = 'data/lola_dem_smaller.jpg';
   console.log("loading bump map " + bumpMapFile);
   globe.material.bumpMap = new THREE.TextureLoader().load(bumpMapFile);
   globe.material.bumpMap.minFilter = THREE.LinearMipMapLinearFilter;
