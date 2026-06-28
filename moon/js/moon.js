@@ -967,12 +967,13 @@ function createGlobe(radius, segments) {
   globeLoaded = true;
 
   // Load elevation model:  
-  const bumpMapFile = 'data/lola_dem_smaller.jpg';
+  const bumpMapFile = 'data/lola_dem_4k.jpg';
   console.log("loading bump map " + bumpMapFile);
   globe.material.bumpMap = new THREE.TextureLoader().load(bumpMapFile);
   globe.material.bumpMap.minFilter = THREE.LinearMipMapLinearFilter;
   globe.material.bumpMap.magFilter = THREE.LinearFilter;
   globe.material.bumpMap.anisotropy = 0;
+  globe.material.generateMipmaps = false;
 
   globe.material.displacementMap = new THREE.TextureLoader().load(bumpMapFile);
   globe.material.displacementScale = options.displacementScale;
