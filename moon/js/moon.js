@@ -40,7 +40,7 @@ var width  = document.documentElement.clientWidth,
   
 // Global params
 var globe_radius   = 0.5,
-  segments = 512,
+  segments = 256,
   rotation = 0,
   globeLoaded = false,
   craterCsvText = null,
