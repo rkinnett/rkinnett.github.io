@@ -3,6 +3,7 @@
  * [Europa Clipper Explorer](https://rkinnett.github.io/europa_clipper_explorer/) - a visualization of the Europa Clipper spacecraft and an astronaut.
  * [marsRoVR](https://rkinnett.github.io/marsroVR/) - Perseverance virtual reality experience. 
  * [Mars Globe](https://rkinnett.github.io/mars/) - virtual Mars globe with selectable maps, labels, and POI markers. Handy for identifying features observed through a telescope.
+ * [Moon Globe](https://rkinnett.github.io/moon/) - virtual Moon globe. Handy for identifying features observed through a telescope.
  * [Jupiter Globe](https://rkinnett.github.io/jupiter/) - virtual Jupiter globe with selectable maps. Incomplete.
  * [Gyro Cam](https://rkinnett.github.io/gyrocam/) - Use a smart phone to measure and collect camera pointing coordinates in azimuth and elevation. Particularly useful for creating horizon coordinate files for planetarium and astronomy software.
   
