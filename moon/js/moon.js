@@ -7,10 +7,21 @@
 
 import * as THREE from 'https://unpkg.com/three@0.121.1/build/three.module.js';
 import { OrbitControls } from 'https://unpkg.com/three@0.121.1/examples/jsm/controls/OrbitControls.js';
+import { LineSegments2 } from 'https://unpkg.com/three@0.121.1/examples/jsm/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'https://unpkg.com/three@0.121.1/examples/jsm/lines/LineSegmentsGeometry.js';
+import { LineMaterial } from 'https://unpkg.com/three@0.121.1/examples/jsm/lines/LineMaterial.js';
 
 let camera, controls, scene, renderer, ephem, options, sun, globe, PointsOfInterest, stars, GlobeGroup, fakeSun, sunVec, canvas;
 const raycaster = new THREE.Raycaster();
 const mouseVector = new THREE.Vector3();
+const globeCenterWorld = new THREE.Vector3();
+let leaderLinesGroup = null;
+let leaderOutlineLine = null;
+let leaderCoreLine = null;
+let leaderOutlinePositions = null;
+let leaderCorePositions = null;
+let leaderLinesDirty = false;
+let globeDisplacementBias = -0.01;
 
 const ephemFile = 'js/ephem_2026_to_2036.json';
 const craterFile = 'data/craters.csv';
@@ -22,7 +33,6 @@ const mapFiles = [
   'lroc_color_16bit_srgb_8k.jpg',
   'lroc_color_poles_16k.jpg',
 ];
-
 
 const webglEl = document.getElementById('webgl');
 /*if (!Detector.webgl) {
@@ -62,7 +72,7 @@ const loadingState = {
 options = {
   mirror:  false,
   mapFile: 'lroc_color_2k.jpg',
-  bumpScale: 0.005,
+  bumpScale: 0.01,
   displacementScale: 0.01,
   cameraDist: 7,
   sunPlaneDist: 60,
@@ -70,14 +80,16 @@ options = {
   r: 1,
   g: 1,
   b: 1,
-  labelScale: 0.02,
-  labelFontSize: 16,
+  labelScale: 0.04,
+  labelFontSize: 28,
   labelTextColor: '#ffffff',
   labelStrokeColor: '#000000',
   labelBackgroundOpacity: 0.0,
   labelOpacity: 0.8,
   labelStrokeWidth: 2,
   showLabels: true,
+  showLabelLeaders: true,
+  leaderLabelRadialOffset: 0.2,
   initToCurrent: false,
   showStars: true,
   showMoon: true,
@@ -186,15 +198,15 @@ function init(){
   gui_folder_orientation.add(options, 'rotation', 0, 6.2832).listen().name("planet rotation").onChange(function(val){ GlobeGroup.rotation.z = val; });
   gui_folder_orientation.add(options, 'northUp').listen().name("north up").onChange(function(){ setPoleOrientation() });
   gui_folder_orientation.add(options, 'mirror').listen().onChange(function(boolMirror){ setMirroring(boolMirror) });
+  gui_folder_orientation.add(options, 'showCoordFrame').listen().name("Coordinate Axes").onChange(function(val){ GlobeCoordAxes.visible = val });
 
   const gui_folder_appearance = gui.addFolder('Appearance');
   gui_folder_appearance.add(options, 'showMoon').listen().name("Moon").onChange(function(){ toggleMoon(); });
   gui_folder_appearance.add(options, 'showStars').listen().name("Stars").onChange(function(){ toggleStars(); });
-  gui_folder_appearance.add(options, 'showCoordFrame').listen().name("Coordinate Axes").onChange(function(val){ GlobeCoordAxes.visible = val });
   gui_folder_appearance.add(options, 'mapFile',mapFiles).listen().name("Base map").onChange(function(){changeMap()});
-  gui_folder_appearance.add(options, 'bumpScale',0,0.1).listen().name("texture scale").onChange(function(val){globe.material.bumpScale=val;});
+  gui_folder_appearance.add(options, 'bumpScale',0,0.1).listen().name("texture scale").onChange(function(val){ setGlobeMaterialProperty('bumpScale', val); });
   gui_folder_appearance.add(options, 'displacementScale',0,0.1).listen().name("displacement scale").onChange(function(val){
-    globe.material.displacementScale = val;
+    setGlobeMaterialProperty('displacementScale', val);
     updateLabelsPosition();
   });
   // gui_folder_appearance.add(options, 'r',0.6,1).listen().name("red").onChange(function(val){globe.material.color.r=val;});
@@ -203,11 +215,12 @@ function init(){
 
   const gui_folder_labels = gui.addFolder('Labels');
   gui_folder_labels.add(options, 'showLabels').listen().name("show labels").onChange(function(){ updateLabelsVisibility(); });
+  gui_folder_labels.add(options, 'showLabelLeaders').listen().name("leader lines").onChange(function(){ updateLabelsVisibility(); });
+  gui_folder_labels.add(options, 'leaderLabelRadialOffset', 0, 2).step(0.01).listen().name("leader radial offset");
   gui_folder_labels.add(options, 'labelScale', 0.01, 0.2).listen().name("size").onChange(function(){ refreshLabels(); });
-  gui_folder_labels.add(options, 'labelFontSize', 12, 96).step(1).listen().name("font size").onChange(function(){ refreshLabels(); });
+  //gui_folder_labels.add(options, 'labelFontSize', 12, 96).step(1).listen().name("font size").onChange(function(){ refreshLabels(); });
   gui_folder_labels.add(options, 'labelOpacity', 0, 1).listen().name("opacity").onChange(function(){ refreshLabels(); });
-  gui_folder_labels.add(options, 'labelBackgroundOpacity', 0, 1).listen().name("bg opacity").onChange(function(){ refreshLabels(); });
-  gui_folder_labels.add(options, 'labelStrokeWidth', 0, 14).step(1).listen().name("outline width").onChange(function(){ refreshLabels(); });
+  //gui_folder_labels.add(options, 'labelStrokeWidth', 0, 14).step(1).listen().name("outline width").onChange(function(){ refreshLabels(); });
   // gui_folder_labels.addColor(options, 'labelTextColor').name("text color").onChange(function(){ refreshLabels(); });
   // gui_folder_labels.addColor(options, 'labelStrokeColor').name("outline color").onChange(function(){ refreshLabels(); });
   
@@ -289,6 +302,12 @@ function onWindowResize(){
   camera.aspect = document.documentElement.clientWidth / document.documentElement.clientHeight;
   camera.updateProjectionMatrix();
   renderer.setSize( width, height );
+  if(leaderOutlineLine && leaderOutlineLine.material && leaderOutlineLine.material.resolution){
+    leaderOutlineLine.material.resolution.set(width, height);
+  }
+  if(leaderCoreLine && leaderCoreLine.material && leaderCoreLine.material.resolution){
+    leaderCoreLine.material.resolution.set(width, height);
+  }
 }
 
 function startLoadingManager(){
@@ -334,6 +353,7 @@ function startLoadingManager(){
 function render() {
   controls.update();
   requestAnimationFrame(render);
+  updateLabelsInView();
   renderer.render(scene, camera);
 }
 
@@ -435,7 +455,7 @@ function toggleMoon(){
 
 function updateLabelsVisibility(){
   if(PointsOfInterest){
-    PointsOfInterest.visible = options.showMoon && options.showLabels;
+    PointsOfInterest.visible = options.showLabels;
   }
 }
 
@@ -504,10 +524,18 @@ function interpolateEphemeris(dateQuery){
   console.log("interp bounds:  " + strDateInterpBelow + ", " + strDateInterpAbove);
 
   // get entries before and after query time:
-  // fixme:  handle lookup errors
-  var ephemBelow = ephem.data[strDateInterpBelow][0];
+  var ephemBelowEntry = ephem.data && ephem.data[strDateInterpBelow];
+  var ephemAboveEntry = ephem.data && ephem.data[strDateInterpAbove];
+  if(!ephemBelowEntry || !ephemBelowEntry[0] || !ephemAboveEntry || !ephemAboveEntry[0]){
+    console.log("missing ephemeris records for interpolation bounds");
+    console.log(strDateInterpBelow + " => " + (ephemBelowEntry ? "found" : "missing"));
+    console.log(strDateInterpAbove + " => " + (ephemAboveEntry ? "found" : "missing"));
+    return;
+  }
+
+  var ephemBelow = ephemBelowEntry[0];
   console.log(ephemBelow);
-  var ephemAbove = ephem.data[strDateInterpAbove][0];
+  var ephemAbove = ephemAboveEntry[0];
   console.log(ephemAbove);
   
   // interpolate sub-observer longitude:
@@ -541,7 +569,12 @@ function loadEphemData(callback){
     console.log("done"); 
     ephem.data = data;
     console.log("testing ephem lookup:  ");
-    console.log(data["2027-01-01 00:00"][0]); // test	
+    var ephemKeys = Object.keys(data || {});
+    if(ephemKeys.length > 0 && data[ephemKeys[0]] && data[ephemKeys[0]][0]){
+      console.log(data[ephemKeys[0]][0]);
+    } else {
+      console.log("ephemeris file loaded but contains no usable rows");
+    }
     ephem.loaded = true;
     loadingState.ephemLoaded = true;
     if(window.updateLoadingStatus) window.updateLoadingStatus();
@@ -606,10 +639,12 @@ function fetchCsvText(filePath){
     });
 }
 
-function appendFeatureRecordsFromCsv(csvText){
+function appendFeatureRecordsFromCsv(csvText, featureType){
   if(!csvText){
     return;
   }
+
+  var type = featureType || 'feature';
 
   var rows = csvText.split(/\r?\n/);
   if(rows.length < 2){
@@ -656,6 +691,7 @@ function appendFeatureRecordsFromCsv(csvText){
       lat: featureLat,
       lon: featureLon,
       diameter: isNaN(featureDiameter) ? null : featureDiameter,
+      featureType: type,
     });
   }
 }
@@ -668,9 +704,9 @@ function createLabels(){
   clearLabels();
   featureRecords = [];
 
-  appendFeatureRecordsFromCsv(craterCsvText);
-  appendFeatureRecordsFromCsv(featuresCsvText);
-  appendFeatureRecordsFromCsv(landingSitesCsvText);
+  appendFeatureRecordsFromCsv(craterCsvText, 'crater');
+  appendFeatureRecordsFromCsv(featuresCsvText, 'feature');
+  appendFeatureRecordsFromCsv(landingSitesCsvText, 'landingSite');
 
   var minDiameter = Infinity;
   var maxDiameter = -Infinity;
@@ -697,18 +733,111 @@ function createLabels(){
     duplicateCoordCounts[coordKey] = duplicateIndex + 1;
     var duplicateOffset = duplicateIndex * globe_radius * 0.004;
 
-    var labelSprite = createLabelSprite(feature.name, feature.diameter, minDiameter, maxDiameter);
-    var featurePosition = latLonToGlobePoint(feature.lat, feature.lon, getLabelRadius(feature.lat, feature.lon) + duplicateOffset);
-    labelSprite.position.copy(featurePosition);
+    var diameterRange = maxDiameter - minDiameter;
+    var normalizedDiameter = (feature.diameter === null || diameterRange <= 0) ? 0.5 : (feature.diameter - minDiameter) / diameterRange;
+    var scaledDiameter = Math.pow(normalizedDiameter, 0.65);
+    var sizeMultiplier = 0.5 + scaledDiameter;
+
+    feature.surfaceLocal = latLonToGlobePoint(feature.lat, feature.lon, getLabelRadius(feature.lat, feature.lon));
+    feature.duplicateOffset = duplicateOffset;
+    feature.sizeMultiplier = sizeMultiplier;
+
+    var isLandingSite = feature.featureType === 'landingSite';
+    var labelSprite = createLabelSprite(
+      feature.name,
+      feature.diameter,
+      minDiameter,
+      maxDiameter,
+      isLandingSite ? 1.0 : null,
+      isLandingSite ? '#ffd84d' : options.labelTextColor
+    );
     labelSprite.userData = {
-      name: feature.name,
       lat: feature.lat,
       lon: feature.lon,
-      diameter: feature.diameter,
       duplicateOffset: duplicateOffset,
     };
+    feature.labelSprite = labelSprite;
+    feature.leaderBatchIndex = j;
+
     PointsOfInterest.add(labelSprite);
   }
+
+  createLeaderLinesBatch(featureRecords.length);
+
+  updateLabelsPosition();
+  updateLabelsVisibility();
+}
+
+function createLeaderLinesBatch(featureCount){
+  disposeLeaderLinesBatch();
+  if(!PointsOfInterest || !featureCount){
+    return;
+  }
+
+  var valuesPerFeature = 6;
+  leaderOutlinePositions = new Float32Array(featureCount * valuesPerFeature);
+  leaderCorePositions = new Float32Array(featureCount * valuesPerFeature);
+
+  var outlineGeometry = new LineSegmentsGeometry();
+  outlineGeometry.setPositions(leaderOutlinePositions);
+  var coreGeometry = new LineSegmentsGeometry();
+  coreGeometry.setPositions(leaderCorePositions);
+
+  var outlineMaterial = new LineMaterial({
+    color: 0x000000,
+    transparent: true,
+    opacity: options.labelOpacity * 0.5,
+    linewidth: 7,
+    //depthTest: false,
+    depthWrite: false,
+  });
+  outlineMaterial.resolution.set(width, height);
+
+  var coreMaterial = new LineMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: options.labelOpacity,
+    linewidth: 2,
+    //depthTest: false,
+    depthWrite: false,
+  });
+  coreMaterial.resolution.set(width, height);
+
+  leaderOutlineLine = new LineSegments2(outlineGeometry, outlineMaterial);
+  leaderOutlineLine.renderOrder = 9;
+  leaderCoreLine = new LineSegments2(coreGeometry, coreMaterial);
+  leaderCoreLine.renderOrder = 10;
+
+  leaderLinesGroup = new THREE.Group();
+  leaderLinesGroup.visible = false;
+  leaderLinesGroup.add(leaderOutlineLine);
+  leaderLinesGroup.add(leaderCoreLine);
+  PointsOfInterest.add(leaderLinesGroup);
+}
+
+function disposeLeaderLinesBatch(){
+  if(leaderLinesGroup && leaderLinesGroup.parent){
+    leaderLinesGroup.parent.remove(leaderLinesGroup);
+  }
+  if(leaderOutlineLine && leaderOutlineLine.geometry){
+    leaderOutlineLine.geometry.dispose();
+  }
+  if(leaderCoreLine && leaderCoreLine.geometry){
+    leaderCoreLine.geometry.dispose();
+  }
+  if(leaderOutlineLine && leaderOutlineLine.material){
+    leaderOutlineLine.material.dispose();
+  }
+  if(leaderCoreLine && leaderCoreLine.material){
+    leaderCoreLine.material.dispose();
+  }
+
+  leaderLinesGroup = null;
+  leaderOutlineLine = null;
+  leaderCoreLine = null;
+  leaderOutlinePositions = null;
+  leaderCorePositions = null;
+  leaderLinesDirty = false;
 }
 
 function getLabelRadius(lat, lon){
@@ -718,27 +847,167 @@ function getLabelRadius(lat, lon){
 }
 
 function updateLabelsPosition(){
-  if(!PointsOfInterest){
+  if(!featureRecords){
     return;
   }
 
-  for(var i = 0; i < PointsOfInterest.children.length; i++){
-    var label = PointsOfInterest.children[i];
-    if(!label.userData){
+  for(var i = 0; i < featureRecords.length; i++){
+    var feature = featureRecords[i];
+    if(!feature){
       continue;
     }
-    var lat = label.userData.lat;
-    var lon = label.userData.lon;
-    var duplicateOffset = label.userData.duplicateOffset || 0;
+    var lat = feature.lat;
+    var lon = feature.lon;
+    var duplicateOffset = feature.duplicateOffset || 0;
     if(isNaN(lat) || isNaN(lon)){
       continue;
     }
-    label.position.copy(latLonToGlobePoint(lat, lon, getLabelRadius(lat, lon) + duplicateOffset));
+    if(!feature.surfaceLocal){
+      feature.surfaceLocal = latLonToGlobePoint(lat, lon, getLabelRadius(lat, lon));
+    }
+    feature.positionLocal = latLonToGlobePoint(lat, lon, getLabelRadius(lat, lon) + duplicateOffset);
+    if(feature.labelSprite){
+      feature.labelSprite.position.copy(feature.positionLocal);
+    }
+    updateLeaderLineGeometry(feature, feature.positionLocal, true);
+  }
+  commitLeaderLineGeometry();
+}
+
+function updateLeaderLineGeometry(feature, lineEndLocal, isVisible){
+  if(!feature || !feature.surfaceLocal || !lineEndLocal || feature.leaderBatchIndex === undefined || !leaderOutlinePositions || !leaderCorePositions){
+    return;
+  }
+
+  var endPoint = lineEndLocal;
+  var startPoint = feature.surfaceLocal;
+  var offset = feature.leaderBatchIndex * 6;
+
+  if(isVisible === false){
+    leaderOutlinePositions[offset] = NaN;
+    leaderOutlinePositions[offset + 1] = NaN;
+    leaderOutlinePositions[offset + 2] = NaN;
+    leaderOutlinePositions[offset + 3] = NaN;
+    leaderOutlinePositions[offset + 4] = NaN;
+    leaderOutlinePositions[offset + 5] = NaN;
+
+    leaderCorePositions[offset] = NaN;
+    leaderCorePositions[offset + 1] = NaN;
+    leaderCorePositions[offset + 2] = NaN;
+    leaderCorePositions[offset + 3] = NaN;
+    leaderCorePositions[offset + 4] = NaN;
+    leaderCorePositions[offset + 5] = NaN;
+
+    leaderLinesDirty = true;
+    return;
+  }
+
+  leaderOutlinePositions[offset] = startPoint.x *0.99;
+  leaderOutlinePositions[offset + 1] = startPoint.y *0.99;
+  leaderOutlinePositions[offset + 2] = startPoint.z *0.99;
+  leaderOutlinePositions[offset + 3] = endPoint.x;
+  leaderOutlinePositions[offset + 4] = endPoint.y;
+  leaderOutlinePositions[offset + 5] = endPoint.z;
+
+  leaderCorePositions[offset] = startPoint.x *0.99;
+  leaderCorePositions[offset + 1] = startPoint.y *0.99;
+  leaderCorePositions[offset + 2] = startPoint.z *0.99;
+  leaderCorePositions[offset + 3] = endPoint.x;
+  leaderCorePositions[offset + 4] = endPoint.y;
+  leaderCorePositions[offset + 5] = endPoint.z;
+
+  leaderLinesDirty = true;
+}
+
+function commitLeaderLineGeometry(){
+  if(!leaderLinesDirty){
+    return;
+  }
+
+  if(leaderOutlineLine && leaderOutlineLine.geometry && leaderOutlinePositions){
+    leaderOutlineLine.geometry.setPositions(leaderOutlinePositions);
+  }
+  if(leaderCoreLine && leaderCoreLine.geometry && leaderCorePositions){
+    leaderCoreLine.geometry.setPositions(leaderCorePositions);
+  }
+  leaderLinesDirty = false;
+}
+
+function updateLeaderLinesOpacity(){
+  if(leaderOutlineLine && leaderOutlineLine.material){
+    leaderOutlineLine.material.opacity = options.labelOpacity * 0.5;
+  }
+  if(leaderCoreLine && leaderCoreLine.material){
+    leaderCoreLine.material.opacity = options.labelOpacity;
   }
 }
 
+function updateLabelsInView(){
+  if(!featureRecords || !options.showLabels || !options.showMoon){
+    return;
+  }
+
+  globeCenterWorld.set(0, 0, 0).applyMatrix4(GlobeGroup.matrixWorld);
+  var featureWorld = new THREE.Vector3();
+  var featureNormal = new THREE.Vector3();
+  var featureToCamera = new THREE.Vector3();
+  var projected = new THREE.Vector3();
+  var labelDirection = new THREE.Vector3();
+  var labelPositionLocal = new THREE.Vector3();
+  var lineEndLocal = new THREE.Vector3();
+  var limbVisibilityEpsilon = 0.02;
+
+  for(var i = 0; i < featureRecords.length; i++){
+    var feature = featureRecords[i];
+    if(!feature || !feature.labelSprite || !feature.positionLocal){
+      continue;
+    }
+
+    featureWorld.copy(feature.positionLocal).applyMatrix4(GlobeGroup.matrixWorld);
+    featureNormal.copy(featureWorld).sub(globeCenterWorld).normalize();
+    featureToCamera.copy(camera.position).sub(featureWorld).normalize();
+
+    // Per-feature horizon test avoids back-side bleed near limb at close zoom.
+    if(featureNormal.dot(featureToCamera) <= limbVisibilityEpsilon){
+      feature.labelSprite.visible = false;
+      updateLeaderLineGeometry(feature, feature.positionLocal, false);
+      continue;
+    }
+
+    projected.copy(featureWorld).project(camera);
+    if(projected.z < -1 || projected.z > 1 || Math.abs(projected.x) > 1 || Math.abs(projected.y) > 1){
+      feature.labelSprite.visible = false;
+      updateLeaderLineGeometry(feature, feature.positionLocal, false);
+      continue;
+    }
+
+    feature.labelSprite.visible = true;
+    feature.labelSprite.position.copy(feature.positionLocal);
+    if(options.showLabelLeaders){
+      var limbDistance = featureNormal.dot(featureToCamera);
+      var limbFactor = Math.max(0, Math.min(1, (1 - limbDistance) / (1 - limbVisibilityEpsilon)));
+      var leaderExtension = globe_radius * (0.02 + limbFactor * 0.08) * options.leaderLabelRadialOffset;
+
+      labelDirection.copy(feature.positionLocal).normalize();
+      labelPositionLocal.copy(feature.positionLocal).addScaledVector(labelDirection, leaderExtension);
+      lineEndLocal.copy(labelPositionLocal);
+
+      feature.labelSprite.position.copy(labelPositionLocal);
+      updateLeaderLineGeometry(feature, lineEndLocal, true);
+    } else {
+      updateLeaderLineGeometry(feature, feature.positionLocal, false);
+    }
+  }
+
+  updateLeaderLinesOpacity();
+  if(leaderLinesGroup){
+    leaderLinesGroup.visible = !!options.showLabelLeaders;
+  }
+  commitLeaderLineGeometry();
+}
+
 function getSurfaceDisplacementAtLatLon(lat, lon){
-  var displacementBias = (globe && globe.material) ? globe.material.displacementBias : 0;
+  var displacementBias = globeDisplacementBias;
   if(!displacementImageData || displacementImageWidth === 0 || displacementImageHeight === 0){
     return displacementBias;
   }
@@ -786,14 +1055,30 @@ function initializeDisplacementSampler(mapFile){
 }
 
 function clearLabels(){
+  disposeLeaderLinesBatch();
+
+  for(var j = 0; j < featureRecords.length; j++){
+    if(featureRecords[j]){
+      featureRecords[j].labelSprite = null;
+      featureRecords[j].leaderBatchIndex = undefined;
+      featureRecords[j].surfaceLocal = null;
+      featureRecords[j].positionLocal = null;
+    }
+  }
+
   for(var i = PointsOfInterest.children.length - 1; i >= 0; i--){
     var child = PointsOfInterest.children[i];
-    if(child.material){
-      if(child.material.map){
-        child.material.map.dispose();
+    child.traverse(function(node){
+      if(node.geometry){
+        node.geometry.dispose();
       }
-      child.material.dispose();
-    }
+      if(node.material){
+        if(node.material.map){
+          node.material.map.dispose();
+        }
+        node.material.dispose();
+      }
+    });
     PointsOfInterest.remove(child);
   }
 }
@@ -828,7 +1113,7 @@ function latLonToGlobePoint(lat, lon, radius){
   );
 }
 
-function createLabelSprite(labelText, featureDiameter, minDiameter, maxDiameter){
+function createLabelSprite(labelText, featureDiameter, minDiameter, maxDiameter, sizeMultiplierOverride, textColorOverride){
   var canvasLabel = document.createElement('canvas');
   var context = canvasLabel.getContext('2d');
   var fontSize = options.labelFontSize;
@@ -851,7 +1136,7 @@ function createLabelSprite(labelText, featureDiameter, minDiameter, maxDiameter)
   context.strokeStyle = options.labelStrokeColor;
   context.strokeText(labelText, padding, canvasLabel.height / 2);
 
-  context.fillStyle = options.labelTextColor;
+  context.fillStyle = textColorOverride || options.labelTextColor;
   context.fillText(labelText, padding, canvasLabel.height / 2);
 
   var texture = new THREE.CanvasTexture(canvasLabel);
@@ -863,7 +1148,7 @@ function createLabelSprite(labelText, featureDiameter, minDiameter, maxDiameter)
     map: texture,
     transparent: true,
     opacity: options.labelOpacity,
-    depthTest: true,
+    depthTest: false,
     depthWrite: false,
   });
 
@@ -871,7 +1156,7 @@ function createLabelSprite(labelText, featureDiameter, minDiameter, maxDiameter)
   var diameterRange = maxDiameter - minDiameter;
   var normalizedDiameter = (featureDiameter === null || diameterRange <= 0) ? 0.5 : (featureDiameter - minDiameter) / diameterRange;
   var scaledDiameter = Math.pow(normalizedDiameter, 0.65);
-  var sizeMultiplier = 0.5 + scaledDiameter;
+  var sizeMultiplier = (typeof sizeMultiplierOverride === 'number') ? sizeMultiplierOverride : (0.5 + scaledDiameter);
   var labelHeight = globe_radius * options.labelScale * sizeMultiplier;
   var labelAspect = canvasLabel.width / canvasLabel.height;
   sprite.scale.set(labelHeight * labelAspect, labelHeight, 1);
@@ -923,6 +1208,34 @@ function changeMap(){
   globe.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
 }
 
+function forEachGlobeMaterial(callback){
+  if(!globe || typeof globe.traverse !== 'function'){
+    return;
+  }
+
+  globe.traverse(function(child){
+    if(child && child.isMesh && child.material){
+      var materials = Array.isArray(child.material) ? child.material : [child.material];
+      for(var i = 0; i < materials.length; i++){
+        callback(materials[i], child);
+      }
+    }
+  });
+}
+
+function setGlobeMaterialProperty(propertyName, value){
+  if(!globe){
+    return;
+  }
+
+  forEachGlobeMaterial(function(material){
+    if(propertyName in material){
+      material[propertyName] = value;
+      material.needsUpdate = true;
+    }
+  });
+}
+
 
 function setMirroring(boolMirror){
   if(boolMirror){
@@ -962,11 +1275,11 @@ function createGlobe(radius, segments) {
   });
   globe = new THREE.Mesh(geometry, material);
   globe.rotateX(Math.PI/2);  // reorient to z-up
-  globe.rotation.z = options.rotation; 
+  globe.rotation.z = options.rotation;
   GlobeGroup.add(globe);
   globeLoaded = true;
 
-  // Load elevation model:  
+  // Load elevation model:
   const bumpMapFile = 'data/lola_dem_8192.jpg';
   console.log("loading bump map " + bumpMapFile);
   globe.material.bumpMap = new THREE.TextureLoader().load(bumpMapFile);
