@@ -758,6 +758,9 @@ function createLabels(){
     };
     feature.labelSprite = labelSprite;
     feature.leaderBatchIndex = j;
+    feature.leaderVisible = false;
+    feature.leaderStartLocal = null;
+    feature.leaderEndLocal = null;
 
     PointsOfInterest.add(labelSprite);
   }
@@ -875,46 +878,13 @@ function updateLabelsPosition(){
 }
 
 function updateLeaderLineGeometry(feature, lineEndLocal, isVisible){
-  if(!feature || !feature.surfaceLocal || !lineEndLocal || feature.leaderBatchIndex === undefined || !leaderOutlinePositions || !leaderCorePositions){
+  if(!feature || !feature.surfaceLocal || !lineEndLocal || feature.leaderBatchIndex === undefined){
     return;
   }
 
-  var endPoint = lineEndLocal;
-  var startPoint = feature.surfaceLocal;
-  var offset = feature.leaderBatchIndex * 6;
-
-  if(isVisible === false){
-    leaderOutlinePositions[offset] = NaN;
-    leaderOutlinePositions[offset + 1] = NaN;
-    leaderOutlinePositions[offset + 2] = NaN;
-    leaderOutlinePositions[offset + 3] = NaN;
-    leaderOutlinePositions[offset + 4] = NaN;
-    leaderOutlinePositions[offset + 5] = NaN;
-
-    leaderCorePositions[offset] = NaN;
-    leaderCorePositions[offset + 1] = NaN;
-    leaderCorePositions[offset + 2] = NaN;
-    leaderCorePositions[offset + 3] = NaN;
-    leaderCorePositions[offset + 4] = NaN;
-    leaderCorePositions[offset + 5] = NaN;
-
-    leaderLinesDirty = true;
-    return;
-  }
-
-  leaderOutlinePositions[offset] = startPoint.x *0.99;
-  leaderOutlinePositions[offset + 1] = startPoint.y *0.99;
-  leaderOutlinePositions[offset + 2] = startPoint.z *0.99;
-  leaderOutlinePositions[offset + 3] = endPoint.x;
-  leaderOutlinePositions[offset + 4] = endPoint.y;
-  leaderOutlinePositions[offset + 5] = endPoint.z;
-
-  leaderCorePositions[offset] = startPoint.x *0.99;
-  leaderCorePositions[offset + 1] = startPoint.y *0.99;
-  leaderCorePositions[offset + 2] = startPoint.z *0.99;
-  leaderCorePositions[offset + 3] = endPoint.x;
-  leaderCorePositions[offset + 4] = endPoint.y;
-  leaderCorePositions[offset + 5] = endPoint.z;
+  feature.leaderVisible = isVisible !== false;
+  feature.leaderStartLocal = feature.surfaceLocal.clone();
+  feature.leaderEndLocal = feature.leaderVisible ? lineEndLocal.clone() : null;
 
   leaderLinesDirty = true;
 }
@@ -924,11 +894,48 @@ function commitLeaderLineGeometry(){
     return;
   }
 
-  if(leaderOutlineLine && leaderOutlineLine.geometry && leaderOutlinePositions){
-    leaderOutlineLine.geometry.setPositions(leaderOutlinePositions);
+  var outlinePositions = [];
+  var corePositions = [];
+
+  for(var i = 0; i < featureRecords.length; i++){
+    var feature = featureRecords[i];
+    if(!feature || !feature.leaderVisible || !feature.leaderStartLocal || !feature.leaderEndLocal){
+      continue;
+    }
+
+    outlinePositions.push(
+      feature.leaderStartLocal.x * 0.99,
+      feature.leaderStartLocal.y * 0.99,
+      feature.leaderStartLocal.z * 0.99,
+      feature.leaderEndLocal.x,
+      feature.leaderEndLocal.y,
+      feature.leaderEndLocal.z
+    );
+
+    corePositions.push(
+      feature.leaderStartLocal.x * 0.99,
+      feature.leaderStartLocal.y * 0.99,
+      feature.leaderStartLocal.z * 0.99,
+      feature.leaderEndLocal.x,
+      feature.leaderEndLocal.y,
+      feature.leaderEndLocal.z
+    );
   }
-  if(leaderCoreLine && leaderCoreLine.geometry && leaderCorePositions){
-    leaderCoreLine.geometry.setPositions(leaderCorePositions);
+
+  if(leaderOutlineLine && leaderOutlineLine.geometry){
+    if(outlinePositions.length > 0){
+      leaderOutlineLine.geometry.setPositions(outlinePositions);
+    }
+    leaderOutlineLine.visible = outlinePositions.length > 0;
+  }
+  if(leaderCoreLine && leaderCoreLine.geometry){
+    if(corePositions.length > 0){
+      leaderCoreLine.geometry.setPositions(corePositions);
+    }
+    leaderCoreLine.visible = corePositions.length > 0;
+  }
+  if(leaderLinesGroup){
+    leaderLinesGroup.visible = !!options.showLabelLeaders && outlinePositions.length > 0;
   }
   leaderLinesDirty = false;
 }
@@ -1061,6 +1068,9 @@ function clearLabels(){
     if(featureRecords[j]){
       featureRecords[j].labelSprite = null;
       featureRecords[j].leaderBatchIndex = undefined;
+      featureRecords[j].leaderVisible = false;
+      featureRecords[j].leaderStartLocal = null;
+      featureRecords[j].leaderEndLocal = null;
       featureRecords[j].surfaceLocal = null;
       featureRecords[j].positionLocal = null;
     }
