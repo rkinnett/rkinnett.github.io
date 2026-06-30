@@ -50,7 +50,7 @@ var width  = document.documentElement.clientWidth,
   
 // Global params
 var globe_radius   = 0.5,
-  segments = 512,
+  segments = 256,
   rotation = 0,
   globeLoaded = false,
   craterCsvText = null,
@@ -71,8 +71,8 @@ const loadingState = {
 
 options = {
   mirror:  false,
-  mapFile: 'lroc_color_2k.jpg',
-  bumpScale: 0.01,
+  mapFile: 'lroc_color_4k.jpg',
+  bumpScale: 0.005,
   displacementScale: 0.01,
   cameraDist: 7,
   sunPlaneDist: 60,
@@ -1279,13 +1279,14 @@ function createGlobe(radius, segments) {
   GlobeGroup.add(globe);
   globeLoaded = true;
 
-  // Load elevation model:
-  const bumpMapFile = 'data/lola_dem_8192.jpg';
+  // Load elevation model:  
+  const bumpMapFile = 'data/lola_dem_4k.jpg';
   console.log("loading bump map " + bumpMapFile);
   globe.material.bumpMap = new THREE.TextureLoader().load(bumpMapFile);
   globe.material.bumpMap.minFilter = THREE.LinearMipMapLinearFilter;
   globe.material.bumpMap.magFilter = THREE.LinearFilter;
   globe.material.bumpMap.anisotropy = 0;
+  globe.material.generateMipmaps = false;
 
   globe.material.displacementMap = new THREE.TextureLoader().load(bumpMapFile);
   globe.material.displacementScale = options.displacementScale;
