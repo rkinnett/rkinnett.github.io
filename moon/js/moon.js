@@ -748,7 +748,7 @@ function createLabels(){
       feature.diameter,
       minDiameter,
       maxDiameter,
-      isLandingSite ? 1.0 : null,
+      isLandingSite ? 0.65 : null,
       isLandingSite ? '#ffd84d' : options.labelTextColor
     );
     labelSprite.userData = {
