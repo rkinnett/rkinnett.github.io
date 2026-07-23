@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <title>NEO Confirmation Priorities</title>
-
+  
   <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png">
-  <link rel="manifest" href="favicon/site.webmanifest">  
-  
+  <link rel="manifest" href="favicon/site.webmanifest">
+
   <style>
     :root {
       color-scheme: dark;
@@ -27,6 +27,23 @@
       margin: 0 auto;
       display: block;
     }  
+    .plot-wrapper {
+      position: relative;
+    }
+    .plot-loading-indicator {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.55);
+      color: #f44;
+      font-weight: bold;
+      font-size: 1.4rem;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      z-index: 10;
+    }
     input, select {
       color-scheme: dark;
       color: red;
@@ -144,8 +161,8 @@
     #ephemeris_status_indicator {
       width: 1.2em;
       text-align: center;
-      font-size: 1.25em;
       font-weight: 900;
+      font-size: 1.2em;
       line-height: 1;
       color: #811;
     }
@@ -160,7 +177,7 @@
     
 <body>
 
-<h1>Minor Planet Center's <a href="https://www.minorplanetcenter.net/iau/NEO/neocp.txt">Near-Earth Objects Confirmation Priorities</a></h1>
+<h1>NEOFixer <a href="https://neofixerapi.arizona.edu/targets/?site=671">Targets</a></h1>
 
 <h2>curated for Stony Ridge Observatory</h2>
 <div style="position: fixed; top: 10px; right: 20px; text-align: right; font-size: 90%; line-height: 1.6; z-index: 100;">
@@ -169,9 +186,6 @@
   <div>Local Sidereal Time: <span id="lst_text_area"> </span></div>
 </div>
 <br/>
-<label for="">NINA Advanced API address:</label>
-<input type="text" id="nina_api_address_input" placeholder="http://localhost:1888" value="http://localhost:1888" />
-
 
 <!--
 <textarea id="csvOutput" cols="140" rows="5"> </textarea>
@@ -182,7 +196,10 @@
 -->
 
 <h3>Local Coordinates</h3>
-<canvas id="local_coords_chart_canvas"></canvas>
+<div class="plot-wrapper">
+  <canvas id="local_coords_chart_canvas"></canvas>
+  <div id="local_coords_loading_indicator" class="plot-loading-indicator">loading...</div>
+</div>
 
 
 <div id="filters_and_selected_object_section">
@@ -261,8 +278,45 @@
         </td>
         <td>max:</td>
         <td>
-          <input type="number" id="max_neo_score_input" min="0" max="100" value="100">
+          <input type="number" id="max_neo_score_input" min="0" max="100" value="10">
         </td>
+      </tr>
+      <tr>
+        <td>Rate ("/min)</td>
+        <td>min:</td>
+        <td>
+          <input type="number" id="min_rate_input" min="0" max="500" step="0.1" value="0">
+        </td>
+        <td>max:</td>
+        <td>
+          <input type="number" id="max_rate_input" min="0" max="500" step="0.1" value="500">
+        </td>
+      </tr>
+      <tr>
+        <td>Uncert (')</td>
+        <td>min:</td>
+        <td>
+          <input type="number" id="min_uncert_input" min="0" max="100" step="0.01" value="0">
+        </td>
+        <td>max:</td>
+        <td>
+          <input type="number" id="max_uncert_input" min="0" max="100" step="0.01" value="100">
+        </td>
+      </tr>
+      <tr>
+        <td>Object Type</td>
+        <td></td>
+        <td>
+          <select id="object_type_input">
+            <option value="any">Any</option>
+            <option value="NEOCP" selected="selected">NEOCP</option>
+            <option value="Known Object">Known Object</option>
+            <option value="Comet">Comet</option>
+            <option value="Unknown">Unknown</option>
+          </select>
+        </td>
+        <td></td>
+        <td></td>
       </tr>
       <tr>
         <td/>
@@ -329,6 +383,10 @@
       <button id="get_ephemeris_button" onClick='fetchEphemerisForSelectedObject()'>Get ephemeris</button>
       <span id="ephemeris_status_indicator"></span>
     </div>
+
+    <h3>Telescope Control</h3>
+    <label for="">NINA Advanced API address:</label>
+    <input type="text" id="nina_api_address_input" placeholder="http://localhost:1888" value="http://localhost:1888" />
     <button id="slew_telescope_button" onClick='slewTelescopeToSelectedObject("blind")'>Blind slew</button>
     <button id="send_target_button" onClick='setNINATargetToSelectedObject()'>Send to Framing Assistant</button>    
     <button id="centering_slew_button" onClick='slewTelescopeToSelectedObject("center")' disabled title='Requires coordinates to be sent to Framing Assistant first.'>Centering slew</button>
@@ -358,6 +416,8 @@ const utc_time_text_area = document.getElementById('utc_time_text_area');
 const elevation_chart_canvas = document.getElementById('elevation_chart_canvas');
 const ctx_elevation_chart = elevation_chart_canvas ? elevation_chart_canvas.getContext('2d') : null;
 const ctx_local_coords_chart = document.getElementById('local_coords_chart_canvas').getContext('2d');
+const elevation_loading_indicator = document.getElementById('elevation_loading_indicator');
+const local_coords_loading_indicator = document.getElementById('local_coords_loading_indicator');
 
 const nina_api_address_input = document.getElementById('nina_api_address_input');
 
@@ -393,18 +453,23 @@ var selected_object = null;
 
 var csvContent = '';
 
-const numeric_fields = ['Score','Discovery_year','Discovery_month','Discovery_day','R.A.','Decl.','V', 'NObs','Arc','H','Not_Seen_dys','Az','El'];
+const numeric_fields = ['Score','NEOCPScore','Discovery_year','Discovery_month','Discovery_day','R.A.','Decl.','V', 'NObs','Arc','H','Not_Seen_dys','Az','El','Rate','Uncert','Priority'];
 const hide_fields = ['Discovery_year','Discovery_month','Discovery_day'];
 
-const table_show_fields = ['Temp_Desig','Score','NObs','Not_Seen_dys','V','R.A.','Decl.','az_short','el_short','Max_El', 'Max_El_Local_time','Time_Until_Max_El','Discovery_date'];
+const table_show_fields = ['Temp_Desig','Object_Type','Score','NEOCPScore','Priority','NObs','Not_Seen_dys','V','Rate','Uncert','R.A.','Decl.','az_short','el_short','Max_El', 'Max_El_Local_time','Time_Until_Max_El','Discovery_date'];
 const table_column_labels = {
   'Temp_Desig': 'Temporaty Designation',
+  'Object_Type': 'Object Type',
   'Discovery_date': 'Discoery Date (UTC)',
   'Updated': 'Updated',
   'Not_Seen_dys': 'Days since last seen',
-  'Score': 'Score',
-  'NObs': 'Number of Observations',
+  'Score': 'NEOfixer Score',
+  'NEOCPScore': 'NEOCP Score',
+  'Priority': 'Priority',
+  'NObs': 'Num Obs.',
   'V': 'Visual Magnitude',
+  'Rate': 'Rate ("/min)',
+  'Uncert': 'Uncert (\')',
   'R.A.': 'Right Ascension (hrs)',
   'Decl.': 'Declination (deg)',
   'az_short': 'Azimuth (deg)',
@@ -427,14 +492,18 @@ var filter_min_magnitude;
 var filter_max_magnitude;
 var filter_min_score;
 var filter_max_score;
+var filter_min_rate;
+var filter_max_rate;
+var filter_min_uncert;
+var filter_max_uncert;
+var filter_object_type;
 var filter_start_time;
 var filter_end_time;
 
 
 
-const apiUrl = 'https://www.minorplanetcenter.net/Extended_Files/neocp.json';
-const neofixer_ephemeris_url = 'https://neofixerapi.arizona.edu/ephem/';
-const ephemeris_site_code = '671';
+const apiUrl = 'https://neofixerapi.arizona.edu/targets/?site=671';
+const ephemApiBaseUrl = 'https://neofixerapi.arizona.edu/ephem/?site=671&format=text&time-start=now&unobs=0';
 
 const ephemeris_cache_by_object = {};
 
@@ -919,22 +988,22 @@ function getEphemerisSegmentForTime(points, now_ms){
 
 
 function updateEphemerisStatusIndicator(){
-  if (selected_object == null) {
+  if(selected_object == null){
     ephemeris_status_indicator.textContent = '';
     return;
   }
-  const cache_entry = ephemeris_cache_by_object[selected_object];
-  if (!cache_entry) {
+  const cached_ephemeris = ephemeris_cache_by_object[selected_object];
+  if (!cached_ephemeris) {
     ephemeris_status_indicator.textContent = '';
     return;
   }
-  if (cache_entry.status === 'loading') {
+  if (cached_ephemeris.status === 'loading') {
     ephemeris_status_indicator.textContent = '...';
     ephemeris_status_indicator.style.color = '#eaa';
-  } else if (cache_entry.status === 'success') {
+  } else if (cached_ephemeris.status === 'success') {
     ephemeris_status_indicator.textContent = '✓';
     ephemeris_status_indicator.style.color = '#3f6';
-  } else if (cache_entry.status === 'error') {
+  } else if (cached_ephemeris.status === 'error') {
     ephemeris_status_indicator.textContent = 'X';
     ephemeris_status_indicator.style.color = '#f11';
   } else {
@@ -943,49 +1012,13 @@ function updateEphemerisStatusIndicator(){
 }
 
 
-function stripHtmlToText(html_text){
-  return html_text
-    .replace(/<br\s*\/?\s*>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<\/tr>/gi, '\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&');
-}
-
-
-function parseMpcEphemerisText(raw_text){
-  const text = stripHtmlToText(raw_text);
+function parseEphemerisText(ephem_text){
+  const lines = ephem_text.split(/\r?\n/);
   const points = [];
-  const regex_hhmm_global = /(\d{4})\s+(\d{2})\s+(\d{2})\s+(\d{4})\s+(\d{2})\s+(\d{2})\s+([\d.]+)\s+([+\-]\d{2})\s+(\d{2})\s+([\d.]+)/g;
-  const regex_hh_colon_mm_global = /(\d{4})\s+(\d{2})\s+(\d{2})\s+(\d{2}):(\d{2})\s+(\d{2})\s+(\d{2})\s+([\d.]+)\s+([+\-]\d{2})\s+(\d{2})\s+([\d.]+)/g;
-
-  for (const match of text.matchAll(regex_hhmm_global)) {
-    const year = Number(match[1]);
-    const month = Number(match[2]);
-    const day = Number(match[3]);
-    const hhmm = match[4];
-    const hour = Number(hhmm.slice(0, 2));
-    const minute = Number(hhmm.slice(2, 4));
-    const ra_h = Number(match[5]);
-    const ra_m = Number(match[6]);
-    const ra_s = Number(match[7]);
-    const dec_d_text = match[8];
-    const dec_d = Number(dec_d_text);
-    const dec_m = Number(match[9]);
-    const dec_s = Number(match[10]);
-    const dec_sign = dec_d_text.startsWith('-') ? -1 : 1;
-    points.push({
-      t: Date.UTC(year, month - 1, day, hour, minute, 0),
-      ra: ra_h + ra_m / 60 + ra_s / 3600,
-      dec: dec_d + dec_sign * (dec_m / 60 + dec_s / 3600),
-    });
-  }
-
-  for (const match of text.matchAll(regex_hh_colon_mm_global)) {
+  const row_regex = /^\s*(\d{4})\s+(\d{2})\s+(\d{2})\s+(\d{2}):(\d{2})\s+(\d{2})\s+(\d{2})\s+([\d.]+)\s+([+\-]\d{2})\s+(\d{2})\s+([\d.]+)/;
+  lines.forEach(line => {
+    const match = line.match(row_regex);
+    if(!match) return;
     const year = Number(match[1]);
     const month = Number(match[2]);
     const day = Number(match[3]);
@@ -995,29 +1028,19 @@ function parseMpcEphemerisText(raw_text){
     const ra_m = Number(match[7]);
     const ra_s = Number(match[8]);
     const dec_d_text = match[9];
-    const dec_d = Number(dec_d_text);
+    const dec_d_signed = Number(dec_d_text);
     const dec_m = Number(match[10]);
     const dec_s = Number(match[11]);
+
+    const timestamp = Date.UTC(year, month - 1, day, hour, minute, 0);
+    const ra_hours = ra_h + ra_m/60 + ra_s/3600;
     const dec_sign = dec_d_text.startsWith('-') ? -1 : 1;
-    points.push({
-      t: Date.UTC(year, month - 1, day, hour, minute, 0),
-      ra: ra_h + ra_m / 60 + ra_s / 3600,
-      dec: dec_d + dec_sign * (dec_m / 60 + dec_s / 3600),
-    });
-  }
+    const dec_deg = dec_d_signed + dec_sign * (dec_m/60 + dec_s/3600);
 
-  const deduped = [];
-  const seen = new Set();
-  points.forEach(p => {
-    const key = `${p.t}|${p.ra.toFixed(8)}|${p.dec.toFixed(8)}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      deduped.push(p);
-    }
+    points.push({ t: timestamp, ra: ra_hours, dec: dec_deg });
   });
-
-  deduped.sort((a, b) => a.t - b.t);
-  return deduped;
+  points.sort((a, b) => a.t - b.t);
+  return points;
 }
 
 
@@ -1025,10 +1048,10 @@ function interpolateCircularHours(ra_start, ra_end, fraction){
   let delta = ra_end - ra_start;
   if (delta > 12) delta -= 24;
   if (delta < -12) delta += 24;
-  let value = ra_start + fraction * delta;
-  if (value < 0) value += 24;
-  if (value >= 24) value -= 24;
-  return value;
+  let interpolated = ra_start + fraction * delta;
+  if (interpolated < 0) interpolated += 24;
+  if (interpolated >= 24) interpolated -= 24;
+  return interpolated;
 }
 
 
@@ -1120,24 +1143,8 @@ function getTargetCoordinates(selected_object_info, use_cached_ephemeris){
   }
   return {
     RA: selected_object_info["R.A."],
-    dec: selected_object_info["Decl."],
+    dec: selected_object_info["Decl."]
   };
-}
-
-
-async function getEphemerisText(object_id, site_code){
-  const params = new URLSearchParams({
-    site: site_code,
-    object: object_id,
-    format: 'text',
-    'time-start': 'now',
-    unobs: '0',
-  });
-  const response = await fetch(`${neofixer_ephemeris_url}?${params.toString()}`);
-  if (!response.ok) {
-    throw new Error(`NEOFixer ephemeris returned status: ${response.status}`);
-  }
-  return await response.text();
 }
 
 
@@ -1146,17 +1153,22 @@ function fetchEphemerisForSelectedObject(){
     alert('no target selected');
     return;
   }
-
   const object_id = selected_object;
   ephemeris_cache_by_object[object_id] = { status: 'loading', points: [] };
   updateEphemerisStatusIndicator();
   get_ephemeris_button.disabled = true;
 
-  getEphemerisText(object_id, ephemeris_site_code)
-    .then(raw_text => {
-      const points = parseMpcEphemerisText(raw_text);
+  const ephem_url = ephemApiBaseUrl + '&object=' + encodeURIComponent(object_id);
+  fetch(ephem_url)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.text();
+    })
+    .then(ephem_text => {
+      const points = parseEphemerisText(ephem_text);
       if (!points.length) {
-        console.log(raw_text);
         throw new Error('No ephemeris points parsed from response');
       }
       ephemeris_cache_by_object[object_id] = { status: 'success', points: points };
@@ -1182,7 +1194,7 @@ function setNINATargetToSelectedObject(callback, options = {}){
     return false;
   }
   const selected_object_info = getNeoDataObject( selected_object );
-  const use_cached_ephemeris = options.use_cached_ephemeris !== undefined ? options.use_cached_ephemeris : true;
+  const use_cached_ephemeris = (options.use_cached_ephemeris !== undefined) ? options.use_cached_ephemeris : true;
   const target_coords = options.target_coords || getTargetCoordinates(selected_object_info, use_cached_ephemeris);
   const RA = target_coords.RA;
   const dec = target_coords.dec;
@@ -1396,6 +1408,15 @@ async function fetchJsonData(url) {
 }
 
 
+function setLoadingState(is_loading){
+  const next_display = is_loading ? 'flex' : 'none';
+  if (elevation_loading_indicator) {
+    elevation_loading_indicator.style.display = next_display;
+  }
+  local_coords_loading_indicator.style.display = next_display;
+}
+
+
 function initializeTable() {
   // Create table header
   const headerRow = document.createElement('tr');
@@ -1431,7 +1452,7 @@ function makeSortable() {
     headers.forEach(header => {
         header.addEventListener('click', () => {
             isAscending = header.classList.toggle('ascending'); // Toggle ascending/descending
-            sortKey = header.dataset.key;            
+            sortKey = header.dataset.key === 'Priority' ? 'Score' : header.dataset.key;            
             sortTable();
         });
     });
@@ -1502,7 +1523,7 @@ function renderTable(){
     neo.az_short = neo.az.toFixed(0);
     neo.el_short = neo.el.toFixed(0);
         
-    if( neo.show_in_table ){
+    if( neo.show ){
       const row = document.createElement('tr');
       if( neo.id == selected_object ){
         row.style.color = "orange";
@@ -1514,7 +1535,7 @@ function renderTable(){
           if ((key === 'R.A.' || key === 'Decl.') && Number.isFinite(neo[key])) {
             td.textContent = neo[key].toFixed(5);
           } else {
-            td.textContent = neo[key];
+            td.textContent = neo[key] !== null && neo[key] !== undefined ? neo[key] : '';
           }
           row.appendChild(td);          
         }
@@ -1729,7 +1750,10 @@ function formatElevationCurrent(neo){
       neo.az >= filter_min_azimuth && neo.az <= filter_max_azimuth &&
       neo.el >= filter_min_elevation && neo.el <= filter_max_elevation &&
       neo.V >= filter_min_magnitude && neo.V  <= filter_max_magnitude &&
-      neo.Score >= filter_min_score && neo.Score <= filter_max_score
+      neo.Score >= filter_min_score && neo.Score <= filter_max_score &&
+      Number.isFinite(neo.Rate) && neo.Rate >= filter_min_rate && neo.Rate <= filter_max_rate &&
+      Number.isFinite(neo.Uncert) && neo.Uncert >= filter_min_uncert && neo.Uncert <= filter_max_uncert &&
+      (filter_object_type == 'any' || neo.Object_Type == filter_object_type)
   ){
     data_series.data.push({x: load_time_date, y: neo.el});
   }
@@ -1789,6 +1813,11 @@ function updateFilterValues(){
   filter_max_magnitude = document.getElementById('max_visual_magnitude_input').value*1;
   filter_min_score = document.getElementById('min_neo_score_input').value*1;            
   filter_max_score = document.getElementById('max_neo_score_input').value*1;
+  filter_min_rate = document.getElementById('min_rate_input').value*1;
+  filter_max_rate = document.getElementById('max_rate_input').value*1;
+  filter_min_uncert = document.getElementById('min_uncert_input').value*1;
+  filter_max_uncert = document.getElementById('max_uncert_input').value*1;
+  filter_object_type = document.getElementById('object_type_input').value;
   filter_start_time = getFilterTime("start");
   filter_end_time = getFilterTime("end");
 }
@@ -1797,8 +1826,26 @@ function updateFilterValues(){
 function applyFilters(neo){
   updateFilterValues();
   neo.show = false;
-  neo.show_in_table = false;
-  let first_point_in_window_found = false;
+  const object_type_matches = filter_object_type == 'any' || neo.Object_Type == filter_object_type;
+
+  // Fast reject path to avoid expensive ephemeris checks for objects that cannot pass.
+  const scalar_filters_match = (
+    neo.V >= filter_min_magnitude && neo.V <= filter_max_magnitude &&
+    neo.Score >= filter_min_score && neo.Score <= filter_max_score &&
+    Number.isFinite(neo.Rate) && neo.Rate >= filter_min_rate && neo.Rate <= filter_max_rate &&
+    Number.isFinite(neo.Uncert) && neo.Uncert >= filter_min_uncert && neo.Uncert <= filter_max_uncert &&
+    object_type_matches
+  );
+  const max_possible_el = Number(neo.Max_El);
+  const can_reach_min_elevation = Number.isFinite(max_possible_el) ? max_possible_el >= filter_min_elevation : true;
+  if (!scalar_filters_match || !can_reach_min_elevation) {
+    return;
+  }
+
+  // Compute ephemeris lazily only for objects that pass fast scalar checks.
+  if (!neo.ephemeris) {
+    neo.ephemeris = computeEphemeris(neo);
+  }
 
   ephemeris_times.forEach((ephemeris_time, ephem_index) => {
     ephemeris_point = neo.ephemeris[ephem_index];
@@ -1815,15 +1862,9 @@ function applyFilters(neo){
       ephemeris_time >= filter_start_time && ephemeris_time <= filter_end_time &&
       ephemeris_point.az >= filter_min_azimuth && ephemeris_point.az <= filter_max_azimuth &&
       ephemeris_point.el >= filter_min_elevation && ephemeris_point.el <= filter_max_elevation &&
-      neo.V >= filter_min_magnitude && neo.V  <= filter_max_magnitude &&
-      neo.Score >= filter_min_score && neo.Score <= filter_max_score
+      scalar_filters_match
     );
     neo.show |= neo.ephemeris[ephem_index].show;
-
-    if (!first_point_in_window_found && ephemeris_time >= filter_start_time && ephemeris_time <= filter_end_time) {
-      first_point_in_window_found = true;
-      neo.show_in_table = neo.ephemeris[ephem_index].show;
-    }
   });
 }
 
@@ -1856,23 +1897,114 @@ function formatLocalCoordsCurrent(neo){
       neo.az >= filter_min_azimuth && neo.az <= filter_max_azimuth &&
       neo.el >= filter_min_elevation && neo.el <= filter_max_elevation &&
       neo.V >= filter_min_magnitude && neo.V  <= filter_max_magnitude &&
-      neo.Score >= filter_min_score && neo.Score <= filter_max_score
+      neo.Score >= filter_min_score && neo.Score <= filter_max_score &&
+      Number.isFinite(neo.Rate) && neo.Rate >= filter_min_rate && neo.Rate <= filter_max_rate &&
+      Number.isFinite(neo.Uncert) && neo.Uncert >= filter_min_uncert && neo.Uncert <= filter_max_uncert &&
+      (filter_object_type == 'any' || neo.Object_Type == filter_object_type)
   ) data_point = {x: neo.az, y: neo.el};
   data_series.data.push(data_point);
   return data_series;
 }
 
 
-function getDataFromMPC(callback){
+function parseHmsToHours(hmsText){
+  if (typeof hmsText !== 'string') return Number(hmsText);
+  const parts = hmsText.split(':').map(Number);
+  if (parts.length < 3 || parts.some(v => !Number.isFinite(v))) return NaN;
+  return parts[0] + parts[1] / 60 + parts[2] / 3600;
+}
+
+
+function parseDmsToDegrees(dmsText){
+  if (typeof dmsText !== 'string') return Number(dmsText);
+  const sign = dmsText.trim().startsWith('-') ? -1 : 1;
+  const raw = dmsText.replace('+', '').replace('-', '');
+  const parts = raw.split(':').map(Number);
+  if (parts.length < 3 || parts.some(v => !Number.isFinite(v))) return NaN;
+  const absDeg = parts[0] + parts[1] / 60 + parts[2] / 3600;
+  return sign * absDeg;
+}
+
+
+function getDecimalDayFromDate(d){
+  return d.getUTCDate() + (d.getUTCHours() + d.getUTCMinutes()/60 + d.getUTCSeconds()/3600) / 24;
+}
+
+
+function normalizeNeofixerObject(target, target_id, generated_date){
+  const obs_last_days = Number(target['obs last']);
+  const reference_date = Number.isFinite(obs_last_days)
+    ? new Date(generated_date.getTime() - obs_last_days * 24 * 60 * 60 * 1000)
+    : generated_date;
+
+  const ra_hours = Number.isFinite(Number(target['ra deg']))
+    ? Number(target['ra deg']) / 15
+    : parseHmsToHours(target.ra);
+  const dec_degrees = Number.isFinite(Number(target['dec deg']))
+    ? Number(target['dec deg'])
+    : parseDmsToDegrees(target.dec);
+
+  let object_type = 'Unknown';
+  if (target.comet === true) {
+    object_type = 'Comet';
+  } else if (target.neocp === true) {
+    object_type = 'NEOCP';
+  } else if (target.neocp === false) {
+    object_type = 'Known Object';
+  }
+
+  const priority_value = target.priority !== undefined ? target.priority : (target.pri !== undefined ? target.pri : null);
+
+  return {
+    Temp_Desig: target.packed || target.provisional || target_id,
+    Object_Type: object_type,
+    Score: Number(target.score) || 0,
+    NEOCPScore: Number(target.neo) || 0,
+    NObs: Number(target['obs num']) || Number(target['obs used']) || 0,
+    Not_Seen_dys: Number.isFinite(obs_last_days) ? obs_last_days : 0,
+    V: Number(target.vmag),
+    Rate: Number(target.rate),
+    Uncert: Number(target.uncert),
+    'R.A.': ra_hours,
+    'Decl.': dec_degrees,
+    Arc: Number(target['arc len']) || Number(target['arc used']) || 0,
+    H: Number(target.h),
+    Priority: priority_value,
+    Updated: target.time || generated_date.toISOString(),
+    Discovery_year: reference_date.getUTCFullYear(),
+    Discovery_month: reference_date.getUTCMonth() + 1,
+    Discovery_day: getDecimalDayFromDate(reference_date),
+  };
+}
+
+
+function normalizeNeofixerPayload(payload){
+  const result = payload && payload.result ? payload.result : {};
+  const generated_date = (result.generated && result.generated.time) ? new Date(result.generated.time) : new Date();
+  const objects_by_id = result.objects || {};
+  const ids = Array.isArray(result.ids) && result.ids.length ? result.ids : Object.keys(objects_by_id);
+
+  return ids
+    .map(id => normalizeNeofixerObject(objects_by_id[id] || {}, id, generated_date))
+    .filter(row => Number.isFinite(row['R.A.']) && Number.isFinite(row['Decl.']) && Number.isFinite(row.V));
+}
+
+
+function getDataFromNeoFixer(callback, on_done){
   fetchJsonData(apiUrl)
-    .then(mpc_neo_data_json => {
-      console.log('Fetched JSON data:', mpc_neo_data_json);
-      neo_data = mpc_neo_data_json
+    .then(neofixer_json => {
+      console.log('Fetched NEOFixer JSON data:', neofixer_json);
+      neo_data = normalizeNeofixerPayload(neofixer_json);
       callback(neo_data);
     })
     .catch(error => {
-      console.error('Failed to retrieve JSON data:', error);
-    }) 
+      console.error('Failed to retrieve NEOFixer JSON data:', error);
+    })
+    .finally(() => {
+      if (typeof on_done === 'function') {
+        on_done();
+      }
+    })
 }
 
 
@@ -1910,7 +2042,9 @@ function processFetchedNeoData(){
     neo.Discovery_date = neo.Discovery_year +'-'+ String(neo.Discovery_month).padStart(2, '0') +'-'+ String(whole_day).padStart(2, '0') +' '+ String(whole_hour).padStart(2, '0') +':'+ String(whole_minute).padStart(2, '0');
 
     neo.Not_Seen_dys = Math.floor( neo.Not_Seen_dys * 10) / 10;
-    neo.ephemeris = computeEphemeris(neo);
+    neo.Rate = Number.isFinite(neo.Rate) ? Math.round(neo.Rate * 100) / 100 : NaN;
+    neo.Uncert = Number.isFinite(neo.Uncert) ? Math.round(neo.Uncert * 1000) / 1000 : NaN;
+    neo.ephemeris = null;
     applyFilters(neo);
   });
 }
@@ -1918,13 +2052,16 @@ function processFetchedNeoData(){
 
 function refreshDataAndRebuild(){
   const previously_selected_object = selected_object;
-  getDataFromMPC(() => {
+  setLoadingState(true);
+  getDataFromNeoFixer(() => {
     processFetchedNeoData();
     sortTable();
     populateCharts();
 
     const target_exists_in_refreshed_data = previously_selected_object != null && neo_data.some(neo => neo.id === previously_selected_object);
     setSelectedObject(target_exists_in_refreshed_data ? previously_selected_object : null);
+  }, () => {
+    setLoadingState(false);
   });
 }
 
@@ -1940,7 +2077,8 @@ function initializeCharts(){
 
 function firstRun(){
   initializeCharts();
-  getDataFromMPC((mpc_neo_data) => {
+  setLoadingState(true);
+  getDataFromNeoFixer((neofixer_neo_data) => {
     initializeTable();
     processFetchedNeoData();
     
@@ -1970,6 +2108,8 @@ function firstRun(){
     document.getElementById('csvOutput').value = csvContent;
     */    
     
+  }, () => {
+    setLoadingState(false);
   });
 }
 
@@ -1983,8 +2123,10 @@ function populateCharts(){
   local_coords_datasets = [];
   
   neo_data.forEach(neo => {
-    local_coords_datasets.push( formatLocalCoordsDataset(neo) );
-    local_coords_datasets.push( formatLocalCoordsCurrent(neo) );
+    if (neo.show) {
+      local_coords_datasets.push( formatLocalCoordsDataset(neo) );
+      local_coords_datasets.push( formatLocalCoordsCurrent(neo) );
+    }
   });
   
   clearChart(local_coords_chart);
