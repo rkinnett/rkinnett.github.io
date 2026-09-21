@@ -144,7 +144,7 @@ function init(){
   const viewsize = 5; // half of vertical viewing height
   
   camera = new THREE.OrthographicCamera(
-    -size*aspect, size*aspect, size, -size
+    -viewsize*aspect, viewsize*aspect, viewsize, -viewsize
   );
   camera.position.x = options.cameraDist;
   camera.up.set(0,0,1);
