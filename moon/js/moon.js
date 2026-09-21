@@ -140,7 +140,12 @@ function init(){
   scene = new THREE.Scene();
   window.scene = scene;
   
-  camera = new THREE.PerspectiveCamera(15, width/height, 0.01, 250);
+  const aspect = width/height;
+  const viewsize = 5; // half of vertical viewing height
+  
+  camera = new THREE.OrthographicCamera(
+    -size*aspect, size*aspect, size, -size
+  );
   camera.position.x = options.cameraDist;
   camera.up.set(0,0,1);
   console.log(camera);
